@@ -1,0 +1,114 @@
+# Approved & Rejected Dependencies
+
+This document tracks all external dependencies and their approval status for the Daiv3 project.
+
+## Purpose
+
+- Maintain a single source of truth for dependency approval decisions
+- Track version-specific approvals and rejections
+- Document rationale for decisions
+- Enable quick reference during development
+
+## Pre-Approved Categories
+
+The following categories are **automatically approved** and do not require entries in this document:
+
+### Microsoft .NET Framework & Official Packages
+- All packages in the .NET 10 framework
+- All `System.*` packages (e.g., System.CommandLine, System.IO, System.Net.Http, etc.)
+- All `Microsoft.Extensions.*` packages
+- All `Microsoft.ML.*` packages (ONNX Runtime, Tokenizers, DirectML)
+- All Azure SDK packages (`Azure.*`, `Microsoft.Azure.*`)
+- Microsoft.Data.Sqlite
+- Microsoft.Extensions.AI
+- DocumentFormat.OpenXml
+
+### Project Dependencies
+- Foundry Local SDK (project requirement)
+
+**Note:** Even pre-approved packages should be evaluated for:
+- Version compatibility
+- Security vulnerabilities in specific versions
+- Breaking changes between versions
+
+## Dependency Registry
+
+| Dependency Name | Version | Status | Description | Decision Date | Reason / Notes | ADD Reference |
+|-----------------|---------|--------|-------------|---------------|----------------|---------------|
+| *No external dependencies approved yet* | - | - | Project follows "custom implementation first" philosophy | 2026-02-22 | Minimize attack surface and maximize control | [Copilot Instructions](./../../../.vscode/copilot-instructions.md) |
+
+## Rejected Dependencies
+
+| Dependency Name | Version | Description | Rejected Date | Reason | Alternative Chosen |
+|-----------------|---------|-------------|---------------|--------|-------------------|
+| Quartz.NET | All | Job scheduling library | 2026-02-22 | Custom implementation preferred for core scheduling feature; reduces dependencies | Custom scheduler using BackgroundService + SQLite |
+
+## Pending Review (ADD Required)
+
+| Dependency Name | Versions Evaluated | Purpose | ADD Document | Status |
+|-----------------|-------------------|---------|--------------|--------|
+| PDF Extraction Library | TBD | Extract text from PDF documents | Pending | Not Yet Created |
+| MCP SDK | TBD | Model Context Protocol integration | Pending | Not Yet Created |
+
+## Version Upgrade Process
+
+**All dependency version upgrades require approval**, even for pre-approved packages.
+
+### Before Upgrading:
+1. Review release notes for breaking changes
+2. Check for known security vulnerabilities (CVE database)
+3. Assess compatibility with .NET 10 and target platforms
+4. Test in isolated branch first
+5. Document decision in this file
+
+### Approval Process:
+1. Create entry in "Pending Upgrades" section below
+2. Present justification and risk assessment to user
+3. Wait for explicit approval
+4. Update version in this document with approval date
+5. Proceed with upgrade
+
+## Pending Upgrades
+
+| Package Name | Current Version | Target Version | Justification | Requested Date | Status |
+|--------------|-----------------|----------------|---------------|----------------|--------|
+| *No pending upgrades* | - | - | - | - | - |
+
+## Usage Guidelines
+
+### For Developers / AI Assistants:
+1. **Before adding ANY external dependency:**
+   - Check if it's in a pre-approved category
+   - If not, check this registry for explicit approval
+   - If not found, STOP and create an ADD document
+   
+2. **Before upgrading ANY dependency:**
+   - Check this registry for version-specific issues
+   - Create entry in "Pending Upgrades" section
+   - Get user approval before proceeding
+
+3. **When a decision is made:**
+   - Update this document immediately
+   - Add entry with all required fields
+   - Reference ADD document if applicable
+
+### For Code Reviews:
+- Verify all dependencies are in this registry or pre-approved categories
+- Check that versions match approved versions
+- Ensure no rejected dependencies have been added
+
+## Document Maintenance
+
+**Location:** `Docs/Requirements/Architecture/approved-dependencies.md`
+
+**Update Frequency:** Immediately when any dependency decision is made
+
+**Owner:** Project maintainer / architect
+
+**Last Updated:** 2026-02-22
+
+## References
+
+- [Copilot Instructions - Dependency Management](../../../.vscode/copilot-instructions.md#3-dependency--library-management-philosophy)
+- [Architecture Decision Documents](./decisions/)
+- [Solution Structure](../Specs/Solution-Structure.md)

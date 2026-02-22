@@ -57,7 +57,7 @@ Daiv3 is structured as a layered .NET application. Each layer has clear responsi
 +-------------------------------------------------------------------------------------------+
 | **PRESENTATION LAYER**                                                                    |
 |                                                                                           |
-| UI (WinUI3 / MAUI) --- Chat, Status Dashboard, Project Manager, Settings                  |
+| UI (MAUI / CLI) --- Chat, Status Dashboard, Project Manager, Settings                     |
 +-------------------------------------------------------------------------------------------+
 | **ORCHESTRATION LAYER**                                                                   |
 |                                                                                           |
@@ -446,6 +446,59 @@ Format conversion (HTML to Markdown) is handled in-process using a .NET HTML par
 
 # 11. Configuration & User Transparency
 
+## 11.0 User Interfaces
+
+Daiv3 provides two primary user interfaces to accommodate different usage patterns and deployment scenarios:
+
+### 11.0.1 MAUI Application (Daiv3.App.Maui)
+
+A cross-platform .NET MAUI application provides a rich graphical interface for:
+
+-   Interactive chat sessions with context-aware responses
+-   Project management and configuration
+-   Real-time transparency dashboard showing system status
+-   Settings management with visual controls
+-   File and directory selection for knowledge base indexing
+-   Agent and skill configuration
+-   Knowledge back-propagation review and approval
+
+The MAUI app has full filesystem access, enabling it to browse, select, and monitor directories outside the application sandbox. This is essential for document indexing and project management across the user's files.
+
+Target platforms: Windows (primary), with potential for macOS and Linux support.
+
+### 11.0.2 CLI Application (Daiv3.App.Cli)
+
+A command-line interface provides scriptable, headless operation for:
+
+-   Automated knowledge ingestion and indexing
+-   CI/CD pipeline integration
+-   Server and headless deployments
+-   Power user workflows and scripting
+-   Remote administration
+-   Non-interactive batch operations
+
+The CLI supports both interactive mode (conversational prompts) and non-interactive mode (single command execution with flags).
+
+Examples:
+```bash
+# Interactive chat session
+daiv3 chat
+
+# Non-interactive query
+daiv3 query "What is the status of project Alpha?"
+
+# Index a directory
+daiv3 index add --path /documents/project-x --recursive
+
+# Check system status
+daiv3 status --json
+
+# Export project knowledge
+daiv3 export project --name "Project Alpha" --output ./export.md
+```
+
+Both interfaces share the same core orchestration layer and operate on the same SQLite database, ensuring consistency regardless of which interface is used.
+
 ## 11.1 Settings
 
 All settings are stored locally and managed through a settings UI. Key configurable areas:
@@ -509,7 +562,9 @@ A real-time status view is always accessible to the user, showing:
 
   Scheduling             Quartz.NET or custom hosted service           Job scheduling with cron and event triggers.
 
-  UI                     WinUI 3 / Windows App SDK                     Modern Windows UI with system integration.
+  UI (MAUI)              .NET MAUI / Windows App SDK                   Cross-platform graphical UI for Windows.
+  
+  UI (CLI)               System.CommandLine                            Command-line interface for scripting.
   ---------------------- --------------------------------------------- ----------------------------------------------
 
 # 13. Open Items & Future Considerations

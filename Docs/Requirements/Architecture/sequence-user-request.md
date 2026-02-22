@@ -3,7 +3,7 @@
 ```mermaid
 sequenceDiagram
     actor User
-    participant UI as UI (WinUI 3 / MAUI)
+    participant UI as UI (MAUI / CLI)
     participant Orchestrator as Task Orchestrator
     participant Intent as Intent Resolver
     participant Queue as Model Queue

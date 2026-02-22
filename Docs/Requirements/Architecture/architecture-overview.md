@@ -3,7 +3,7 @@
 ```mermaid
 flowchart TB
     subgraph Presentation
-        UI["UI (WinUI 3 / MAUI)\nChat, Dashboard, Settings"]
+        UI["UI (MAUI / CLI)\nChat, Dashboard, Settings"]
     end
 
     subgraph Orchestration
