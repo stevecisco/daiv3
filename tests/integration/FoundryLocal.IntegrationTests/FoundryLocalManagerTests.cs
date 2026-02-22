@@ -6,13 +6,16 @@ namespace FoundryLocal.IntegrationTests;
 /// <summary>
 /// Integration tests for Foundry Local SDK initialization and catalog operations.
 /// </summary>
+[Collection("FoundryLocalManager collection")]
 public sealed class FoundryLocalManagerTests : IAsyncLifetime, IDisposable
 {
+    private readonly FoundryLocalManagerFixture _fixture;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<FoundryLocalManagerTests> _logger;
 
-    public FoundryLocalManagerTests()
+    public FoundryLocalManagerTests(FoundryLocalManagerFixture fixture)
     {
+        _fixture = fixture;
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
@@ -41,33 +44,19 @@ public sealed class FoundryLocalManagerTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task CreateAsync_ShouldInitializeFoundryLocalManager()
     {
-        // Arrange
-        var config = new Configuration
-        {
-            AppName = "FoundryLocalIntegrationTests",
-            LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information,
-        };
-
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _fixture.Manager;
 
         // Assert
         Assert.NotNull(manager);
+        Assert.Same(FoundryLocalManager.Instance, manager);
     }
 
     [Fact]
     public async Task GetCatalogAsync_ShouldReturnCatalog()
     {
         // Arrange
-        var config = new Configuration
-        {
-            AppName = "FoundryLocalIntegrationTests",
-            LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information,
-        };
-        
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _fixture.Manager;
 
         // Act
         var catalog = await manager.GetCatalogAsync();
@@ -80,14 +69,7 @@ public sealed class FoundryLocalManagerTests : IAsyncLifetime, IDisposable
     public async Task ListModelsAsync_ShouldReturnModelsList()
     {
         // Arrange
-        var config = new Configuration
-        {
-            AppName = "FoundryLocalIntegrationTests",
-            LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information,
-        };
-        
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _fixture.Manager;
         var catalog = await manager.GetCatalogAsync();
 
         // Act
@@ -116,8 +98,7 @@ public sealed class FoundryLocalManagerTests : IAsyncLifetime, IDisposable
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _fixture.Manager;
 
         // Assert
         Assert.NotNull(manager);

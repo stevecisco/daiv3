@@ -6,14 +6,17 @@ namespace FoundryLocal.IntegrationTests;
 /// <summary>
 /// Integration tests for model catalog operations including listing, getting, and caching models.
 /// </summary>
+[Collection("FoundryLocalManager collection")]
 public sealed class ModelCatalogTests : IAsyncLifetime, IDisposable
 {
+    private readonly FoundryLocalManagerFixture _fixture;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<ModelCatalogTests> _logger;
     private FoundryLocalManager? _manager;
 
-    public ModelCatalogTests()
+    public ModelCatalogTests(FoundryLocalManagerFixture fixture)
     {
+        _fixture = fixture;
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
@@ -25,14 +28,8 @@ public sealed class ModelCatalogTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var config = new Configuration
-        {
-            AppName = "ModelCatalogTests",
-            LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information,
-        };
-
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        _manager = FoundryLocalManager.Instance;
+        _manager = _fixture.Manager;
+        await Task.CompletedTask;
     }
 
     public async Task DisposeAsync()

@@ -7,13 +7,17 @@ namespace FoundryLocal.IntegrationTests;
 /// Integration tests for configuration options and application data management.
 /// Tests various configuration scenarios and cache location management.
 /// </summary>
+[Collection("FoundryLocalManager collection")]
 public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
 {
+    private readonly FoundryLocalManagerFixture _fixture;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<ConfigurationTests> _logger;
+    private FoundryLocalManager? _manager;
 
-    public ConfigurationTests()
+    public ConfigurationTests(FoundryLocalManagerFixture fixture)
     {
+        _fixture = fixture;
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
@@ -25,6 +29,7 @@ public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
+        _manager = _fixture.Manager;
         await Task.CompletedTask;
     }
 
@@ -52,8 +57,7 @@ public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _manager;
 
         // Assert
         Assert.NotNull(manager);
@@ -74,8 +78,7 @@ public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _manager;
 
         // Assert
         Assert.NotNull(manager);
@@ -96,8 +99,7 @@ public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _manager;
 
         // Assert
         Assert.NotNull(manager);
@@ -120,8 +122,7 @@ public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _manager;
 
         // Assert
         Assert.NotNull(manager);
@@ -147,8 +148,7 @@ public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _manager;
 
         // Assert
         Assert.NotNull(manager);
@@ -172,8 +172,7 @@ public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        var manager = FoundryLocalManager.Instance;
+        var manager = _manager;
 
         // Assert
         Assert.NotNull(manager);
