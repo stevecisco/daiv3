@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace FoundryLocal.IntegrationTests;
+namespace Daiv3.FoundryLocal.IntegrationTests;
 
 [CollectionDefinition("FoundryLocalManager collection", DisableParallelization = true)]
 public sealed class FoundryLocalManagerCollection : ICollectionFixture<FoundryLocalManagerFixture>

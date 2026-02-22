@@ -79,19 +79,19 @@ A comprehensive distributed AI system with support for:
 
 ```bash
 # Build solution (from root directory)
-dotnet build FoundryLocal.IntegrationTests.slnx
+dotnet build Daiv3.FoundryLocal.slnx
 
 # Build with strict warnings (from root directory)
-dotnet build FoundryLocal.IntegrationTests.slnx /p:TreatWarningsAsErrors=true
+dotnet build Daiv3.FoundryLocal.slnx /p:TreatWarningsAsErrors=true
 
 # Build specific project (from root directory with full path)
-dotnet build src/FoundryLocal.Management/FoundryLocal.Management.csproj
+dotnet build src/Daiv3.FoundryLocal.Management/Daiv3.FoundryLocal.Management.csproj
 
 # Run all tests (from root directory)
-dotnet test FoundryLocal.IntegrationTests.slnx
+dotnet test Daiv3.FoundryLocal.slnx
 
 # Run with verbose output (from root directory)
-dotnet test FoundryLocal.IntegrationTests.slnx --verbosity detailed
+dotnet test Daiv3.FoundryLocal.slnx --verbosity detailed
 ```
 
 **Note:** Always use full relative paths from workspace root. Never change directories before running dotnet commands.

@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="tests/integration/Daiv3.FoundryLocal.IntegrationTests/Daiv3.FoundryLocal.IntegrationTests.csproj" />
+  <Project Path="src/Daiv3.FoundryLocal.Management/Daiv3.FoundryLocal.Management.csproj" />
+  <Project Path="src/Daiv3.FoundryLocal.Management.Cli/Daiv3.FoundryLocal.Management.Cli.csproj" />
+</Solution>

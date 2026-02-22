@@ -1,7 +1,7 @@
 using Microsoft.AI.Foundry.Local;
 using Microsoft.Extensions.Logging;
 
-namespace FoundryLocal.IntegrationTests;
+namespace Daiv3.FoundryLocal.IntegrationTests;
 
 /// <summary>
 /// Integration tests for Foundry Local SDK initialization and catalog operations.

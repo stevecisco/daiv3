@@ -1,4 +1,4 @@
-using FoundryLocal.Management;
+using Daiv3.FoundryLocal.Management;
 using Microsoft.AI.Foundry.Local;
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +13,7 @@ using var loggerFactory = LoggerFactory.Create(builder =>
         });
 });
 
-var logger = loggerFactory.CreateLogger("FoundryLocal.Management.Cli");
+var logger = loggerFactory.CreateLogger("Daiv3.FoundryLocal.Management.Cli");
 
 await using var service = new FoundryLocalManagementService(logger);
 await service.InitializeAsync(new FoundryLocalOptions

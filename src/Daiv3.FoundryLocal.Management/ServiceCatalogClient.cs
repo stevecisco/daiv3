@@ -1,4 +1,4 @@
-namespace FoundryLocal.Management;
+namespace Daiv3.FoundryLocal.Management;
 
 using System.Diagnostics;
 using System.Net.Http.Json;

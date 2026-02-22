@@ -8,6 +8,8 @@
     <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
     <WindowsPackageType>None</WindowsPackageType>
     <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
+    <RootNamespace>Daiv3.FoundryLocal.IntegrationTests</RootNamespace>
+    <AssemblyName>Daiv3.FoundryLocal.IntegrationTests</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

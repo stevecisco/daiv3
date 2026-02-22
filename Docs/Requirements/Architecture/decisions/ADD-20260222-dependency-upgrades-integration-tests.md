@@ -77,7 +77,7 @@
 
 ## Implementation Notes
 - Review release notes and breaking changes for each package before upgrading.
-- Run `dotnet test FoundryLocal.IntegrationTests.slnx` after updates.
+- Run `dotnet test Daiv3.FoundryLocal.slnx` after updates.
 - Record results and any required code adjustments.
 
 ## Decision Date
