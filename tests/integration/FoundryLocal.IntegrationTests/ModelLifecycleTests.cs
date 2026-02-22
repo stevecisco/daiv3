@@ -7,22 +7,25 @@ namespace FoundryLocal.IntegrationTests;
 /// Integration tests for model lifecycle operations: download, load, unload.
 /// These tests may take longer to run as they involve actual model operations.
 /// </summary>
-public class ModelLifecycleTests : IAsyncLifetime
+public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
 {
-    private ILoggerFactory? _loggerFactory;
-    private ILogger<ModelLifecycleTests>? _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<ModelLifecycleTests> _logger;
     private FoundryLocalManager? _manager;
 
-    public async Task InitializeAsync()
+    public ModelLifecycleTests()
     {
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
             builder.AddConsole();
         });
-        
-        _logger = _loggerFactory.CreateLogger<ModelLifecycleTests>();
 
+        _logger = _loggerFactory.CreateLogger<ModelLifecycleTests>();
+    }
+
+    public async Task InitializeAsync()
+    {
         var config = new Configuration
         {
             AppName = "ModelLifecycleTests",
@@ -35,11 +38,13 @@ public class ModelLifecycleTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_loggerFactory != null)
-        {
-            _loggerFactory.Dispose();
-        }
+        Dispose();
         await Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _loggerFactory.Dispose();
     }
 
     [Fact(Skip = "Requires specific model to be available and can be slow")]
@@ -52,12 +57,12 @@ public class ModelLifecycleTests : IAsyncLifetime
 
         if (modelToDownload == null)
         {
-            _logger!.LogWarning("No models available for download test");
+            _logger.LogWarning("No models available for download test");
             return;
         }
 
         // Act
-        _logger!.LogInformation($"Attempting to download model...");
+        _logger.LogInformation($"Attempting to download model...");
         // await modelToDownload.DownloadAsync();
 
         // Assert
@@ -75,12 +80,12 @@ public class ModelLifecycleTests : IAsyncLifetime
 
         if (modelToLoad == null)
         {
-            _logger!.LogWarning("No cached models available for load test");
+            _logger.LogWarning("No cached models available for load test");
             return;
         }
 
         // Act
-        _logger!.LogInformation($"Attempting to load model...");
+        _logger.LogInformation($"Attempting to load model...");
         // await modelToLoad.LoadAsync();
 
         // Assert
@@ -98,12 +103,12 @@ public class ModelLifecycleTests : IAsyncLifetime
 
         if (modelToUnload == null)
         {
-            _logger!.LogWarning("No loaded models available for unload test");
+            _logger.LogWarning("No loaded models available for unload test");
             return;
         }
 
         // Act
-        _logger!.LogInformation($"Attempting to unload model...");
+        _logger.LogInformation($"Attempting to unload model...");
         // await modelToUnload.UnloadAsync();
 
         // Assert
@@ -121,7 +126,7 @@ public class ModelLifecycleTests : IAsyncLifetime
 
         if (model == null)
         {
-            _logger!.LogWarning("No cached models available for path test");
+            _logger.LogWarning("No cached models available for path test");
             return;
         }
 
@@ -145,7 +150,7 @@ public class ModelLifecycleTests : IAsyncLifetime
 
         if (model == null)
         {
-            _logger!.LogWarning("No models available for variant test");
+            _logger.LogWarning("No models available for variant test");
             return;
         }
 

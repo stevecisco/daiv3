@@ -7,30 +7,36 @@ namespace FoundryLocal.IntegrationTests;
 /// Integration tests for configuration options and application data management.
 /// Tests various configuration scenarios and cache location management.
 /// </summary>
-public class ConfigurationTests : IAsyncLifetime
+public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
 {
-    private ILoggerFactory? _loggerFactory;
-    private ILogger<ConfigurationTests>? _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<ConfigurationTests> _logger;
 
-    public async Task InitializeAsync()
+    public ConfigurationTests()
     {
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
             builder.AddConsole();
         });
-        
+
         _logger = _loggerFactory.CreateLogger<ConfigurationTests>();
+    }
+
+    public async Task InitializeAsync()
+    {
         await Task.CompletedTask;
     }
 
     public async Task DisposeAsync()
     {
-        if (_loggerFactory != null)
-        {
-            _loggerFactory.Dispose();
-        }
+        Dispose();
         await Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _loggerFactory.Dispose();
     }
 
     [Fact]
@@ -46,13 +52,13 @@ public class ConfigurationTests : IAsyncLifetime
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Assert
         Assert.NotNull(manager);
         Assert.Equal(customAppDataDir, config.AppDataDir);
-        _logger!.LogInformation($"Using custom app data directory: {config.AppDataDir}");
+        _logger.LogInformation($"Using custom app data directory: {config.AppDataDir}");
     }
 
     [Fact]
@@ -68,13 +74,13 @@ public class ConfigurationTests : IAsyncLifetime
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Assert
         Assert.NotNull(manager);
         Assert.Equal("{AppDataDir}/custom_cache", config.ModelCacheDir);
-        _logger!.LogInformation($"Using custom model cache directory: {config.ModelCacheDir}");
+        _logger.LogInformation($"Using custom model cache directory: {config.ModelCacheDir}");
     }
 
     [Fact]
@@ -90,13 +96,13 @@ public class ConfigurationTests : IAsyncLifetime
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Assert
         Assert.NotNull(manager);
         Assert.Equal("{AppDataDir}/custom_logs", config.LogsDir);
-        _logger!.LogInformation($"Using custom logs directory: {config.LogsDir}");
+        _logger.LogInformation($"Using custom logs directory: {config.LogsDir}");
     }
 
     [Theory]
@@ -114,13 +120,13 @@ public class ConfigurationTests : IAsyncLifetime
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Assert
         Assert.NotNull(manager);
         Assert.Equal(logLevel, config.LogLevel);
-        _logger!.LogInformation($"Configuration created with log level: {logLevel}");
+        _logger.LogInformation($"Configuration created with log level: {logLevel}");
     }
 
     [Fact]
@@ -141,7 +147,7 @@ public class ConfigurationTests : IAsyncLifetime
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Assert
@@ -153,7 +159,7 @@ public class ConfigurationTests : IAsyncLifetime
         Assert.Equal("{AppDataDir}/models", config.ModelCacheDir);
         Assert.Equal("{AppDataDir}/logs", config.LogsDir);
         
-        _logger!.LogInformation("Full custom configuration applied successfully");
+        _logger.LogInformation("Full custom configuration applied successfully");
     }
 
     [Fact]
@@ -166,12 +172,12 @@ public class ConfigurationTests : IAsyncLifetime
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Assert
         Assert.NotNull(manager);
         Assert.Equal("MinimalConfigTest", config.AppName);
-        _logger!.LogInformation("Minimal configuration created with defaults");
+        _logger.LogInformation("Minimal configuration created with defaults");
     }
 }

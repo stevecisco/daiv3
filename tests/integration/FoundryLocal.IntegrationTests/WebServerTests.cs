@@ -7,22 +7,25 @@ namespace FoundryLocal.IntegrationTests;
 /// Integration tests for the optional REST web server functionality.
 /// Tests web server start/stop operations.
 /// </summary>
-public class WebServerTests : IAsyncLifetime
+public sealed class WebServerTests : IAsyncLifetime, IDisposable
 {
-    private ILoggerFactory? _loggerFactory;
-    private ILogger<WebServerTests>? _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<WebServerTests> _logger;
     private FoundryLocalManager? _manager;
 
-    public async Task InitializeAsync()
+    public WebServerTests()
     {
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
             builder.AddConsole();
         });
-        
-        _logger = _loggerFactory.CreateLogger<WebServerTests>();
 
+        _logger = _loggerFactory.CreateLogger<WebServerTests>();
+    }
+
+    public async Task InitializeAsync()
+    {
         var config = new Configuration
         {
             AppName = "WebServerTests",
@@ -50,17 +53,20 @@ public class WebServerTests : IAsyncLifetime
             // Ignore errors during cleanup
         }
 
-        if (_loggerFactory != null)
-        {
-            _loggerFactory.Dispose();
-        }
+        Dispose();
+        await Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _loggerFactory.Dispose();
     }
 
     [Fact(Skip = "Web server API methods need verification - check FoundryLocalManager API reference")]
     public async Task StartWebServerAsync_ShouldStartSuccessfully()
     {
         // Act
-        _logger!.LogInformation("Starting web server...");
+        _logger.LogInformation("Starting web server...");
         // await _manager!.StartWebServerAsync();
 
         // Assert
@@ -74,7 +80,7 @@ public class WebServerTests : IAsyncLifetime
     {
         // Arrange
         // await _manager!.StartWebServerAsync();
-        _logger!.LogInformation("Web server started");
+        _logger.LogInformation("Web server started");
 
         // Act
         _logger.LogInformation("Stopping web server...");
@@ -107,7 +113,7 @@ public class WebServerTests : IAsyncLifetime
         // await customManager.StartWebServerAsync();
 
         // Assert
-        _logger!.LogInformation($"Web server configuration set with URL: {customConfig.Web.Urls}");
+        _logger.LogInformation($"Web server configuration set with URL: {customConfig.Web.Urls}");
         Assert.Equal("http://127.0.0.1:55600", customConfig.Web.Urls);
 
         // Cleanup
