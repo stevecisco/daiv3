@@ -6,22 +6,25 @@ namespace FoundryLocal.IntegrationTests;
 /// <summary>
 /// Integration tests for model catalog operations including listing, getting, and caching models.
 /// </summary>
-public class ModelCatalogTests : IAsyncLifetime
+public sealed class ModelCatalogTests : IAsyncLifetime, IDisposable
 {
-    private ILoggerFactory? _loggerFactory;
-    private ILogger<ModelCatalogTests>? _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<ModelCatalogTests> _logger;
     private FoundryLocalManager? _manager;
 
-    public async Task InitializeAsync()
+    public ModelCatalogTests()
     {
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
             builder.AddConsole();
         });
-        
-        _logger = _loggerFactory.CreateLogger<ModelCatalogTests>();
 
+        _logger = _loggerFactory.CreateLogger<ModelCatalogTests>();
+    }
+
+    public async Task InitializeAsync()
+    {
         var config = new Configuration
         {
             AppName = "ModelCatalogTests",
@@ -34,11 +37,13 @@ public class ModelCatalogTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_loggerFactory != null)
-        {
-            _loggerFactory.Dispose();
-        }
+        Dispose();
         await Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _loggerFactory.Dispose();
     }
 
     [Fact]
@@ -53,7 +58,7 @@ public class ModelCatalogTests : IAsyncLifetime
 
         // Assert
         Assert.NotNull(modelList);
-        _logger!.LogInformation($"Found {modelList.Count} models in catalog");
+        _logger.LogInformation($"Found {modelList.Count} models in catalog");
         
         foreach (var model in modelList.Take(5)) // Log first 5 models
         {
@@ -94,7 +99,7 @@ public class ModelCatalogTests : IAsyncLifetime
 
         // Assert
         Assert.NotNull(loadedModelsList);
-        _logger!.LogInformation($"Currently loaded models: {loadedModelsList.Count}");
+        _logger.LogInformation($"Currently loaded models: {loadedModelsList.Count}");
     }
 
     [Fact]
@@ -109,6 +114,6 @@ public class ModelCatalogTests : IAsyncLifetime
 
         // Assert
         Assert.NotNull(cachedModelsList);
-        _logger!.LogInformation($"Cached models: {cachedModelsList.Count}");
+        _logger.LogInformation($"Cached models: {cachedModelsList.Count}");
     }
 }

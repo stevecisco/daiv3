@@ -6,30 +6,36 @@ namespace FoundryLocal.IntegrationTests;
 /// <summary>
 /// Integration tests for Foundry Local SDK initialization and catalog operations.
 /// </summary>
-public class FoundryLocalManagerTests : IAsyncLifetime
+public sealed class FoundryLocalManagerTests : IAsyncLifetime, IDisposable
 {
-    private ILoggerFactory? _loggerFactory;
-    private ILogger<FoundryLocalManagerTests>? _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<FoundryLocalManagerTests> _logger;
 
-    public async Task InitializeAsync()
+    public FoundryLocalManagerTests()
     {
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
             builder.AddConsole();
         });
-        
+
         _logger = _loggerFactory.CreateLogger<FoundryLocalManagerTests>();
+    }
+
+    public async Task InitializeAsync()
+    {
         await Task.CompletedTask;
     }
 
     public async Task DisposeAsync()
     {
-        if (_loggerFactory != null)
-        {
-            _loggerFactory.Dispose();
-        }
+        Dispose();
         await Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _loggerFactory.Dispose();
     }
 
     [Fact]
@@ -43,7 +49,7 @@ public class FoundryLocalManagerTests : IAsyncLifetime
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Assert
@@ -60,7 +66,7 @@ public class FoundryLocalManagerTests : IAsyncLifetime
             LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information,
         };
         
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Act
@@ -80,7 +86,7 @@ public class FoundryLocalManagerTests : IAsyncLifetime
             LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information,
         };
         
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
         var catalog = await manager.GetCatalogAsync();
 
@@ -89,7 +95,7 @@ public class FoundryLocalManagerTests : IAsyncLifetime
 
         // Assert
         Assert.NotNull(models);
-        _logger!.LogInformation($"Models available: {models.Count()}");
+        _logger.LogInformation($"Models available: {models.Count()}");
     }
 
     [Fact]
@@ -110,7 +116,7 @@ public class FoundryLocalManagerTests : IAsyncLifetime
         };
 
         // Act
-        await FoundryLocalManager.CreateAsync(config, _logger!);
+        await FoundryLocalManager.CreateAsync(config, _logger);
         var manager = FoundryLocalManager.Instance;
 
         // Assert
