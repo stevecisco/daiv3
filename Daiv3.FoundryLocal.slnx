@@ -1,5 +1,41 @@
 <Solution>
-  <Project Path="tests/integration/Daiv3.FoundryLocal.IntegrationTests/Daiv3.FoundryLocal.IntegrationTests.csproj" />
+  <!-- Apps -->
+  <Project Path="src/Daiv3.App.Maui/Daiv3.App.Maui.csproj" />
+  <Project Path="src/Daiv3.App.Cli/Daiv3.App.Cli.csproj" />
+  
+  <!-- Core Product Libraries -->
+  <Project Path="src/Daiv3.Core/Daiv3.Core.csproj" />
+  <Project Path="src/Daiv3.Orchestration/Daiv3.Orchestration.csproj" />
+  <Project Path="src/Daiv3.Knowledge/Daiv3.Knowledge.csproj" />
+  <Project Path="src/Daiv3.Persistence/Daiv3.Persistence.csproj" />
+  <Project Path="src/Daiv3.Scheduler/Daiv3.Scheduler.csproj" />
+  <Project Path="src/Daiv3.Worker/Daiv3.Worker.csproj" />
+  <Project Path="src/Daiv3.Api/Daiv3.Api.csproj" />
+  
+  <!-- Model Execution -->
+  <Project Path="src/Daiv3.ModelExecution/Daiv3.ModelExecution.csproj" />
   <Project Path="src/Daiv3.FoundryLocal.Management/Daiv3.FoundryLocal.Management.csproj" />
   <Project Path="src/Daiv3.FoundryLocal.Management.Cli/Daiv3.FoundryLocal.Management.Cli.csproj" />
+  <Project Path="src/Daiv3.FoundryLocal.Bridge/Daiv3.FoundryLocal.Bridge.csproj" />
+  
+  <!-- Online Providers -->
+  <Project Path="src/Daiv3.OnlineProviders.Abstractions/Daiv3.OnlineProviders.Abstractions.csproj" />
+  <Project Path="src/Daiv3.OnlineProviders.OpenAI/Daiv3.OnlineProviders.OpenAI.csproj" />
+  <Project Path="src/Daiv3.OnlineProviders.AzureOpenAI/Daiv3.OnlineProviders.AzureOpenAI.csproj" />
+  <Project Path="src/Daiv3.OnlineProviders.Anthropic/Daiv3.OnlineProviders.Anthropic.csproj" />
+  
+  <!-- Knowledge Processing -->
+  <Project Path="src/Daiv3.Knowledge.DocProc/Daiv3.Knowledge.DocProc.csproj" />
+  <Project Path="src/Daiv3.Knowledge.Embedding/Daiv3.Knowledge.Embedding.csproj" />
+  
+  <!-- External Integrations -->
+  <Project Path="src/Daiv3.Mcp.Integration/Daiv3.Mcp.Integration.csproj" />
+  <Project Path="src/Daiv3.WebFetch.Crawl/Daiv3.WebFetch.Crawl.csproj" />
+  
+  <!-- Infrastructure -->
+  <Project Path="src/Daiv3.Infrastructure.Shared/Daiv3.Infrastructure.Shared.csproj" />
+  
+  <!-- Tests -->
+  <Project Path="tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj" />
+  <Project Path="tests/integration/Daiv3.FoundryLocal.IntegrationTests/Daiv3.FoundryLocal.IntegrationTests.csproj" />
 </Solution>
