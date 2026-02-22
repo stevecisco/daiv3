@@ -72,7 +72,12 @@ The following categories are **automatically approved** and do not require entri
 
 | Package Name | Current Version | Target Version | Justification | Requested Date | Status |
 |--------------|-----------------|----------------|---------------|----------------|--------|
-| *No pending upgrades* | - | - | - | - | - |
+| coverlet.collector | 6.0.4 | 8.0.0 | Test coverage tooling; update for latest fixes | 2026-02-22 | Approved |
+| Microsoft.Extensions.Logging | 9.0.10 | 10.0.3 | Align with .NET 10 stack | 2026-02-22 | Approved |
+| Microsoft.Extensions.Logging.Console | 9.0.10 | 10.0.3 | Align with .NET 10 stack | 2026-02-22 | Approved |
+| Microsoft.NET.Test.Sdk | 17.14.1 | 18.0.1 | Latest test SDK for .NET 10 | 2026-02-22 | Approved |
+| OpenAI | 2.5.0 | 2.8.0 | Keep client library current; verify non-Microsoft dependency policy | 2026-02-22 | Approved |
+| xunit.runner.visualstudio | 3.1.4 | 3.1.5 | Latest runner fixes | 2026-02-22 | Approved |
 
 ## Usage Guidelines
 

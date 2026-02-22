@@ -71,7 +71,8 @@ For complete details, see **[AI-Instructions.md](../Docs/AI-Instructions.md)**.
 
 ### Dependency Management
 - ⚠️ **Check `approved-dependencies.md` BEFORE adding or upgrading ANY dependency**
-- ⚠️ **Create Architecture Decision Document (ADD)** for external libraries
+- ⚠️ **Create Architecture Decision Document (ADD)** for external libraries and dependency upgrades
+- ⚠️ **Fetch and summarize release notes/breaking changes** for upgrades and include in the ADD
 - ⚠️ **Wait for approval** before adding non-Microsoft dependencies
 - ✅ Microsoft packages (.NET, Azure, ML.NET) are pre-approved
 
