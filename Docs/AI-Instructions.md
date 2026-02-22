@@ -236,6 +236,8 @@ When considering an external NuGet package or library, you MUST:
    - **BEFORE upgrading ANY dependency (including pre-approved ones):**
      - Check approved-dependencies.md for version-specific issues or restrictions
      - Create entry in "Pending Upgrades" section of approved-dependencies.md
+      - Create Architecture Decision Document (ADD) for the upgrade (e.g., `ADD-YYYYMMDD-dependency-upgrade-<package>.md`) with release notes, breaking changes, security review, and test plan
+      - Fetch and summarize release notes and breaking changes (NuGet and upstream release pages) and include them in the ADD implementation notes
      - Present upgrade justification, breaking changes, and security review to user
      - Wait for explicit approval before upgrading
    - **If dependency is NOT found and NOT in pre-approved category:**
@@ -244,7 +246,7 @@ When considering an external NuGet package or library, you MUST:
      - Present to user for approval
 
 4. **Halt Implementation Until Decision Approved:**
-   - Create the architecture decision document
+   - Create the architecture decision document (new dependency or upgrade)
    - Present it to the user for review
    - Wait for explicit approval before proceeding
    - Do NOT add the dependency or implement against it without approval
