@@ -793,29 +793,29 @@ c:\_prj\stevecisco\private\daiv3/
 ### Build Commands
 ```bash
 # Build entire solution (from root directory)
-dotnet build FoundryLocal.IntegrationTests.slnx
+dotnet build Daiv3.FoundryLocal.slnx
 
 # Build with no warnings tolerance (from root directory)
-dotnet build FoundryLocal.IntegrationTests.slnx /p:TreatWarningsAsErrors=true
+dotnet build Daiv3.FoundryLocal.slnx /p:TreatWarningsAsErrors=true
 
 # Build specific project (from root directory with full path)
-dotnet build src/FoundryLocal.Management/FoundryLocal.Management.csproj
-dotnet build src/FoundryLocal.Management.Cli/FoundryLocal.Management.Cli.csproj
+dotnet build src/Daiv3.FoundryLocal.Management/Daiv3.FoundryLocal.Management.csproj
+dotnet build src/Daiv3.FoundryLocal.Management.Cli/Daiv3.FoundryLocal.Management.Cli.csproj
 ```
 
 ### Testing Commands
 ```bash
 # Run all tests (from root directory)
-dotnet test FoundryLocal.IntegrationTests.slnx
+dotnet test Daiv3.FoundryLocal.slnx
 
 # Run specific test project (from root directory with full path)
-dotnet test tests/integration/FoundryLocal.IntegrationTests/FoundryLocal.IntegrationTests.csproj
+dotnet test tests/integration/Daiv3.FoundryLocal.IntegrationTests/Daiv3.FoundryLocal.IntegrationTests.csproj
 
 # Run with verbose output (from root directory)
-dotnet test FoundryLocal.IntegrationTests.slnx --verbosity detailed
+dotnet test Daiv3.FoundryLocal.slnx --verbosity detailed
 
 # Run with code coverage (from root directory)
-dotnet test FoundryLocal.IntegrationTests.slnx /p:CollectCoverage=true
+dotnet test Daiv3.FoundryLocal.slnx /p:CollectCoverage=true
 ```
 
 **Why Full Paths:**
