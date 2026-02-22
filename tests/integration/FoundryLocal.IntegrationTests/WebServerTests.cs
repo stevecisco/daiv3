@@ -7,14 +7,17 @@ namespace FoundryLocal.IntegrationTests;
 /// Integration tests for the optional REST web server functionality.
 /// Tests web server start/stop operations.
 /// </summary>
+[Collection("FoundryLocalManager collection")]
 public sealed class WebServerTests : IAsyncLifetime, IDisposable
 {
+    private readonly FoundryLocalManagerFixture _fixture;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<WebServerTests> _logger;
     private FoundryLocalManager? _manager;
 
-    public WebServerTests()
+    public WebServerTests(FoundryLocalManagerFixture fixture)
     {
+        _fixture = fixture;
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
@@ -26,18 +29,8 @@ public sealed class WebServerTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var config = new Configuration
-        {
-            AppName = "WebServerTests",
-            LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information,
-            Web = new Configuration.WebService
-            {
-                Urls = "http://127.0.0.1:55588"
-            }
-        };
-
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        _manager = FoundryLocalManager.Instance;
+        _manager = _fixture.Manager;
+        await Task.CompletedTask;
     }
 
     public async Task DisposeAsync()

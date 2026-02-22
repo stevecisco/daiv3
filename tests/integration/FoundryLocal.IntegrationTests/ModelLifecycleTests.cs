@@ -7,14 +7,17 @@ namespace FoundryLocal.IntegrationTests;
 /// Integration tests for model lifecycle operations: download, load, unload.
 /// These tests may take longer to run as they involve actual model operations.
 /// </summary>
+[Collection("FoundryLocalManager collection")]
 public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
 {
+    private readonly FoundryLocalManagerFixture _fixture;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<ModelLifecycleTests> _logger;
     private FoundryLocalManager? _manager;
 
-    public ModelLifecycleTests()
+    public ModelLifecycleTests(FoundryLocalManagerFixture fixture)
     {
+        _fixture = fixture;
         _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
@@ -26,14 +29,8 @@ public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var config = new Configuration
-        {
-            AppName = "ModelLifecycleTests",
-            LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information,
-        };
-
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        _manager = FoundryLocalManager.Instance;
+        _manager = _fixture.Manager;
+        await Task.CompletedTask;
     }
 
     public async Task DisposeAsync()
