@@ -22,6 +22,7 @@ public static class EmbeddingServiceExtensions
 
         services.AddSingleton<IOnnxSessionOptionsFactory, OnnxSessionOptionsFactory>();
         services.AddSingleton<IOnnxInferenceSessionProvider, OnnxInferenceSessionProvider>();
+        services.AddSingleton<IVectorSimilarityService, CpuVectorSimilarityService>();
 
         return services;
     }
