@@ -24,7 +24,7 @@ This plan is derived from the per-requirement plans in Docs/Requirements/Reqs an
 - HW-NFR-001 (depends on: KLC-REQ-001, KLC-REQ-003)
 - HW-NFR-002 (depends on: KLC-REQ-001, KLC-REQ-003)
 - HW-REQ-001 (covered by HW-CON-001; no separate work)
-- HW-REQ-002 (depends on: KLC-REQ-001, KLC-REQ-003)
+- HW-REQ-002 (covered by HW-CON-001; no separate work)
 - HW-REQ-003 (depends on: KLC-REQ-001, KLC-REQ-003)
 - HW-REQ-004 (depends on: KLC-REQ-001, KLC-REQ-003)
 - HW-REQ-005 (depends on: KLC-REQ-001, KLC-REQ-003)
