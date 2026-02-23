@@ -23,6 +23,8 @@ public class HardwareAwareVectorSimilarityServiceTests
     {
         var hardware = new Mock<IHardwareDetectionProvider>();
         hardware.Setup(x => x.GetBestAvailableTier()).Returns(HardwareAccelerationTier.Cpu);
+        hardware.Setup(x => x.GetAvailableTiers())
+            .Returns(new[] { HardwareAccelerationTier.Cpu });
 
         var cpuService = new CpuVectorSimilarityService(NullLogger<CpuVectorSimilarityService>.Instance);
         var service = new HardwareAwareVectorSimilarityService(
@@ -37,5 +39,22 @@ public class HardwareAwareVectorSimilarityServiceTests
         float actual = service.CosineSimilarity(vector1, vector2);
 
         Assert.Equal(expected, actual, precision: 6);
+    }
+
+    [Fact]
+    public void Constructor_UsesHardwareDetectionToDeterminePreference()
+    {
+        var hardware = new Mock<IHardwareDetectionProvider>();
+        hardware.Setup(x => x.GetAvailableTiers())
+            .Returns(new[] { HardwareAccelerationTier.Gpu, HardwareAccelerationTier.Cpu });
+
+        var cpuService = new CpuVectorSimilarityService(NullLogger<CpuVectorSimilarityService>.Instance);
+
+        _ = new HardwareAwareVectorSimilarityService(
+            NullLogger<HardwareAwareVectorSimilarityService>.Instance,
+            hardware.Object,
+            cpuService);
+
+        hardware.Verify(x => x.GetAvailableTiers(), Times.Once);
     }
 }

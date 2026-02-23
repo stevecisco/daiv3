@@ -126,6 +126,27 @@ public class OnnxSessionOptionsFactoryTests
     }
 
     [Fact]
+    public void Create_WithAutoPreference_FallsBackToGpuWhenNpuUnavailable()
+    {
+        // Arrange
+        var options = GetDefaultOptions();
+        options.ExecutionProviderPreference = OnnxExecutionProviderPreference.Auto;
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Gpu));
+
+        // Act
+        var sessionOptions = factory.Create(out var provider);
+
+        // Assert
+        Assert.NotNull(sessionOptions);
+        Assert.True(
+            provider == OnnxExecutionProvider.DirectML || provider == OnnxExecutionProvider.Cpu,
+            "GPU fallback should select DirectML when available, otherwise CPU");
+    }
+
+    [Fact]
     public void Create_ReturnsTuningOptions()
     {
         // Arrange

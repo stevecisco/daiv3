@@ -47,7 +47,9 @@ public sealed class HardwareAwareVectorSimilarityService : IVectorSimilarityServ
 
     private void LogPreference()
     {
-        var bestTier = _hardwareDetection.GetBestAvailableTier();
+        var tiers = _hardwareDetection.GetAvailableTiers();
+        var bestTier = tiers.Count > 0 ? tiers[0] : HardwareAccelerationTier.Cpu;
+        bool hasNpu = tiers.Contains(HardwareAccelerationTier.Npu);
         switch (bestTier)
         {
             case HardwareAccelerationTier.Npu:
@@ -55,8 +57,16 @@ public sealed class HardwareAwareVectorSimilarityService : IVectorSimilarityServ
                     "NPU available; vector operations prefer NPU when an accelerated implementation is configured. Using CPU fallback.");
                 break;
             case HardwareAccelerationTier.Gpu:
-                _logger.LogInformation(
-                    "GPU available; vector operations prefer GPU when an accelerated implementation is configured. Using CPU fallback.");
+                if (!hasNpu)
+                {
+                    _logger.LogInformation(
+                        "NPU unavailable or insufficient; falling back to GPU for vector operations. Using CPU fallback.");
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "GPU available; vector operations prefer GPU when an accelerated implementation is configured. Using CPU fallback.");
+                }
                 break;
             default:
                 _logger.LogDebug("CPU vector operations selected.");

@@ -66,14 +66,24 @@ public sealed class OnnxSessionOptionsFactory : IOnnxSessionOptionsFactory
             return preference;
         }
 
-        var bestTier = _hardwareDetection.GetBestAvailableTier();
+        var tiers = _hardwareDetection.GetAvailableTiers();
+        var bestTier = tiers.Count > 0 ? tiers[0] : HardwareAccelerationTier.Cpu;
+        bool hasNpu = tiers.Contains(HardwareAccelerationTier.Npu);
+
         switch (bestTier)
         {
             case HardwareAccelerationTier.Npu:
                 _logger.LogInformation("NPU detected; preferring DirectML for embedding inference.");
                 return OnnxExecutionProviderPreference.DirectML;
             case HardwareAccelerationTier.Gpu:
-                _logger.LogInformation("GPU detected; preferring DirectML for embedding inference.");
+                if (!hasNpu)
+                {
+                    _logger.LogInformation("NPU unavailable or insufficient; falling back to GPU for embedding inference.");
+                }
+                else
+                {
+                    _logger.LogInformation("GPU detected; preferring DirectML for embedding inference.");
+                }
                 return OnnxExecutionProviderPreference.DirectML;
             default:
                 _logger.LogDebug("No hardware accelerator detected; using CPU for embedding inference.");
