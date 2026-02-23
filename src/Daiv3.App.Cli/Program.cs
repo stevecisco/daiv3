@@ -38,6 +38,76 @@ public class Program
         dbCommand.AddCommand(dbStatusCommand);
         rootCommand.AddCommand(dbCommand);
 
+        // Dashboard command
+        var dashboardCommand = new Command("dashboard", "Show system dashboard and status");
+        dashboardCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await Task.FromResult(DashboardCommand(host));
+            Environment.Exit(exitCode);
+        });
+        rootCommand.AddCommand(dashboardCommand);
+
+        // Chat command
+        var chatCommand = new Command("chat", "Interactive chat interface");
+        var messageOption = new Option<string?>(
+            aliases: new[] { "--message", "-m" },
+            description: "Send a single message and exit");
+        chatCommand.AddOption(messageOption);
+        chatCommand.SetHandler(async (string? message) =>
+        {
+            var host = CreateHost();
+            var exitCode = await Task.FromResult(ChatCommand(host, message));
+            Environment.Exit(exitCode);
+        }, messageOption);
+        rootCommand.AddCommand(chatCommand);
+
+        // Projects command
+        var projectsCommand = new Command("projects", "Project management commands");
+        
+        var projectsListCommand = new Command("list", "List all projects");
+        projectsListCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await Task.FromResult(ProjectsListCommand(host));
+            Environment.Exit(exitCode);
+        });
+
+        var projectsCreateCommand = new Command("create", "Create a new project");
+        var projectNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Project name") { IsRequired = true };
+        var projectDescOption = new Option<string>(
+            aliases: new[] { "--description", "-d" },
+            description: "Project description",
+            getDefaultValue: () => "");
+        projectsCreateCommand.AddOption(projectNameOption);
+        projectsCreateCommand.AddOption(projectDescOption);
+        projectsCreateCommand.SetHandler(async (string name, string desc) =>
+        {
+            var host = CreateHost();
+            var exitCode = await Task.FromResult(ProjectsCreateCommand(host, name, desc));
+            Environment.Exit(exitCode);
+        }, projectNameOption, projectDescOption);
+
+        projectsCommand.AddCommand(projectsListCommand);
+        projectsCommand.AddCommand(projectsCreateCommand);
+        rootCommand.AddCommand(projectsCommand);
+
+        // Settings command
+        var settingsCommand = new Command("settings", "Configuration management");
+        
+        var settingsShowCommand = new Command("show", "Show current settings");
+        settingsShowCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await Task.FromResult(SettingsShowCommand(host));
+            Environment.Exit(exitCode);
+        });
+
+        settingsCommand.AddCommand(settingsShowCommand);
+        rootCommand.AddCommand(settingsCommand);
+
         return await rootCommand.InvokeAsync(args);
     }
 
@@ -121,6 +191,178 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to get database status: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int DashboardCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying dashboard");
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("                    DAIV3 DASHBOARD                        ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            // Hardware Status
+            Console.WriteLine("HARDWARE STATUS:");
+            Console.WriteLine("  Overall: System Ready");
+            Console.WriteLine("  NPU: Detection pending (integration pending)");
+            Console.WriteLine("  GPU: Detection pending (integration pending)");
+            Console.WriteLine();
+
+            // Task Queue Status
+            Console.WriteLine("TASK QUEUE:");
+            Console.WriteLine("  Queued Tasks: 0");
+            Console.WriteLine("  Completed Tasks: 0");
+            Console.WriteLine("  Current Activity: Ready for tasks");
+            Console.WriteLine();
+
+            Console.WriteLine("NOTE: Full hardware detection and queue monitoring pending integration.");
+            Console.WriteLine("      Use 'db status' to check database, 'projects list' for projects.");
+            
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to show dashboard: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int ChatCommand(IHost host, string? singleMessage)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            
+            if (singleMessage != null)
+            {
+                // Single message mode
+                Console.WriteLine($"User: {singleMessage}");
+                Console.WriteLine($"AI: Echo: {singleMessage} (Orchestration integration pending)");
+                logger.LogInformation("Processed single chat message");
+                return 0;
+            }
+
+            // Interactive mode
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("                 DAIV3 CHAT INTERFACE                      ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("Type your message and press Enter. Type 'exit' to quit.");
+            Console.WriteLine();
+
+            while (true)
+            {
+                Console.Write("You: ");
+                var input = Console.ReadLine();
+                
+                if (string.IsNullOrWhiteSpace(input))
+                    continue;
+
+                if (input.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine("Goodbye!");
+                    break;
+                }
+
+                // TODO: Integrate with orchestration layer
+                Console.WriteLine($"AI: Echo: {input} (Orchestration integration pending)");
+                logger.LogInformation("Processed chat message: {Message}", input);
+            }
+            
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Chat command failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int ProjectsListCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Listing projects");
+
+            Console.WriteLine("PROJECTS:");
+            Console.WriteLine("  (No projects - persistence integration pending)");
+            Console.WriteLine();
+            Console.WriteLine("NOTE: Project CRUD operations pending persistence layer integration.");
+            Console.WriteLine("      Use 'projects create --name \"My Project\"' to create a project.");
+            
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list projects: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int ProjectsCreateCommand(IHost host, string name, string description)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Creating project: {Name}", name);
+
+            var projectId = Guid.NewGuid();
+            Console.WriteLine($"✓ Project created successfully (simulation - persistence integration pending)");
+            Console.WriteLine($"  ID: {projectId}");
+            Console.WriteLine($"  Name: {name}");
+            Console.WriteLine($"  Description: {description}");
+            Console.WriteLine($"  Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to create project: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int SettingsShowCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying settings");
+
+            var dataDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Daiv3", "Data");
+            var modelsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Daiv3", "Models");
+
+            Console.WriteLine("CURRENT SETTINGS:");
+            Console.WriteLine();
+            Console.WriteLine("Directories:");
+            Console.WriteLine($"  Data Directory: {dataDir}");
+            Console.WriteLine($"  Models Directory: {modelsDir}");
+            Console.WriteLine();
+            Console.WriteLine("Hardware Preferences:");
+            Console.WriteLine("  Use NPU: True (default)");
+            Console.WriteLine("  Use GPU: True (default)");
+            Console.WriteLine();
+            Console.WriteLine("Model Execution:");
+            Console.WriteLine("  Allow Online Providers: False (default)");
+            Console.WriteLine("  Token Budget: 8192 (default)");
+            Console.WriteLine();
+            Console.WriteLine("NOTE: Settings persistence integration pending.");
+            
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to show settings: {ex.Message}");
             return 1;
         }
     }

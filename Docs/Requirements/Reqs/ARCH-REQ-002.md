@@ -15,9 +15,34 @@ The Presentation Layer SHALL provide UI surfaces for Chat, Status Dashboard, Pro
 ## Implementation Details
 
 ### Component Architecture
-- **Location**: `src/Daiv3.App.Maui/`
+- **Location**: `src/Daiv3.App.Maui/` (MAUI UI), `src/Daiv3.App.Cli/` (CLI validation)
 - **UI Framework**: .NET MAUI with MVVM pattern
+- **CLI Framework**: System.CommandLine
 - **Dependency Injection**: ViewModels and Pages registered in `MauiProgram.cs`
+
+### CLI Commands (Validation Layer)
+Following the AI instructions testing strategy, CLI commands were implemented for validation:
+
+**Dashboard**: `dotnet run --project src/Daiv3.App.Cli/Daiv3.App.Cli.csproj -- dashboard`
+- Shows hardware status (NPU, GPU detection pending)
+- Displays task queue statistics
+- Current activity monitoring
+
+**Chat**: `dotnet run --project src/Daiv3.App.Cli/Daiv3.App.Cli.csproj -- chat [--message "text"]`
+- Interactive chat mode (type 'exit' to quit)
+- Single message mode with `-m` option
+- Echo responses (orchestration integration pending)
+
+**Projects**: `dotnet run --project src/Daiv3.App.Cli/Daiv3.App.Cli.csproj -- projects [list|create]`
+- `projects list` - List all projects
+- `projects create --name "Name" --description "Desc"` - Create new project
+- Persistence integration pending
+
+**Settings**: `dotnet run --project src/Daiv3.App.Cli/Daiv3.App.Cli.csproj -- settings show`
+- Display current settings (directories, hardware prefs, model execution)
+- Settings persistence integration pending
+
+**Note**: Per AI instructions, CLI validation should precede MAUI implementation. While MAUI was implemented first, CLI commands have now been added for proper validation.
 
 ### Pages Implemented
 1. **ChatPage** (`Pages/ChatPage.xaml`)
@@ -173,9 +198,10 @@ All tests located in `tests/unit/Daiv3.UnitTests/Presentation/`:
 - ✅ Dependency injection configured in MauiProgram
 - ✅ Shell navigation with TabBar layout
 - ✅ Value converters (InvertedBoolConverter)
-- ✅ Comprehensive unit tests (45 tests, all passing)
+- ✅ Comprehensive unit tests (43 tests, 41 passing)
 - ✅ Logging integration with ILogger<T>
 - ✅ Error handling in ViewModels
+- ✅ CLI commands for validation (dashboard, chat, projects, settings)
 
 ### Pending Integration
 - ⏳ Connect ChatViewModel to orchestration layer for AI responses

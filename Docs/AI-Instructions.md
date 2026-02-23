@@ -591,6 +591,105 @@ After unit tests and integration tests pass, features MUST be validated in a rea
 - Test performance with production-like loads
 - Verify logging and error messages are helpful
 
+### 6.1. CLI Command Documentation (MANDATORY)
+
+**All CLI commands MUST be documented as they are implemented.**
+
+**Documentation Location:** `Docs/CLI-Command-Examples.md`
+
+**When to Update:**
+- ✅ **Immediately after implementing** any new CLI command or subcommand
+- ✅ **Before marking requirement as complete**
+- ✅ **When changing command syntax, options, or behavior**
+- ✅ **When adding or modifying command output format**
+
+**Required Documentation for Each Command:**
+1. **Command Syntax**
+   - Full command with all options
+   - Short-form options (e.g., `-m` for `--message`)
+   - Required vs optional parameters
+   
+2. **Description**
+   - What the command does (1-2 sentences)
+   - When to use it
+   
+3. **Example Usage**
+   - Minimum viable example
+   - Common use cases
+   - Multiple examples if command has different modes
+   
+4. **Example Output**
+   - Show expected output format
+   - Include success and error cases
+   - Show integration status if feature is incomplete
+   
+5. **Integration Status**
+   - Mark as ✅ Complete, 🔄 Partial, or ⏳ Planned
+   - Note any pending integrations or dependencies
+   
+6. **Related Commands**
+   - Link to other commands that work with this one
+   - Suggest workflows that combine commands
+
+**Documentation Format:**
+```markdown
+### Command Name
+
+\`\`\`bash
+.\run-cli.bat [command] [options]
+\`\`\`
+Brief description of what the command does.
+
+**Output Example:**
+\`\`\`
+Expected output here
+\`\`\`
+
+**Integration Status:** ✅ Complete | 🔄 Partial | ⏳ Planned
+
+**Notes:**
+- Additional context
+- Known limitations
+```
+
+**Command Grouping:**
+- Group related commands under logical sections
+- Use hierarchy for parent/child commands (e.g., `db init`, `db status`)
+- Keep navigation clear with table of contents
+
+**Future Commands Section:**
+- Document planned commands in "Future Commands (Planned)" section
+- Include estimated implementation timeline if known
+- Remove from "Future" section when implemented
+
+**Process:**
+1. Implement CLI command in `src/Daiv3.App.Cli/Program.cs`
+2. Test command manually with `.\run-cli.bat`
+3. Capture example output
+4. **Append to `Docs/CLI-Command-Examples.md`** with all required information
+5. Update integration status table in the document
+6. Link to CLI documentation from requirement document
+
+**Enforcement:**
+- ❌ **CLI commands without documentation are considered INCOMPLETE**
+- ❌ **Requirements cannot be marked "Complete" if CLI commands are undocumented**
+- ✅ **Documentation review is part of code review process**
+
+**Documentation Quality Standards:**
+- Examples must be copy-pasteable and accurate
+- Output examples must match current implementation
+- Keep documentation synchronized with code changes
+- Use clear, concise language
+- Include helpful context about integration dependencies
+
+**Benefits:**
+- Creates living reference documentation for users
+- Provides examples for MAUI implementation
+- Preserves knowledge of command-line interface design
+- Enables automation and scripting
+- Facilitates testing and validation
+- Serves as onboarding material for new developers
+
 ### 7. Logging & Observability
 
 **All libraries and applications MUST implement comprehensive, configurable logging and performance metrics.**

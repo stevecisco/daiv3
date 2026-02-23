@@ -63,7 +63,7 @@ A comprehensive distributed AI system with support for:
 5. Never mark requirement "Complete" with failing tests
 
 ### Testing Strategy
-1. Implement code → 2. Create unit tests → 3. Create integration tests → 4. Verify all pass → 5. CLI validation → 6. MAUI implementation
+1. Implement code → 2. Create unit tests → 3. Create integration tests → 4. Verify all pass → 5. CLI validation → 6. **Document CLI commands** → 7. MAUI implementation
 
 ### Debugging Best Practices
 - ⚠️ **NEVER use `[System.Reflection.Assembly]::LoadFrom()` in PowerShell** - locks DLLs and prevents compilation
@@ -87,6 +87,7 @@ A comprehensive distributed AI system with support for:
 |----------|---------|
 | [AI-Instructions.md](../Docs/AI-Instructions.md) | Complete development guidelines (READ THIS FIRST) |
 | [Master-Implementation-Tracker.md](../Docs/Requirements/Master-Implementation-Tracker.md) | Primary tracking document |
+| [CLI-Command-Examples.md](../Docs/CLI-Command-Examples.md) | CLI command reference (UPDATE when adding CLI commands) |
 | [approved-dependencies.md](../Docs/Requirements/Architecture/approved-dependencies.md) | Dependency approval registry |
 | [architecture-overview.md](../Docs/Requirements/Architecture/architecture-overview.md) | System architecture |
 
@@ -155,6 +156,7 @@ See [AI-Instructions.md - Sub-Agent section](../Docs/AI-Instructions.md#sub-agen
 - Check approved-dependencies.md before adding packages
 - Use structured logging with ILogger<T>
 - Test in CLI before implementing in MAUI
+- Update CLI-Command-Examples.md when adding CLI commands
 
 ### ❌ DON'T
 - Skip requirement document reviews
