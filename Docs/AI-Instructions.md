@@ -370,6 +370,71 @@ The following are automatically approved and do NOT require ADD or registry entr
 
 **Important:** Even pre-approved packages require approval for version upgrades. Check release notes and security advisories before upgrading.
 
+### ⚠️ CRITICAL: Package Downgrades Are Prohibited Without Explicit Approval
+
+**ABSOLUTE RULE:** Package version downgrades are **NEVER** an acceptable solution without explicit prior approval from the user.
+
+**If You Encounter a Package Version Conflict:**
+
+1. **DO NOT DOWNGRADE** - This is the first and most common mistake
+2. **ANALYZE THE ROOT CAUSE:**
+   - What file or project is requesting the older version?
+   - Why is that project using an older version?
+   - Are there dependency constraints you missed?
+   - Is there a deliberate reason for the older version?
+
+3. **BEFORE EVEN MENTIONING DOWNGRADE TO USER:**
+   - Run: `dotnet nuget why <package-name>` (if available) or check dependency chains
+   - Document exactly which projects require which versions
+   - Identify breaking changes between current and requested version
+   - Check if high-level changes affect the codebase (new APIs, removed methods, property changes, etc.)
+   - Determine if there are any incompatibilities with other dependencies
+
+4. **PRESENT FINDINGS TO USER WITH:**
+   - **Exact version conflict:** Which packages want which versions?
+   - **Dependency chain:** Show the complete chain of dependencies causing the conflict
+   - **Breaking changes analysis:** What changed between versions? (Use release notes and GitHub issues)
+   - **Impact assessment:** What code/features would break with a downgrade?
+   - **Alternative solutions:** 
+     - Update the conflicting project to be compatible with newer version
+     - Use conditional package references for different platforms
+     - Restructure dependencies to eliminate conflict
+     - Pinpoint alternative packages (if applicable)
+   - **Recommendation:** Your best judgment on solution strategy
+
+5. **WAIT FOR EXPLICIT USER APPROVAL** before making ANY change
+   - User must see all the analysis
+   - User must understand the implications
+   - User must explicitly approve the proposed solution
+
+**Example of PROHIBITED Behavior:**
+```csharp
+// ❌ WRONG - This is what I did:
+// Encountered: "Detected package downgrade: Microsoft.Extensions.Logging.Abstractions from 10.0.3 to 9.0.0"
+// Action: Changed 10.0.3 → 9.0.0 without analysis or approval
+// Result: Violated architectural guidelines, created future maintenance problems
+
+// ✅ CORRECT - What should happen:
+// 1. Document conflicting projects needing 9.0.0 vs 10.0.3
+// 2. Analyze why those projects haven't been upgraded
+// 3. Create detailed proposal with breakage analysis
+// 4. Present to user with exact findings
+// 5. Wait for explicit instruction on how to proceed
+```
+
+**Why This Rule Exists:**
+- Package downgrades hide architectural issues instead of solving them
+- Older package versions may have security vulnerabilities
+- Newer versions have performance improvements and bug fixes
+- A downgrade in one place often creates cascading incompatibilities elsewhere
+- It's a quick "fix" that creates long-term technical debt
+
+**If user approves downgrade, document:**
+- Requirement document that mandated the downgrade
+- Date and explicit approval from user
+- Breaking changes and workarounds implemented
+- Future upgrade strategy
+
 **Dependency Registry:**
 - **Location:** `./Docs/Requirements/Architecture/approved-dependencies.md`
 - **Purpose:** Single source of truth for all dependency decisions
@@ -880,6 +945,12 @@ Before beginning ANY implementation work:
 - ❌ **DON'T** add external NuGet packages without creating an architecture decision document
 - ❌ **DON'T** use external libraries unless they are .NET framework, Azure, Microsoft, or explicitly approved
 - ❌ **DON'T** upgrade dependency versions without checking `approved-dependencies.md` and getting approval
+- ❌ **DON'T** downgrade package versions under any circumstances without explicit user approval
+  - Downgrades hide architectural problems instead of solving them
+  - Always analyze the root cause and present alternative solutions first
+  - Downgrades may reintroduce security vulnerabilities
+  - If you encounter a version conflict, STOP and present the analysis to the user
+  - The user will explicitly tell you how to proceed
 - ❌ **DON'T** use Console.WriteLine or similar for operational logging
 - ❌ **DON'T** swallow exceptions without logging
 - ❌ **DON'T** implement MAUI features before validating in CLI
