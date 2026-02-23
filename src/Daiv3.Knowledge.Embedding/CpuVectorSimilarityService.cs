@@ -1,19 +1,28 @@
 using System.Numerics.Tensors;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace Daiv3.Knowledge.Embedding;
 
 /// <summary>
 /// CPU-based vector similarity implementation using System.Numerics.TensorPrimitives.
 /// Provides SIMD-accelerated cosine similarity calculations for semantic search.
+/// Optionally collects performance metrics for monitoring and diagnostics.
 /// </summary>
 public sealed class CpuVectorSimilarityService : IVectorSimilarityService
 {
     private readonly ILogger<CpuVectorSimilarityService> _logger;
+    private readonly PerformanceMetricsOptions _metricsOptions;
+    private readonly Random _sampleRandom;
 
-    public CpuVectorSimilarityService(ILogger<CpuVectorSimilarityService> logger)
+    public CpuVectorSimilarityService(
+        ILogger<CpuVectorSimilarityService> logger,
+        PerformanceMetricsOptions? metricsOptions = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _metricsOptions = metricsOptions ?? new PerformanceMetricsOptions();
+        _metricsOptions.Validate();
+        _sampleRandom = new Random();
     }
 
     /// <inheritdoc />
@@ -86,6 +95,9 @@ public sealed class CpuVectorSimilarityService : IVectorSimilarityService
             throw new ArgumentException("Vector count and dimensions must be greater than zero.");
         }
 
+        // Start performance timing if metrics collection is enabled
+        var stopwatch = _metricsOptions.EnableMetricsCollection ? Stopwatch.StartNew() : null;
+
         try
         {
             // Pre-compute query vector magnitude once
@@ -125,6 +137,13 @@ public sealed class CpuVectorSimilarityService : IVectorSimilarityService
             _logger.LogDebug(
                 "Computed batch cosine similarity: {VectorCount} vectors of dimension {Dimensions}",
                 vectorCount, dimensions);
+
+            // Record performance metrics if enabled
+            if (stopwatch != null)
+            {
+                stopwatch.Stop();
+                RecordBatchMetrics(stopwatch.Elapsed.TotalMilliseconds, vectorCount, dimensions);
+            }
         }
         catch (Exception ex)
         {
@@ -172,6 +191,40 @@ public sealed class CpuVectorSimilarityService : IVectorSimilarityService
         {
             _logger.LogError(ex, "Error normalizing vector of dimension {Dimension}", vector.Length);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Records performance metrics for a batch operation.
+    /// May emit warning logs if operation exceeded slow threshold.
+    /// </summary>
+    private void RecordBatchMetrics(double elapsedMs, int vectorCount, int dimensions)
+    {
+        var metrics = new PerformanceMetrics
+        {
+            ElapsedMs = elapsedMs,
+            VectorCount = vectorCount,
+            Dimension = dimensions
+        };
+
+        // Check if this is a slow operation
+        if (metrics.IsSlowOperation(_metricsOptions.SlowOperationThresholdMs))
+        {
+            // Sample slow operations for logging
+            if (_sampleRandom.NextDouble() < _metricsOptions.SlowOperationSampleRate)
+            {
+                _logger.LogWarning(
+                    "Slow batch cosine similarity operation detected: {Metrics}",
+                    metrics.ToString());
+            }
+        }
+
+        // Log at debug level for all operations if detailed telemetry is enabled
+        if (_metricsOptions.EnableDetailedTelemetry)
+        {
+            _logger.LogDebug(
+                "Batch cosine similarity metrics: {Metrics}",
+                metrics.ToString());
         }
     }
 }
