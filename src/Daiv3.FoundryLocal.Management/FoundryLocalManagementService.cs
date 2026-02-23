@@ -1,5 +1,6 @@
 namespace Daiv3.FoundryLocal.Management;
 
+using Daiv3.Infrastructure.Shared.Hardware;
 using Microsoft.AI.Foundry.Local;
 using Microsoft.Extensions.Logging;
 
@@ -313,5 +314,47 @@ public sealed class FoundryLocalManagementService : IAsyncDisposable
         {
             throw new InvalidOperationException("Foundry Local is not initialized. Call InitializeAsync first.");
         }
+    }
+
+    /// <summary>
+    /// Gets the current hardware detection override settings from environment variables.
+    /// </summary>
+    public HardwareOverrideSettings GetHardwareOverrides()
+    {
+        var config = HardwareDetectionConfig.ReadFromEnvironment();
+        return new HardwareOverrideSettings
+        {
+            ForceCpuOnly = config.ForceCpuOnly,
+            DisableNpu = config.DisableNpu,
+            DisableGpu = config.DisableGpu
+        };
+    }
+
+    /// <summary>
+    /// Sets hardware detection override settings in environment variables.
+    /// </summary>
+    /// <param name="settings">Override settings to apply.</param>
+    public void SetHardwareOverrides(HardwareOverrideSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var config = new HardwareDetectionConfig
+        {
+            ForceCpuOnly = settings.ForceCpuOnly,
+            DisableNpu = settings.DisableNpu,
+            DisableGpu = settings.DisableGpu
+        };
+
+        config.WriteToEnvironment();
+        _logger.LogInformation("Hardware overrides updated: {Settings}", settings);
+    }
+
+    /// <summary>
+    /// Clears all hardware detection override settings.
+    /// </summary>
+    public void ClearHardwareOverrides()
+    {
+        HardwareDetectionConfig.ClearEnvironment();
+        _logger.LogInformation("Hardware overrides cleared; will auto-detect hardware");
     }
 }

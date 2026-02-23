@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\..\src\Daiv3.Scheduler\Daiv3.Scheduler.csproj" />
     <ProjectReference Include="..\..\..\src\Daiv3.ModelExecution\Daiv3.ModelExecution.csproj" />
     <ProjectReference Include="..\..\..\src\Daiv3.Infrastructure.Shared\Daiv3.Infrastructure.Shared.csproj" />
+    <ProjectReference Include="..\..\..\src\Daiv3.FoundryLocal.Management\Daiv3.FoundryLocal.Management.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,11 +39,11 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Moq" Version="4.20.72" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.9" />
   </ItemGroup>
 
 </Project>

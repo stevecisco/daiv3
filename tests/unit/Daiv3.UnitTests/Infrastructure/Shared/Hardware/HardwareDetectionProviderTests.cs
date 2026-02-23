@@ -258,6 +258,61 @@ public class HardwareDetectionProviderTests
         }
     }
 
+    [Fact]
+    public void GetAvailableTiers_ForceCpuOnly_OverridesHardwareDetection()
+    {
+        var originalForceCpu = Environment.GetEnvironmentVariable("DAIV3_FORCE_CPU_ONLY");
+        var originalDisableNpu = Environment.GetEnvironmentVariable("DAIV3_DISABLE_NPU");
+        var originalDisableGpu = Environment.GetEnvironmentVariable("DAIV3_DISABLE_GPU");
+
+        try
+        {
+            Environment.SetEnvironmentVariable("DAIV3_FORCE_CPU_ONLY", "true");
+            Environment.SetEnvironmentVariable("DAIV3_DISABLE_NPU", null);
+            Environment.SetEnvironmentVariable("DAIV3_DISABLE_GPU", null);
+
+            var provider = new HardwareDetectionProvider(NullLogger<HardwareDetectionProvider>.Instance);
+            var tiers = provider.GetAvailableTiers();
+
+            Assert.Single(tiers);
+            Assert.Equal(HardwareAccelerationTier.Cpu, tiers[0]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DAIV3_FORCE_CPU_ONLY", originalForceCpu);
+            Environment.SetEnvironmentVariable("DAIV3_DISABLE_NPU", originalDisableNpu);
+            Environment.SetEnvironmentVariable("DAIV3_DISABLE_GPU", originalDisableGpu);
+        }
+    }
+
+    [Fact]
+    public void GetAvailableTiers_DisableNpuAndGpu_LeavesCpuOnly()
+    {
+        var originalForceCpu = Environment.GetEnvironmentVariable("DAIV3_FORCE_CPU_ONLY");
+        var originalDisableNpu = Environment.GetEnvironmentVariable("DAIV3_DISABLE_NPU");
+        var originalDisableGpu = Environment.GetEnvironmentVariable("DAIV3_DISABLE_GPU");
+
+        try
+        {
+            Environment.SetEnvironmentVariable("DAIV3_FORCE_CPU_ONLY", null);
+            Environment.SetEnvironmentVariable("DAIV3_DISABLE_NPU", "1");
+            Environment.SetEnvironmentVariable("DAIV3_DISABLE_GPU", "1");
+
+            var provider = new HardwareDetectionProvider(NullLogger<HardwareDetectionProvider>.Instance);
+            var tiers = provider.GetAvailableTiers();
+
+            Assert.Contains(HardwareAccelerationTier.Cpu, tiers);
+            Assert.DoesNotContain(HardwareAccelerationTier.Npu, tiers);
+            Assert.DoesNotContain(HardwareAccelerationTier.Gpu, tiers);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DAIV3_FORCE_CPU_ONLY", originalForceCpu);
+            Environment.SetEnvironmentVariable("DAIV3_DISABLE_NPU", originalDisableNpu);
+            Environment.SetEnvironmentVariable("DAIV3_DISABLE_GPU", originalDisableGpu);
+        }
+    }
+
     [Theory]
     [InlineData(HardwareAccelerationTier.None)]
     [InlineData(HardwareAccelerationTier.Npu)]

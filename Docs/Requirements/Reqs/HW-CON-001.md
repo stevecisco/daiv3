@@ -41,6 +41,11 @@ This requirement is NOT about blocking non-Windows or non-Copilot+ execution. Ra
 - Non-Windows users will have CPU-only performance tier until platform-specific optimizations are added
 - UI (MAUI) is Windows-only in initial release; future versions may support cross-platform UIs
 
+### Test Overrides (Development Only)
+- `DAIV3_FORCE_CPU_ONLY=true` forces CPU-only tier selection (disables NPU/GPU).
+- `DAIV3_DISABLE_NPU=true` disables NPU detection.
+- `DAIV3_DISABLE_GPU=true` disables GPU detection.
+
 ## Hardware Acceleration Strategy
 | Hardware | Inference | Embedding | Status |
 |----------|-----------|-----------|--------|

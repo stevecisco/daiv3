@@ -70,6 +70,14 @@ public class HardwareDetectionProvider : IHardwareDetectionProvider
     private List<HardwareAccelerationTier> DetectAvailableTiers()
     {
         var tiers = new List<HardwareAccelerationTier>();
+        var overrides = ReadOverrides();
+
+        if (overrides.ForceCpuOnly)
+        {
+            _logger.LogInformation("Hardware detection overrides force CPU-only execution.");
+            tiers.Add(HardwareAccelerationTier.Cpu);
+            return tiers;
+        }
 
 #if NET10_0_WINDOWS10_0_26100_OR_GREATER
         _logger.LogDebug("Detecting hardware acceleration tiers on Windows 11 (10.0.26100+)");
@@ -81,7 +89,7 @@ public class HardwareDetectionProvider : IHardwareDetectionProvider
         {
             // On Windows 11 Copilot+ devices, DirectML can use both NPU and GPU
             // We detect NPU availability by checking for known NPU identifiers
-            bool hasNPU = TryDetectNPU();
+            bool hasNPU = !overrides.DisableNpu && TryDetectNPU();
             
             if (hasNPU)
             {
@@ -90,8 +98,15 @@ public class HardwareDetectionProvider : IHardwareDetectionProvider
             }
             
             // DirectML also supports GPU acceleration
-            _logger.LogInformation("DirectML GPU acceleration available");
-            tiers.Add(HardwareAccelerationTier.Gpu);
+            if (!overrides.DisableGpu)
+            {
+                _logger.LogInformation("DirectML GPU acceleration available");
+                tiers.Add(HardwareAccelerationTier.Gpu);
+            }
+            else
+            {
+                _logger.LogInformation("GPU detection disabled by override; skipping GPU tier");
+            }
         }
         else
         {
@@ -113,6 +128,34 @@ public class HardwareDetectionProvider : IHardwareDetectionProvider
 
         return tiers;
     }
+
+    private HardwareDetectionOverrides ReadOverrides()
+    {
+        bool forceCpu = IsEnvVarEnabled("DAIV3_FORCE_CPU_ONLY");
+        bool disableNpu = IsEnvVarEnabled("DAIV3_DISABLE_NPU");
+        bool disableGpu = IsEnvVarEnabled("DAIV3_DISABLE_GPU");
+
+        if (forceCpu)
+        {
+            disableNpu = true;
+            disableGpu = true;
+        }
+
+        return new HardwareDetectionOverrides(forceCpu, disableNpu, disableGpu);
+    }
+
+    private static bool IsEnvVarEnabled(string name)
+    {
+        var value = Environment.GetEnvironmentVariable(name);
+        return string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private readonly record struct HardwareDetectionOverrides(
+        bool ForceCpuOnly,
+        bool DisableNpu,
+        bool DisableGpu);
 
 #if NET10_0_WINDOWS10_0_26100_OR_GREATER
     /// <summary>
