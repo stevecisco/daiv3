@@ -38,8 +38,27 @@ This requirement is NOT about blocking non-Windows or non-Copilot+ execution. Ra
 
 ### Unit Tests: ✅ 17/17 Passing (100%)
 
-**Test Project:** `tests/unit/Daiv3.UnitTests/`
-**Test File:** `Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs`
+**Test Project:** [tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj](tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj)
+**Test File:** [tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs)
+**Test Class:** [Daiv3.UnitTests.Infrastructure.Shared.Hardware.HardwareDetectionProviderTests](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L13)
+**Test Methods:**
+- [Constructor_WithNullLogger_ThrowsArgumentNullException](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L16)
+- [GetAvailableTiers_AlwaysIncludeCpu](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L26)
+- [GetAvailableTiers_OnCopilotPlusPC_DetectsMultipleTiers](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L41)
+- [GetAvailableTiers_OnSnapdragonXElite_DetectsNPU](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L70)
+- [GetAvailableTiers_ReturnsSortedByPerference](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L111)
+- [IsTierAvailable_Cpu_ReturnsTrue](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L132)
+- [IsTierAvailable_None_ReturnsFalse](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L145)
+- [GetBestAvailableTier_ReturnsCpu_WhenCpuIsOnly](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L158)
+- [GetDiagnosticInfo_ReturnsNonEmptyString](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L175)
+- [GetDiagnosticInfo_IncludesBestTier](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L192)
+- [Service_CanBeRegisteredViaExtension](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L206)
+- [Service_RegisteredAsSingleton](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L223)
+- [GetAvailableTiers_MultipleCallsReturnConsistentResults](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L242)
+- [GetAvailableTiers_ForceCpuOnly_OverridesHardwareDetection](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L262)
+- [GetAvailableTiers_DisableNpuAndGpu_LeavesCpuOnly](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L289)
+- [IsTierAvailable_ConsistentWithGetAvailableTiers](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L321)
+- [HardwareDetectionDemo_Runs](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs#L342)
 
 **Test Coverage:**
 - ✅ Hardware tier detection on Snapdragon X Elite/Plus devices (NPU)

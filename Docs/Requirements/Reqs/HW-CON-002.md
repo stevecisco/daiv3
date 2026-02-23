@@ -41,7 +41,8 @@ All 27 projects in the solution use .NET 10 as the baseline:
 ### Build Validation Tests: ✅ Passing
 
 **Test Method:** Solution Build Verification  
-**Test Command:** `dotnet build Daiv3.FoundryLocal.slnx`
+**Test Command:** `dotnet build` [Daiv3.FoundryLocal.slnx](Daiv3.FoundryLocal.slnx)
+**Build Target:** [Daiv3.FoundryLocal.slnx](Daiv3.FoundryLocal.slnx)
 
 **Test Coverage:**
 - ✅ All 27 projects compile successfully

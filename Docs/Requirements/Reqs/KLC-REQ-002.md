@@ -46,22 +46,30 @@ The system SHALL use Microsoft.ML.Tokenizers for tokenization.
 
 ### Unit Tests: ✅ 8/8 Passing (100%)
 
-**Test Project:** `tests/unit/Daiv3.UnitTests/`
+**Test Project:** [tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj](tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj)
 
 **Test Files:**
-- **Knowledge/DocProc/TokenizerProviderTests.cs** (1 test)
-  - Tokenizer provider initialization and caching
+- **[tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizerProviderTests.cs](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizerProviderTests.cs)** (1 test)
+  - **Test Class:** [Daiv3.UnitTests.Knowledge.DocProc.TokenizerProviderTests](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizerProviderTests.cs#L8)
+  - **Test Methods:**
+    - [GetTokenizer_CachesInstance](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizerProviderTests.cs#L11)
+  - **Coverage:** Tokenizer provider initialization and caching
   
-- **Knowledge/DocProc/TokenizationOptionsTests.cs** (5 tests)
-  - Default configuration values
-  - Options validation
-  - Configuration overrides
-  - Invalid option detection
+- **[tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizationOptionsTests.cs](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizationOptionsTests.cs)** (4 tests)
+  - **Test Class:** [Daiv3.UnitTests.Knowledge.DocProc.TokenizationOptionsTests](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizationOptionsTests.cs#L6)
+  - **Test Methods:**
+    - [Validate_Defaults_NoThrow](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizationOptionsTests.cs#L9)
+    - [Validate_EmptyEncoding_Throws](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizationOptionsTests.cs#L17)
+    - [Validate_InvalidMaxTokens_Throws](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizationOptionsTests.cs#L30)
+    - [Validate_InvalidOverlap_Throws](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TokenizationOptionsTests.cs#L43)
+  - **Coverage:** Options validation and configuration constraints
   
-- **Knowledge/DocProc/TextChunkerTests.cs** (2 tests)
-  - Token-based chunking behavior
-  - Chunk overlap functionality
-  - Token count validation
+- **[tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TextChunkerTests.cs](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TextChunkerTests.cs)** (2 tests)
+  - **Test Class:** [Daiv3.UnitTests.Knowledge.DocProc.TextChunkerTests](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TextChunkerTests.cs#L9)
+  - **Test Methods:**
+    - [Chunk_Whitespace_ReturnsEmpty](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TextChunkerTests.cs#L12)
+    - [Chunk_SplitsTextByTokens](tests/unit/Daiv3.UnitTests/Knowledge/DocProc/TextChunkerTests.cs#L30)
+  - **Coverage:** Token-based chunking and overlap behavior
 
 **Test Coverage:**
 - ✅ TokenizationOptions validation and defaults

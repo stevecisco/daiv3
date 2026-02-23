@@ -18,6 +18,10 @@ Superseded by HW-CON-001. The optimized tier explicitly targets Snapdragon X and
 
 **Status:** Superseded by HW-CON-001
 
+**Test Project:** [tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj](tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj)
+**Test File:** [tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs)
+**Test Methods:** See [HW-CON-001 Testing Summary](HW-CON-001.md#testing-summary)
+
 **Test Coverage:** See [HW-CON-001 Testing Summary](HW-CON-001.md#testing-summary) for:
 - Multi-architecture build validation (win-arm64, win-x64)
 - Runtime identifier configuration tests

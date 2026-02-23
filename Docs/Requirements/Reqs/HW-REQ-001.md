@@ -18,6 +18,10 @@ Superseded by HW-CON-001. This requirement is fully covered by the runtime targe
 
 **Status:** Superseded by HW-CON-001
 
+**Test Project:** [tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj](tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj)
+**Test File:** [tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs](tests/unit/Daiv3.UnitTests/Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs)
+**Test Methods:** See [HW-CON-001 Testing Summary](HW-CON-001.md#testing-summary)
+
 **Test Coverage:** See [HW-CON-001 Testing Summary](HW-CON-001.md#testing-summary) for:  
 - Hardware tier detection tests (17 unit tests passing)
 - NPU device detection validation

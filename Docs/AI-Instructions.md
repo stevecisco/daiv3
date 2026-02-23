@@ -172,20 +172,26 @@ Use conditional compilation for platform-specific implementations:
 5. **Test Traceability Matrix (MANDATORY)**
    - **Every requirement document MUST track which tests validate it**
    - Update requirement document's "Testing Summary" section with:
-     - **Test Project Path**: Full relative path to test project (e.g., `tests/unit/Daiv3.UnitTests/`)
-     - **Test File Name**: Complete filename with extension (e.g., `OnnxSessionOptionsFactoryTests.cs`)
-     - **Test Class Name**: Fully qualified class name if different from file name
-     - **Test Count**: Total number of tests in the file (e.g., "16 tests")
-     - **Test Status**: Passing/Failing count (e.g., "✅ 16/16 passing" or "❌ 14/16 passing, 2 failing")
-     - **Test Coverage Details**: List of key test scenarios covered
+       - **Test Project Link**: Link to test project file (e.g., tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj)
+       - **Test File Link**: Link to each test file (e.g., tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs)
+       - **Test Class Link**: Link to the test class declaration
+       - **Test Method Links**: Link to every test method that validates this requirement
+       - **Test Count**: Total number of tests in the file (e.g., "16 tests")
+       - **Test Status**: Passing/Failing count (e.g., "✅ 16/16 passing" or "❌ 14/16 passing, 2 failing")
+       - **Test Coverage Details**: List of key test scenarios covered
    - Format example:
      ```markdown
      ## Testing Summary
      
      ### Unit Tests: ✅ 16/16 Passing (100%)
      
-     **Test Project:** `tests/unit/Daiv3.UnitTests/`
-     **Test File:** `Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs`
+       **Test Project:** [tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj](tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj)
+       **Test File:** [tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs)
+       **Test Class:** [Daiv3.UnitTests.Knowledge.Embedding.OnnxSessionOptionsFactoryTests](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L12)
+       **Test Methods:**
+       - [Create_WithCpuPreference_ReturnsCpuProvider](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L66)
+       - [Create_WithDirectMLPreference_AttemptsDirectML](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L85)
+       - [Create_WithAutoPreference_SelectsBestAvailable](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L107)
      
      **Test Coverage:**
      - Auto preference with NPU tier selects DirectML
@@ -844,6 +850,7 @@ Copy this checklist to requirement documents:
   - [ ] Test file names documented
   - [ ] Test counts documented
   - [ ] Test coverage scenarios listed
+- [ ] **Traceability links validated** (project, file, class, method links resolve)
 - [ ] CLI validated (if applicable)
 - [ ] Requirement document updated with implementation details
 - [ ] Master tracker updated
@@ -993,6 +1000,9 @@ Before beginning ANY implementation work:
    - All unit tests pass
    - Integration tests pass (if applicable)
    - Code review completed
+   - **Test traceability validated**:
+     - Every requirement updated during the session includes links to test project, test file, test class, and all test methods
+     - Any missing link is a blocking issue and must be resolved before marking the requirement complete
 
 2. **Final Documentation Update**
    - Update requirement document with:

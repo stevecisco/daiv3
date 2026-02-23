@@ -29,23 +29,40 @@ The system SHALL use Microsoft.ML.OnnxRuntime.DirectML for in-process inference 
 
 ### Unit Tests: ✅ 20/20 Passing (100%)
 
-**Test Project:** `tests/unit/Daiv3.UnitTests/`
+**Test Project:** [tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj](tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj)
 
 **Test Files:**
-- **Knowledge/Embedding/EmbeddingOnnxOptionsTests.cs** (2 tests)
-  - Options validation and defaults
-  - Environment variable expansion in model paths
+- **[tests/unit/Daiv3.UnitTests/Knowledge/Embedding/EmbeddingOnnxOptionsTests.cs](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/EmbeddingOnnxOptionsTests.cs)** (2 tests)
+  - **Test Class:** [Daiv3.UnitTests.Knowledge.Embedding.EmbeddingOnnxOptionsTests](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/EmbeddingOnnxOptionsTests.cs#L6)
+  - **Test Methods:**
+    - [Validate_ThrowsWhenModelPathMissing](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/EmbeddingOnnxOptionsTests.cs#L9)
+    - [GetExpandedModelPath_ExpandsEnvironmentVariables](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/EmbeddingOnnxOptionsTests.cs#L19)
+  - **Coverage:** Options validation and environment variable expansion
   
-- **Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs** (17 tests)
-  - Auto preference selection based on hardware detection
-  - DirectML preference on Windows targets
-  - CPU preference fallback
-  - Thread configuration options
-  - Memory pattern options
-  - Multiple call consistency
+- **[tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs)** (17 tests)
+  - **Test Class:** [Daiv3.UnitTests.Knowledge.Embedding.OnnxSessionOptionsFactoryTests](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L17)
+  - **Test Methods:**
+    - [Create_WithCpuPreference_ReturnsCpuProvider](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L66)
+    - [Create_WithDirectMLPreference_AttemptsDirectML](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L85)
+    - [Create_WithAutoPreference_SelectsBestAvailable](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L107)
+    - [Create_WithAutoPreference_FallsBackToGpuWhenNpuUnavailable](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L129)
+    - [Create_WithAutoPreference_FallsBackToCpuWhenNoAccelerators](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L150)
+    - [Create_WithAutoPreference_NpuTier_PrefersDirectML](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L169)
+    - [Create_WithAutoPreference_GpuOnly_PrefersDirectML](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L190)
+    - [Create_ReturnsTuningOptions](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L211)
+    - [Create_AppliesMemoryPatternOptions](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L232)
+    - [Constructor_WithNullOptions_ThrowsArgumentNullException](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L253)
+    - [Create_MultipleCallsProduceConsistentProvider](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L267)
+    - [Create_DefaultThreadOptions_AppliedOnlyIfSet](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L286)
+    - [Create_AllPreferencesProduceSessions](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L311)
+    - [Create_CpuAlwaysAvailable](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs#L332)
+  - **Coverage:** Auto provider selection, DirectML/CPU fallback, threading, memory options
   
-- **Knowledge/Embedding/OnnxInferenceSessionProviderTests.cs** (1 test)
-  - Session provider creation and verification
+- **[tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxInferenceSessionProviderTests.cs](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxInferenceSessionProviderTests.cs)** (1 test)
+  - **Test Class:** [Daiv3.UnitTests.Knowledge.Embedding.OnnxInferenceSessionProviderTests](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxInferenceSessionProviderTests.cs#L9)
+  - **Test Methods:**
+    - [GetSessionAsync_ThrowsWhenModelMissing](tests/unit/Daiv3.UnitTests/Knowledge/Embedding/OnnxInferenceSessionProviderTests.cs#L12)
+  - **Coverage:** Session provider validation
 
 **Test Coverage:**
 - ✅ EmbeddingOnnxOptions validation and configuration
