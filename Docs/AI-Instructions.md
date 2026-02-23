@@ -1042,6 +1042,72 @@ Before beginning ANY implementation work:
 - ✅ **DO** use structured logging with named parameters
 - ✅ **DO** make logging levels configurable via appsettings.json
 
+---
+
+## 🚨 MANDATORY TRACKER UPDATE BEFORE COMPLETION
+
+**THIS IS A CRITICAL STEP - DO NOT SKIP OR OVERLOOK**
+
+**EVERY TIME you complete work on a requirement, you MUST update the Master Implementation Tracker BEFORE yielding back to the user.**
+
+### Required Tracker Updates
+
+For each requirement you worked on, you must:
+
+1. **Locate the requirement row** in `./Docs/Requirements/Master-Implementation-Tracker.md`
+
+2. **Update the Status column** to one of:
+   - `Not Started` - Requirements that have not been touched
+   - `In Progress` - Active work ongoing
+   - `Blocked` - Work cannot proceed (specify blocker in Notes)
+   - `Complete` - Work finished, all tests pass, documentation complete
+
+3. **Update the Progress % column** to reflect actual progress:
+   - 0% = Not Started
+   - 25% = Initial design/planning done
+   - 50% = Implementation in progress
+   - 75% = Implementation done, testing in progress
+   - 100% = Complete (code + tests + docs all done)
+
+4. **Update the Notes column** with:
+   - **For Complete status:** Summary of what was implemented
+   - **For In Progress status:** Current task focus, any blockers
+   - **For Blocked status:** Reason for blockage and what's needed to unblock
+   - **Key metrics:** Test counts (X/Y passing), documentation references, etc.
+
+5. **Add references** to:
+   - Test file locations and counts
+   - Documentation files created/updated
+   - Architecture decision documents (if created)
+   - Blocked predecessor requirements (if blocking this requirement)
+
+### Quick Tracker Update Template
+
+```markdown
+| Seq | Requirement | Status | Progress % | Notes |
+|-----|-------------|--------|------------|-------|
+| NN | [REQ-001](...) | Complete | 100% | ✅ COMPLETE - Implementation: [describe work]. Tests: 45/45 passing (Unit: 30, Integration: 15). Docs: [architecture-layer-boundaries.md](architecture-layer-boundaries.md), [layer-interface-specifications.md](layer-interface-specifications.md). |
+```
+
+### Why This Matters
+
+- **Single Source of Truth:** The tracker is the project's primary status dashboard
+- **Progress Visibility:** Users depend on accurate progress reporting
+- **Blocking Detection:** Related requirements can identify if predecessors are complete
+- **Audit Trail:** Future reviews need to know what was done and when
+- **Prevents Confusion:** Inaccurate tracker data has caused miscommunication multiple times
+
+### Consequence of Skipping This Step
+
+If you do not update the tracker:
+- The user cannot track actual project progress
+- Dependent requirements erroneously appear to be unblocked
+- Future work may duplicate effort on incomplete work
+- Project timeline and velocity metrics become invalid
+- The user must manually hunt through files to understand status
+
+---
+
 ### DON'T Requirements
 
 - ❌ **DON'T** start coding without reviewing requirements and design documents
@@ -1067,6 +1133,7 @@ Before beginning ANY implementation work:
 - ❌ **DON'T** implement MAUI features before validating in CLI
 - ❌ **DON'T** use string interpolation for log messages (use structured logging)
 - ❌ **DON'T** skip error handling at API boundaries and key areas
+- ❌ **🚨 CRITICAL: DON'T yield back to user without updating Master-Implementation-Tracker.md** - This has been missed twice; see MANDATORY TRACKER UPDATE section above
 
 ---
 
