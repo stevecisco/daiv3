@@ -6,33 +6,43 @@ Source Spec: 2. Target Hardware & Runtime Environment - Requirements
 On a GPU-only device, embedding generation completes without errors.
 
 ## Status
-**In Progress** - 2026-02-23
+**Blocked** - 2026-02-23
 
 ## Implementation Plan
-- Ensure the underlying feature set is implemented and wired.
-- Define the verification scenario and test harness.
-- Add observability to confirm behavior in logs and UI.
+- Implement embedding generation service (IEmbeddingService)
+- Create integration tests that disable NPU via environment variable
+- Measure and verify performance on actual hardware with simulated GPU-only config
 
 ## Implementation Tasks
-- [X] Ensure provider selection falls back to GPU when NPU is unavailable.
-- [X] Validate provider preference selection for GPU-only tier in automated tests.
-- [ ] Manual verification on GPU-only hardware.
+- [X] Ensure provider selection falls back to GPU when NPU is unavailable
+- [X] Validate provider preference selection for GPU-only tier in unit tests
+- [X] Implement hardware override via DAIV3_DISABLE_NPU environment variable
+- [ ] Implement IEmbeddingService that generates embeddings via ONNX Runtime
+- [ ] Create integration test that runs with DAIV3_DISABLE_NPU=1 and measures latency
+- [ ] Verify embedding output is valid and GPU backend was used
 
 ## Implementation Summary
-- Auto provider selection prefers DirectML when GPU tier is detected without NPU.
-- Structured logging indicates GPU fallback when NPU is unavailable or insufficient.
+- Hardware detection and ONNX session factory support GPU fallback
+- DAIV3_DISABLE_NPU environment variable simulates GPU-only device on NPU hardware
+- **BLOCKED**: No embedding generation service exists yet to test end-to-end
 
 ## Testing Plan
-- Automated test matching the acceptance scenario.
-- Manual verification checklist for UI or user flows.
+- Integration test that:
+  1. Sets DAIV3_DISABLE_NPU=1 to simulate GPU-only device
+  2. Loads real ONNX embedding model
+  3. Generates embeddings for test text
+  4. Verifies output is valid float array with correct dimensions
+  5. Measures and logs latency
+  6. Verifies DirectML provider was used (GPU, not NPU) via logs
 
 ## Testing Summary
-- Unit tests validate Auto preference resolves to DirectML for GPU-only tier with CPU fallback permitted.
-- Manual verification on real GPU-only hardware is still required.
+- Unit tests for hardware tier selection with DAIV3_DISABLE_NPU: ✅ PASSING
+- Unit tests for ONNX session options: ✅ PASSING
+- Integration tests for actual embedding generation: ❌ NOT IMPLEMENTED (service doesn't exist)
 
 ## Usage and Operational Notes
-- Auto provider selection falls back to GPU (DirectML) when NPU is unavailable or insufficient.
-- No UI surfaces yet; verification is through logs and hardware diagnostics.
+- Set DAIV3_DISABLE_NPU=1 to simulate GPU-only hardware on NPU device
+- No embedding service exists yet to test acceptance criteria
 
 ## Dependencies
 - KLC-REQ-001

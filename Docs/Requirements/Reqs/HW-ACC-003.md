@@ -6,34 +6,45 @@ Source Spec: 2. Target Hardware & Runtime Environment - Requirements
 On a CPU-only device, embedding generation completes within acceptable latency thresholds.
 
 ## Status
-**In Progress** - 2026-02-23
+**Blocked** - 2026-02-23
 
 ## Implementation Plan
-- Ensure the underlying feature set is implemented and wired.
-- Define the verification scenario and test harness.
-- Add observability to confirm behavior in logs and UI.
+- Implement embedding generation service (IEmbeddingService)
+- Create integration tests that force CPU via environment variable
+- Measure latency and verify it meets <250ms threshold
 
 ## Implementation Tasks
-- [X] Define CPU-only latency threshold (250ms per embedding).
-- [X] Add CPU-only latency integration test gated by model path.
-- [ ] Execute latency test on CPU-only hardware and record results.
+- [X] Define CPU-only latency threshold (250ms per embedding)
+- [X] Ensure provider selection falls back to CPU when forced
+- [X] Implement hardware override via DAIV3_FORCE_CPU_ONLY environment variable
+- [ ] Implement IEmbeddingService that generates embeddings via ONNX Runtime
+- [ ] Create integration test that runs with DAIV3_FORCE_CPU_ONLY=true
+- [ ] Measure latency and verify <250ms threshold
+- [ ] Verify embedding output is valid and CPU backend was used
 
 ## Implementation Summary
-- CPU fallback is selected when no accelerators are available.
-- A gated integration test measures CPU embedding latency against a 250ms threshold.
+- Hardware detection and ONNX session factory support CPU fallback
+- DAIV3_FORCE_CPU_ONLY environment variable simulates CPU-only device
+- **BLOCKED**: No embedding generation service exists yet to test end-to-end
 
 ## Testing Plan
-- Automated test matching the acceptance scenario.
-- Manual verification checklist for UI or user flows.
+- Integration test that:
+  1. Sets DAIV3_FORCE_CPU_ONLY=true to force CPU execution
+  2. Loads real ONNX embedding model
+  3. Generates embeddings for test text
+  4. Verifies output is valid float array with correct dimensions
+  5. Measures latency and asserts <250ms
+  6. Verifies CPU provider was used via logs
 
 ## Testing Summary
-- Added integration test gated by `DAIV3_EMBEDDING_MODEL_PATH` for CPU latency.
-- Manual execution on CPU-only hardware is still required.
+- Unit tests for hardware tier selection with DAIV3_FORCE_CPU_ONLY: ✅ PASSING
+- Unit tests for ONNX session options: ✅ PASSING
+- Integration tests for actual embedding generation: ❌ NOT IMPLEMENTED (service doesn't exist)
 
 ## Usage and Operational Notes
-- Set `DAIV3_EMBEDDING_MODEL_PATH` to run the CPU latency check.
-- Auto provider selection falls back to CPU when NPU/GPU are unavailable or insufficient.
-- For testing on non-CPU-only devices, set `DAIV3_FORCE_CPU_ONLY=true` before running the latency test.
+- Set DAIV3_FORCE_CPU_ONLY=true to simulate CPU-only hardware on NPU/GPU device
+- No embedding service exists yet to test acceptance criteria
+- Latency threshold: <250ms per embedding on CPU
 
 ## Dependencies
 - KLC-REQ-001

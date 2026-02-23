@@ -6,33 +6,43 @@ Source Spec: 2. Target Hardware & Runtime Environment - Requirements
 On an NPU device, embedding generation uses the NPU by default.
 
 ## Status
-**In Progress** - 2026-02-23
+**Blocked** - 2026-02-23
 
 ## Implementation Plan
-- Ensure the underlying feature set is implemented and wired.
-- Define the verification scenario and test harness.
-- Add observability to confirm behavior in logs and UI.
+- Implement embedding generation service (IEmbeddingService)
+- Create integration tests that use environment variables to simulate hardware configs
+- Measure and verify performance on actual hardware
 
 ## Implementation Tasks
-- [X] Ensure hardware detection prefers NPU tier when available.
-- [X] Validate provider preference selection for NPU tier in automated tests.
-- [ ] Manual verification on NPU hardware.
+- [X] Ensure hardware detection prefers NPU tier when available
+- [X] Validate provider preference selection for NPU tier in unit tests
+- [X] Implement hardware override via DAIV3_DISABLE_NPU, DAIV3_DISABLE_GPU, DAIV3_FORCE_CPU_ONLY
+- [ ] Implement IEmbeddingService that generates embeddings via ONNX Runtime
+- [ ] Create integration test that runs with default config (NPU enabled) and measures latency
+- [ ] Verify embedding output is valid and NPU backend was used
 
 ## Implementation Summary
-- Auto provider selection prefers DirectML when NPU is detected via hardware tiers.
-- Structured logging indicates NPU preference when available.
+- Hardware detection and ONNX session factory support NPU preference
+- Environment variable overrides work (DAIV3_DISABLE_NPU, DAIV3_DISABLE_GPU, DAIV3_FORCE_CPU_ONLY)
+- **BLOCKED**: No embedding generation service exists yet to test end-to-end
 
 ## Testing Plan
-- Automated test matching the acceptance scenario.
-- Manual verification checklist for UI or user flows.
+- Integration test that:
+  1. Runs on actual NPU hardware (no environment overrides)
+  2. Loads real ONNX embedding model
+  3. Generates embeddings for test text
+  4. Verifies output is valid float array with correct dimensions
+  5. Measures and logs latency
+  6. Verifies DirectML provider was used via logs
 
 ## Testing Summary
-- Unit tests validate Auto preference resolves to DirectML when NPU tier is detected.
-- Manual verification on real NPU hardware is still required.
+- Unit tests for hardware tier selection: ✅ PASSING
+- Unit tests for ONNX session options: ✅ PASSING
+- Integration tests for actual embedding generation: ❌ NOT IMPLEMENTED (service doesn't exist)
 
 ## Usage and Operational Notes
-- Auto provider selection is used by default; NPU preference is logged when detected.
-- No UI surfaces yet; verification is through logs and hardware diagnostics.
+- Hardware detection respects environment variable overrides
+- No embedding service exists yet to test acceptance criteria
 
 ## Dependencies
 - KLC-REQ-001
