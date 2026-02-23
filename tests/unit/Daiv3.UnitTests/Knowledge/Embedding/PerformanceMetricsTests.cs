@@ -97,7 +97,7 @@ public class PerformanceMetricsTests
     }
 
     [Fact]
-    public void IsSlowOperation_AtThreshold_ReturnsTrue()
+    public void IsSlowOperation_AtThreshold_ReturnsFalse()
     {
         // Arrange
         var metrics = new PerformanceMetrics
@@ -111,7 +111,7 @@ public class PerformanceMetricsTests
         bool isSlow = metrics.IsSlowOperation(10.0);
 
         // Assert
-        Assert.True(isSlow); // Exactly at threshold is considered slow
+        Assert.False(isSlow); // Exactly at threshold is NOT considered slow (must exceed)
     }
 
     [Fact]

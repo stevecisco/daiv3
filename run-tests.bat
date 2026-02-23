@@ -1,7 +1,15 @@
 @echo off
 setlocal
 
-echo Running all unit tests...
+echo ================================================================================
+echo Running All Unit and Integration Tests
+echo ================================================================================
 echo.
 
-dotnet test "%~dp0tests\unit\Daiv3.UnitTests\Daiv3.UnitTests.csproj" --framework net10.0-windows10.0.26100 --verbosity normal %*
+REM Run all tests in the solution (all target frameworks)
+dotnet test "%~dp0Daiv3.FoundryLocal.slnx" --verbosity normal %*
+
+echo.
+echo ================================================================================
+echo Test Run Complete
+echo ================================================================================
