@@ -89,6 +89,11 @@ Use conditional `<ItemGroup>` blocks to reference platform-specific packages:
 - Libraries that only use cross-platform .NET APIs
 - Test projects (use `net10.0` only)
 
+**Multi-Targeting Guardrails (Required):**
+- Never set both `TargetFramework` and `TargetFrameworks` in the same project file.
+- If a library multi-targets and is referenced by tests, ensure the test project targets a compatible TFM set.
+- If a library includes a Windows-only TFM, the referencing test project must include that Windows TFM or the library must also target `net10.0`.
+
 **Build Verification:**
 
 Add a build target to verify TFM selection:
@@ -177,6 +182,13 @@ Use conditional compilation for platform-specific implementations:
 - Test creation is mandatory, not optional
 - Requirements MUST include test creation tasks with estimates
 - Implementation and testing are a single atomic unit of work
+- When adding tasks to a requirement, update the Status and Progress % in the master implementation tracker
+- Tests MUST be executed to verify discovery and pass status; do not mark requirements complete if tests cannot be run
+
+**Test Discovery Troubleshooting (Required):**
+- If tests are not discovered, first check TFM compatibility between test projects and referenced libraries.
+- Ensure test projects include `IsTestProject=true` and a current `Microsoft.NET.Test.Sdk` + xUnit adapter.
+- If discovery still fails, run `dotnet test <solution> --verbosity minimal` to surface build errors.
 
 #### Testing Best Practices
 
