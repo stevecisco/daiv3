@@ -45,10 +45,27 @@ The following categories are **automatically approved** and do not require entri
 
 ## Pending Review (ADD Required)
 
-| Dependency Name | Versions Evaluated | Purpose | ADD Document | Status |
-|-----------------|-------------------|---------|--------------|--------|
-| PDF Extraction Library | TBD | Extract text from PDF documents | Pending | Not Yet Created |
-| MCP SDK | TBD | Model Context Protocol integration | Pending | Not Yet Created |
+| Dependency Name | Versions Evaluated | Purpose | ADD Document | Status | KLC Reference |
+|-----------------|-------------------|---------|--------------|--------|--------|
+| AngleSharp vs HtmlAgilityPack | TBD | HTML parsing for web content extraction | ADD-HtmlParser | Pending Decision | KLC-REQ-007 |
+| PdfPig | TBD | PDF text extraction | ADD-PdfProcessing | Pending | KLC-REQ-009 |
+| Model Context Protocol .NET SDK | TBD | Model Context Protocol tool integration | ADD-McpIntegration | Pending | KLC-REQ-008 |
+| UI Framework (WinUI 3, Windows App SDK, or MAUI) | TBD | User interface implementation | ADD-UiFramework | Pending Decision | KLC-REQ-011 |
+
+## Pre-Approved Libraries (KLC Requirements Coverage)
+
+The following libraries are already covered by pre-approved categories:
+
+| Library | Version | Pre-Approved Category | KLC Requirement | Notes |
+|---------|---------|----------------------|-----------------|-------|
+| Microsoft.ML.OnnxRuntime.DirectML | Latest | Microsoft.ML.* packages | KLC-REQ-001 | ONNX Runtime with DirectML acceleration |
+| Microsoft.ML.Tokenizers | Latest | Microsoft.ML.* packages | KLC-REQ-002 | Tokenization support |
+| System.Numerics.TensorPrimitives | Latest | System.* packages | KLC-REQ-003 | CPU vector math primitives |
+| Microsoft.Data.Sqlite | Latest | Pre-approved list | KLC-REQ-004 | Persistence layer |
+| Microsoft.Extensions.AI | Latest | Pre-approved list | KLC-REQ-005 & KLC-REQ-006 | Foundry Local integration & online provider abstractions |
+| Foundry Local SDK | Latest | Project Dependencies | KLC-REQ-005 | Local model execution |
+| DocumentFormat.OpenXml | Latest | Pre-approved list | KLC-REQ-009 | DOCX extraction |
+| Quartz.NET | All | Rejected | KLC-REQ-010 | Use custom scheduler instead |
 
 ## Version Upgrade Process
 
