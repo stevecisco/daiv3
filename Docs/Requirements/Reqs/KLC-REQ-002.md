@@ -42,6 +42,39 @@ The system SHALL use Microsoft.ML.Tokenizers for tokenization.
 - Negative tests: invalid options throw during validation.
 - Performance checks deferred to KM-REQ-004/KM-NFR-001.
 
+## Testing Summary
+
+### Unit Tests: ✅ 8/8 Passing (100%)
+
+**Test Project:** `tests/unit/Daiv3.UnitTests/`
+
+**Test Files:**
+- **Knowledge/DocProc/TokenizerProviderTests.cs** (1 test)
+  - Tokenizer provider initialization and caching
+  
+- **Knowledge/DocProc/TokenizationOptionsTests.cs** (5 tests)
+  - Default configuration values
+  - Options validation
+  - Configuration overrides
+  - Invalid option detection
+  
+- **Knowledge/DocProc/TextChunkerTests.cs** (2 tests)
+  - Token-based chunking behavior
+  - Chunk overlap functionality
+  - Token count validation
+
+**Test Coverage:**
+- ✅ TokenizationOptions validation and defaults
+- ✅ TokenizerProvider caching and lazy initialization
+- ✅ TextChunker token-based chunking
+- ✅ Chunk size and overlap token count calculations
+- ✅ Support for configurable encoding names (gpt2, etc.)
+- ✅ Error handling for invalid configurations
+
+### Integration Tests: ⏸️ Deferred
+- Integration tests deferred until document ingestion pipeline is implemented (KM-REQ-004)
+- End-to-end chunking with real documents pending pipeline integration
+
 ## Usage and Operational Notes
 - Register with DI via `AddDocumentProcessingServices` and configure `TokenizationOptions`.
 - Chunk sizes are token-based, not character-based; overlap is measured in tokens.

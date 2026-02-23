@@ -169,6 +169,39 @@ Use conditional compilation for platform-specific implementations:
    - Integration tests: `tests/integration/Daiv3.[ComponentName].IntegrationTests/`
    - Follow existing test project patterns (`Daiv3.UnitTests.csproj`, multi-targeting for Windows-specific features)
 
+5. **Test Traceability Matrix (MANDATORY)**
+   - **Every requirement document MUST track which tests validate it**
+   - Update requirement document's "Testing Summary" section with:
+     - **Test Project Path**: Full relative path to test project (e.g., `tests/unit/Daiv3.UnitTests/`)
+     - **Test File Name**: Complete filename with extension (e.g., `OnnxSessionOptionsFactoryTests.cs`)
+     - **Test Class Name**: Fully qualified class name if different from file name
+     - **Test Count**: Total number of tests in the file (e.g., "16 tests")
+     - **Test Status**: Passing/Failing count (e.g., "✅ 16/16 passing" or "❌ 14/16 passing, 2 failing")
+     - **Test Coverage Details**: List of key test scenarios covered
+   - Format example:
+     ```markdown
+     ## Testing Summary
+     
+     ### Unit Tests: ✅ 16/16 Passing (100%)
+     
+     **Test Project:** `tests/unit/Daiv3.UnitTests/`
+     **Test File:** `Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs`
+     
+     **Test Coverage:**
+     - Auto preference with NPU tier selects DirectML
+     - Auto preference with GPU tier selects DirectML
+     - Auto preference with CPU-only tier selects CPU
+     - Explicit CPU preference overrides hardware detection
+     - Explicit DirectML preference attempts DirectML (with CPU fallback)
+     - Multiple calls produce consistent provider selection
+     - All memory and threading options applied correctly
+     
+     ### Integration Tests: ❌ Not Implemented
+     - Integration tests blocked on embedding service implementation
+     ```
+   - **This traceability is MANDATORY for requirement completion**
+   - Without test traceability, the requirement is NOT complete even if code exists
+
 #### Why This Was Missed (Root Cause Analysis)
 
 **Previous Implementation Gap:**
@@ -770,6 +803,11 @@ A feature or requirement is NOT complete unless ALL of the following criteria ar
 ### 4. Documentation Complete
 - ✅ Requirement document updated with implementation details
 - ✅ Implementation tasks marked complete
+- ✅ **Testing Summary section updated with test traceability**:
+  - Test project paths documented
+  - Test file names documented
+  - Test counts documented (X/X passing)
+  - Test coverage scenarios listed
 - ✅ Known issues documented (if any) with resolution plan
 - ✅ API documentation (XML comments) on public members
 - ✅ Master-Implementation-Tracker.md updated
@@ -801,6 +839,11 @@ Copy this checklist to requirement documents:
 - [ ] Implementation complete and compiles without warnings
 - [ ] Unit tests created and passing (X/X tests)
 - [ ] Integration tests created and passing (X/X tests)
+- [ ] **Testing Summary section updated with test traceability:**
+  - [ ] Test project paths documented
+  - [ ] Test file names documented
+  - [ ] Test counts documented
+  - [ ] Test coverage scenarios listed
 - [ ] CLI validated (if applicable)
 - [ ] Requirement document updated with implementation details
 - [ ] Master tracker updated
@@ -877,6 +920,11 @@ Before beginning ANY implementation work:
      - Unit test scenarios
      - Integration test scenarios (if applicable)
      - Edge cases to handle
+   - Initialize "Testing Summary" section with:
+     - Placeholder for test project paths
+     - Placeholder for test file names
+     - Expected test coverage areas
+     - Note: "Tests to be implemented during Phase 2"
 
 4. **Update Master-Implementation-Tracker.md**
    - Find the requirement row in the tracker
@@ -925,6 +973,11 @@ Before beginning ANY implementation work:
    - As tasks complete, update the requirement document:
      - Mark tasks complete in "Task Breakdown"
      - Update Progress % based on remaining tasks
+     - **Update "Testing Summary" section with test traceability:**
+       - Add test project path
+       - Add test file name(s)
+       - Add test counts (X/X passing)
+       - List key test coverage scenarios
      - Add technical notes, decisions, blockers
      - Document CLI testing results and lessons learned
    - After each significant milestone:
@@ -961,6 +1014,7 @@ Before beginning ANY implementation work:
 - ✅ **DO** ensure all code compiles without errors/warnings
 - ✅ **DO** write testable code (loose coupling, dependency injection)
 - ✅ **DO** run and verify all unit tests pass
+- ✅ **DO** document test traceability in requirement "Testing Summary" sections
 - ✅ **DO** update requirement documents with detailed designs before coding
 - ✅ **DO** update requirement documents incrementally as work progresses
 - ✅ **DO** update Master-Implementation-Tracker.md as work progresses

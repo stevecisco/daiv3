@@ -35,8 +35,32 @@ The system SHALL prefer NPU execution for embeddings and batch vector operations
 - Manual verification via UI workflows when applicable.
 
 ## Testing Summary
-- Added unit tests for hardware-aware vector similarity routing and provider preference selection.
-- Existing ONNX session options tests updated to include hardware detection input.
+
+### Unit Tests: ✅ Covered
+
+**Test Project:** `tests/unit/Daiv3.UnitTests/`
+
+**Test Files:**
+- **Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs** (17 tests)
+  - Auto preference with NPU tier selects DirectML ✅
+  - Hardware detection integration ✅
+  - NPU preference validation ✅
+  
+- **Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs** (17 tests)
+  - NPU detection on Copilot+ devices ✅
+  - GetBestAvailableTier() returns NPU when available ✅
+  - Hardware tier ordering (NPU > GPU > CPU) ✅
+
+**Test Coverage:**
+- ✅ Hardware detection identifies NPU tier on Copilot+ devices
+- ✅ ONNX session factory selects DirectML for NPU tier
+- ✅ Provider preference resolution uses NPU when available
+- ✅ Vector similarity routing considers hardware tiers
+- ✅ Logging indicates NPU preference selection
+
+### Integration Tests: ⏸️ Deferred
+- NPU execution validation with real models deferred to KM-REQ-013
+- Batch vector operations on NPU pending implementation
 
 ## Usage and Operational Notes
 - Embedding execution provider preference defaults to Auto and is resolved using detected hardware tiers.

@@ -38,7 +38,34 @@ outlined in the hardware execution chain.
 - Manual verification via UI workflows when applicable.
 
 ## Testing Summary
-- Unit and integration tests completed under KLC-REQ-001 and KLC-REQ-003.
+
+**Status:** Tests implemented under KLC-REQ-001 (ONNX Runtime DirectML) and KLC-REQ-003 (TensorPrimitives)
+
+### Unit Tests: ✅ Covered by Parent Requirements
+
+**Test Project:** `tests/unit/Daiv3.UnitTests/`
+
+**Related Test Files:**
+- **Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs** (17 tests) - See [KLC-REQ-001](KLC-REQ-001.md#testing-summary)
+  - DirectML execution provider selection on Windows
+  - CPU fallback when DirectML unavailable
+  - Auto preference hardware detection integration
+  
+- **Knowledge/Embedding/CpuVectorSimilarityServiceTests.cs** (48 tests) - See [KLC-REQ-003](KLC-REQ-003.md#testing-summary)
+  - CPU vector operations with TensorPrimitives
+  - SIMD acceleration validation
+  - Cosine similarity and dot product operations
+
+**Test Coverage:**
+- ✅ ONNX Runtime with DirectML provider creation on Windows targets
+- ✅ DirectML session options factory with hardware detection
+- ✅ CPU fallback when DirectML unavailable
+- ✅ Vector operations using TensorPrimitives SIMD
+- ✅ Embedding generation path (deferred to full embedding service - KM-REQ-013)
+
+### Integration Tests: ⏸️ Deferred
+- End-to-end embedding generation with ONNX Runtime deferred to KM-REQ-013
+- DirectML hardware acceleration validation pending real model integration
 
 ## Usage and Operational Notes
 - Configure `EmbeddingOnnxOptions.ModelPath` and register services via

@@ -34,7 +34,39 @@ The system SHALL fall back to CPU when NPU and GPU are unavailable.
 - Manual verification via UI workflows when applicable.
 
 ## Testing Summary
-- Added unit test coverage for Auto preference CPU fallback.
+
+### Unit Tests: ✅ Covered
+
+**Test Project:** `tests/unit/Daiv3.UnitTests/`
+
+**Test Files:**
+- **Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs** (17 tests)
+  - Auto preference with CPU-only tier selects CPU provider ✅
+  - CPU fallback when DirectML unavailable ✅
+  - Hardware detection integration ✅
+  
+- **Infrastructure/Shared/Hardware/HardwareDetectionProviderTests.cs** (17 tests)
+  - CPU tier always available ✅
+  - CPU-only detection ✅
+  - Force CPU-only override testing ✅
+  
+- **Knowledge/Embedding/CpuVectorSimilarityServiceTests.cs** (48 tests)
+  - CPU vector operations with TensorPrimitives SIMD ✅
+  - All vector similarity metrics on CPU ✅
+  - Performance validation ✅
+
+**Test Coverage:**
+- ✅ Hardware detection always includes CPU tier as fallback
+- ✅ ONNX session factory selects CPU provider when no accelerators available
+- ✅ Auto preference falls back to CPU when NPU/GPU unavailable
+- ✅ Vector similarity executes on CPU with SIMD optimizations
+- ✅ Logging indicates CPU fallback decision
+- ✅ Environment override DAIV3_FORCE_CPU_ONLY forces CPU tier
+- ✅ CPU execution completes without errors
+
+### Integration Tests: ⏸️ Deferred
+- CPU execution latency validation with real models deferred to KM-REQ-013
+- Performance benchmarking for CPU-only execution pending
 
 ## Usage and Operational Notes
 - Auto provider selection falls back to CPU when NPU/GPU are unavailable or insufficient.

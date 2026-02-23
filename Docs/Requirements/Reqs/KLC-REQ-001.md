@@ -25,6 +25,40 @@ The system SHALL use Microsoft.ML.OnnxRuntime.DirectML for in-process inference 
 - Negative tests: missing model path throws before session initialization.
 - Performance checks deferred to KM-REQ-013/HW-REQ-003 when real models are wired.
 
+## Testing Summary
+
+### Unit Tests: ✅ 20/20 Passing (100%)
+
+**Test Project:** `tests/unit/Daiv3.UnitTests/`
+
+**Test Files:**
+- **Knowledge/Embedding/EmbeddingOnnxOptionsTests.cs** (2 tests)
+  - Options validation and defaults
+  - Environment variable expansion in model paths
+  
+- **Knowledge/Embedding/OnnxSessionOptionsFactoryTests.cs** (17 tests)
+  - Auto preference selection based on hardware detection
+  - DirectML preference on Windows targets
+  - CPU preference fallback
+  - Thread configuration options
+  - Memory pattern options
+  - Multiple call consistency
+  
+- **Knowledge/Embedding/OnnxInferenceSessionProviderTests.cs** (1 test)
+  - Session provider creation and verification
+
+**Test Coverage:**
+- ✅ EmbeddingOnnxOptions validation and configuration
+- ✅ OnnxSessionOptionsFactory hardware-aware provider selection
+- ✅ DirectML preference on Windows with CPU fallback
+- ✅ CPU-only preference selection
+- ✅ Threading and memory options application
+- ✅ Model path validation and expansion
+
+### Integration Tests: ⏸️ Deferred
+- Integration tests deferred until real embedding models are integrated (KM-REQ-013)
+- End-to-end inference testing pending model availability
+
 ## Usage and Operational Notes
 - Register with DI via `EmbeddingServiceExtensions.AddEmbeddingServices` and configure `EmbeddingOnnxOptions.ModelPath`.
 - Default provider preference is Auto: DirectML on Windows, CPU fallback on other targets or DirectML init failure.
