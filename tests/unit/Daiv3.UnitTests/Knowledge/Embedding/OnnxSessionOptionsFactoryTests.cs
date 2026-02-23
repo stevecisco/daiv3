@@ -147,6 +147,25 @@ public class OnnxSessionOptionsFactoryTests
     }
 
     [Fact]
+    public void Create_WithAutoPreference_FallsBackToCpuWhenNoAccelerators()
+    {
+        // Arrange
+        var options = GetDefaultOptions();
+        options.ExecutionProviderPreference = OnnxExecutionProviderPreference.Auto;
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Cpu));
+
+        // Act
+        var sessionOptions = factory.Create(out var provider);
+
+        // Assert
+        Assert.NotNull(sessionOptions);
+        Assert.Equal(OnnxExecutionProvider.Cpu, provider);
+    }
+
+    [Fact]
     public void Create_ReturnsTuningOptions()
     {
         // Arrange

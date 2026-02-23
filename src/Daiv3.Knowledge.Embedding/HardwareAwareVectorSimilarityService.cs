@@ -50,6 +50,7 @@ public sealed class HardwareAwareVectorSimilarityService : IVectorSimilarityServ
         var tiers = _hardwareDetection.GetAvailableTiers();
         var bestTier = tiers.Count > 0 ? tiers[0] : HardwareAccelerationTier.Cpu;
         bool hasNpu = tiers.Contains(HardwareAccelerationTier.Npu);
+        bool hasGpu = tiers.Contains(HardwareAccelerationTier.Gpu);
         switch (bestTier)
         {
             case HardwareAccelerationTier.Npu:
@@ -69,7 +70,15 @@ public sealed class HardwareAwareVectorSimilarityService : IVectorSimilarityServ
                 }
                 break;
             default:
-                _logger.LogDebug("CPU vector operations selected.");
+                if (!hasNpu && !hasGpu)
+                {
+                    _logger.LogInformation(
+                        "NPU/GPU unavailable or insufficient; falling back to CPU for vector operations.");
+                }
+                else
+                {
+                    _logger.LogDebug("CPU vector operations selected.");
+                }
                 break;
         }
     }
