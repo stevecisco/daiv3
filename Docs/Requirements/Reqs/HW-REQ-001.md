@@ -5,28 +5,21 @@ Source Spec: 2. Target Hardware & Runtime Environment - Requirements
 ## Requirement
 The system SHALL support Windows 11 Copilot+ devices with NPUs.
 
+## Status
+Superseded by HW-CON-001. This requirement is fully covered by the runtime targeting and hardware tier definition in HW-CON-001; no separate implementation or testing work remains.
+
 ## Implementation Plan
-- Identify the owning component and interface boundary.
-- Define data contracts, configuration, and defaults.
-- Implement the core logic with clear error handling and logging.
-- Add integration points to orchestration and UI where applicable.
-- Document configuration and operational behavior.
+- N/A (covered by HW-CON-001)
 
 ## Testing Plan
-- Unit tests to validate primary behavior and edge cases.
-- Integration tests with dependent components and data stores.
-- Negative tests to verify failure modes and error messages.
-- Performance or load checks if the requirement impacts latency.
-- Manual verification via UI workflows when applicable.
+- N/A (covered by HW-CON-001)
 
 ## Usage and Operational Notes
-- Describe how this capability is invoked or configured.
-- List user-visible effects and any UI surfaces involved.
-- Specify operational constraints (offline mode, budgets, permissions).
+- N/A (covered by HW-CON-001)
 
 ## Dependencies
 - KLC-REQ-001
 - KLC-REQ-003
 
 ## Related Requirements
-- None
+- HW-CON-001

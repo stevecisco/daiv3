@@ -9,7 +9,7 @@ This document specifies requirements derived from Section 2 of the design docume
 - Use ONNX Runtime DirectML to select execution providers.
 
 ## Functional Requirements
-- HW-REQ-001: The system SHALL support Windows 11 Copilot+ devices with NPUs.
+- HW-REQ-001: The system SHALL support Windows 11 Copilot+ devices with NPUs. (Covered by HW-CON-001)
 - HW-REQ-002: The system SHALL support ARM64 (Snapdragon X Elite) and x64 (Intel Core Ultra NPU) architectures.
 - HW-REQ-003: The system SHALL execute embedding generation and vector operations using ONNX Runtime DirectML.
 - HW-REQ-004: The system SHALL prefer NPU execution for embeddings and batch vector operations when available.
