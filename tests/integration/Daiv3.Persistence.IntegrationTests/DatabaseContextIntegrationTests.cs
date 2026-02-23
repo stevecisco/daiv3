@@ -31,26 +31,34 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         if (_context != null)
         {
             await _context.DisposeAsync();
+            _context = null;
         }
 
-        // Clean up test database
+        // Clear connection pools before attempting file deletion
+        SqliteConnection.ClearAllPools();
+        
+        // Give time for finalizers to complete
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        
+        // Wait a bit for any lingering file handles to release
+        await Task.Delay(200);
+
+        // Clean up test database with retry logic
         if (File.Exists(_testDbPath))
         {
-            var retries = 5;
+            var retries = 10;
             while (retries > 0)
             {
                 try
                 {
-                    SqliteConnection.ClearAllPools();
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
                     File.Delete(_testDbPath);
                     break;
                 }
-                catch
+                catch (IOException) when (retries > 1)
                 {
                     retries--;
-                    if (retries == 0) throw;
                     await Task.Delay(100);
                 }
             }
@@ -234,17 +242,18 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         // Act
         await using (var transaction = await _context.BeginTransactionAsync())
         {
-            await using var command = transaction.Connection!.CreateCommand();
-            command.Transaction = transaction;
+            var dbTran = (DatabaseTransaction)transaction;
+            await using var command = dbTran.Connection!.CreateCommand();
+            command.Transaction = dbTran.InnerTransaction;
             command.CommandText = @"
                 INSERT INTO projects (project_id, name, root_paths, created_at, updated_at, status)
                 VALUES ($id, $name, $paths, $created, $updated, $status)";
-            command.Parameters.AddWithValue("$id", projectId);
-            command.Parameters.AddWithValue("$name", "Test Project");
-            command.Parameters.AddWithValue("$paths", "/test/path");
-            command.Parameters.AddWithValue("$created", timestamp);
-            command.Parameters.AddWithValue("$updated", timestamp);
-            command.Parameters.AddWithValue("$status", "active");
+            command.Parameters.Add(new SqliteParameter("$id", projectId));
+            command.Parameters.Add(new SqliteParameter("$name", "Test Project"));
+            command.Parameters.Add(new SqliteParameter("$paths", "/test/path"));
+            command.Parameters.Add(new SqliteParameter("$created", timestamp));
+            command.Parameters.Add(new SqliteParameter("$updated", timestamp));
+            command.Parameters.Add(new SqliteParameter("$status", "active"));
             await command.ExecuteNonQueryAsync();
             await transaction.CommitAsync();
         }
@@ -268,17 +277,18 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         // Act
         await using (var transaction = await _context.BeginTransactionAsync())
         {
-            await using var command = transaction.Connection!.CreateCommand();
-            command.Transaction = transaction;
+            var dbTran = (DatabaseTransaction)transaction;
+            await using var command = dbTran.Connection!.CreateCommand();
+            command.Transaction = dbTran.InnerTransaction;
             command.CommandText = @"
                 INSERT INTO projects (project_id, name, root_paths, created_at, updated_at, status)
                 VALUES ($id, $name, $paths, $created, $updated, $status)";
-            command.Parameters.AddWithValue("$id", projectId);
-            command.Parameters.AddWithValue("$name", "Test Project");
-            command.Parameters.AddWithValue("$paths", "/test/path");
-            command.Parameters.AddWithValue("$created", timestamp);
-            command.Parameters.AddWithValue("$updated", timestamp);
-            command.Parameters.AddWithValue("$status", "active");
+            command.Parameters.Add(new SqliteParameter("$id", projectId));
+            command.Parameters.Add(new SqliteParameter("$name", "Test Project"));
+            command.Parameters.Add(new SqliteParameter("$paths", "/test/path"));
+            command.Parameters.Add(new SqliteParameter("$created", timestamp));
+            command.Parameters.Add(new SqliteParameter("$updated", timestamp));
+            command.Parameters.Add(new SqliteParameter("$status", "active"));
             await command.ExecuteNonQueryAsync();
             await transaction.RollbackAsync();
         }

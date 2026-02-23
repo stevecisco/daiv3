@@ -2,6 +2,7 @@ using Daiv3.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Data.Common;
 using System.Diagnostics;
 using Xunit;
 using Xunit.Abstractions;
@@ -35,26 +36,34 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         if (_context != null)
         {
             await _context.DisposeAsync();
+            _context = null;
         }
 
-        // Clean up test database
+        // Clear connection pools before attempting file deletion
+        SqliteConnection.ClearAllPools();
+        
+        // Give time for finalizers to complete
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        
+        // Wait a bit for any lingering file handles to release
+        await Task.Delay(200);
+
+        // Clean up test database with retry logic
         if (File.Exists(_testDbPath))
         {
-            var retries = 5;
+            var retries = 10;
             while (retries > 0)
             {
                 try
                 {
-                    SqliteConnection.ClearAllPools();
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
                     File.Delete(_testDbPath);
                     break;
                 }
-                catch
+                catch (IOException) when (retries > 1)
                 {
                     retries--;
-                    if (retries == 0) throw;
                     await Task.Delay(100);
                 }
             }
@@ -352,38 +361,40 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         await command.ExecuteNonQueryAsync();
     }
 
-    private async Task InsertDocumentAsync(SqliteTransaction transaction, string docId, string sourcePath, long timestamp)
+    private async Task InsertDocumentAsync(DbTransaction transaction, string docId, string sourcePath, long timestamp)
     {
-        await using var command = transaction.Connection!.CreateCommand();
-        command.Transaction = transaction;
+        var dbTran = (DatabaseTransaction)transaction;
+        await using var command = dbTran.Connection!.CreateCommand();
+        command.Transaction = dbTran.InnerTransaction;
         command.CommandText = @"
             INSERT INTO documents (doc_id, source_path, file_hash, format, size_bytes, last_modified, status, created_at)
             VALUES ($id, $path, $hash, $format, $size, $modified, $status, $created)";
-        command.Parameters.AddWithValue("$id", docId);
-        command.Parameters.AddWithValue("$path", sourcePath);
-        command.Parameters.AddWithValue("$hash", $"hash-{docId}");
-        command.Parameters.AddWithValue("$format", "text/plain");
-        command.Parameters.AddWithValue("$size", 1024);
-        command.Parameters.AddWithValue("$modified", timestamp);
-        command.Parameters.AddWithValue("$status", "indexed");
-        command.Parameters.AddWithValue("$created", timestamp);
+        command.Parameters.Add(new SqliteParameter("$id", docId));
+        command.Parameters.Add(new SqliteParameter("$path", sourcePath));
+        command.Parameters.Add(new SqliteParameter("$hash", $"hash-{docId}"));
+        command.Parameters.Add(new SqliteParameter("$format", "text/plain"));
+        command.Parameters.Add(new SqliteParameter("$size", 1024));
+        command.Parameters.Add(new SqliteParameter("$modified", timestamp));
+        command.Parameters.Add(new SqliteParameter("$status", "indexed"));
+        command.Parameters.Add(new SqliteParameter("$created", timestamp));
         await command.ExecuteNonQueryAsync();
     }
 
-    private async Task InsertTopicIndexAsync(SqliteTransaction transaction, string docId, byte[] embedding, long timestamp)
+    private async Task InsertTopicIndexAsync(DbTransaction transaction, string docId, byte[] embedding, long timestamp)
     {
-        await using var command = transaction.Connection!.CreateCommand();
-        command.Transaction = transaction;
+        var dbTran = (DatabaseTransaction)transaction;
+        await using var command = dbTran.Connection!.CreateCommand();
+        command.Transaction = dbTran.InnerTransaction;
         command.CommandText = @"
             INSERT INTO topic_index (doc_id, summary_text, embedding_blob, embedding_dimensions, source_path, file_hash, ingested_at)
             VALUES ($docId, $summary, $blob, $dims, $path, $hash, $ingested)";
-        command.Parameters.AddWithValue("$docId", docId);
-        command.Parameters.AddWithValue("$summary", "Test summary");
-        command.Parameters.AddWithValue("$blob", embedding);
-        command.Parameters.AddWithValue("$dims", embedding.Length / sizeof(float));
-        command.Parameters.AddWithValue("$path", "/test/path.txt");
-        command.Parameters.AddWithValue("$hash", $"hash-{docId}");
-        command.Parameters.AddWithValue("$ingested", timestamp);
+        command.Parameters.Add(new SqliteParameter("$docId", docId));
+        command.Parameters.Add(new SqliteParameter("$summary", "Test summary"));
+        command.Parameters.Add(new SqliteParameter("$blob", embedding));
+        command.Parameters.Add(new SqliteParameter("$dims", embedding.Length / sizeof(float)));
+        command.Parameters.Add(new SqliteParameter("$path", "/test/path.txt"));
+        command.Parameters.Add(new SqliteParameter("$hash", $"hash-{docId}"));
+        command.Parameters.Add(new SqliteParameter("$ingested", timestamp));
         await command.ExecuteNonQueryAsync();
     }
 

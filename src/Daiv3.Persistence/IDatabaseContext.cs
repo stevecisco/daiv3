@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace Daiv3.Persistence;
 
@@ -23,10 +24,12 @@ public interface IDatabaseContext : IAsyncDisposable
 
     /// <summary>
     /// Begins a new database transaction.
+    /// The returned transaction manages both the transaction and its connection.
+    /// Disposing the transaction will automatically dispose the connection.
     /// </summary>
     /// <param name="ct">Cancellation token</param>
-    /// <returns>A database transaction</returns>
-    Task<SqliteTransaction> BeginTransactionAsync(CancellationToken ct = default);
+    /// <returns>A database transaction that manages its connection lifecycle</returns>
+    Task<DbTransaction> BeginTransactionAsync(CancellationToken ct = default);
 
     /// <summary>
     /// Migrates the database schema to the latest version.

@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Data.Common;
 
 namespace Daiv3.Persistence;
 
@@ -96,10 +97,11 @@ public sealed class DatabaseContext : IDatabaseContext
         return connection;
     }
 
-    public async Task<SqliteTransaction> BeginTransactionAsync(CancellationToken ct = default)
+    public async Task<DbTransaction> BeginTransactionAsync(CancellationToken ct = default)
     {
         var connection = await GetConnectionAsync(ct).ConfigureAwait(false);
-        return (SqliteTransaction)await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        return new DatabaseTransaction(connection, transaction);
     }
 
     public async Task MigrateToLatestAsync(CancellationToken ct = default)
