@@ -1,3 +1,4 @@
+using Daiv3.Infrastructure.Shared.Hardware;
 using Daiv3.Knowledge.Embedding;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,6 +16,32 @@ namespace Daiv3.UnitTests.Knowledge.Embedding;
 /// </summary>
 public class OnnxSessionOptionsFactoryTests
 {
+    private sealed class StubHardwareDetectionProvider : IHardwareDetectionProvider
+    {
+        private readonly HardwareAccelerationTier _tier;
+
+        public StubHardwareDetectionProvider(HardwareAccelerationTier tier)
+        {
+            _tier = tier;
+        }
+
+        public HardwareAccelerationTier GetBestAvailableTier() => _tier;
+
+        public bool IsTierAvailable(HardwareAccelerationTier tier)
+        {
+            return tier == _tier || tier == HardwareAccelerationTier.Cpu;
+        }
+
+        public IReadOnlyList<HardwareAccelerationTier> GetAvailableTiers()
+        {
+            return _tier == HardwareAccelerationTier.Cpu
+                ? new[] { HardwareAccelerationTier.Cpu }
+                : new[] { _tier, HardwareAccelerationTier.Cpu };
+        }
+
+        public string GetDiagnosticInfo() => $"BestTier: {_tier}";
+    }
+
     /// <summary>
     /// Helper method to create a default logger for testing.
     /// </summary>
@@ -41,7 +68,10 @@ public class OnnxSessionOptionsFactoryTests
         // Arrange
         var options = GetDefaultOptions();
         options.ExecutionProviderPreference = OnnxExecutionProviderPreference.Cpu;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Cpu));
 
         // Act
         var sessionOptions = factory.Create(out var provider);
@@ -57,7 +87,10 @@ public class OnnxSessionOptionsFactoryTests
         // Arrange
         var options = GetDefaultOptions();
         options.ExecutionProviderPreference = OnnxExecutionProviderPreference.DirectML;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Gpu));
 
         // Act
         var sessionOptions = factory.Create(out var provider);
@@ -76,7 +109,10 @@ public class OnnxSessionOptionsFactoryTests
         // Arrange
         var options = GetDefaultOptions();
         options.ExecutionProviderPreference = OnnxExecutionProviderPreference.Auto;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Npu));
 
         // Act
         var sessionOptions = factory.Create(out var provider);
@@ -96,7 +132,10 @@ public class OnnxSessionOptionsFactoryTests
         var options = GetDefaultOptions();
         options.IntraOpNumThreads = 4;
         options.InterOpNumThreads = 2;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Cpu));
 
         // Act
         var sessionOptions = factory.Create(out var provider);
@@ -114,7 +153,10 @@ public class OnnxSessionOptionsFactoryTests
         var options = GetDefaultOptions();
         options.EnableMemoryPattern = true;
         options.EnableCpuMemArena = true;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Cpu));
 
         // Act
         var sessionOptions = factory.Create(out var provider);
@@ -133,7 +175,10 @@ public class OnnxSessionOptionsFactoryTests
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new OnnxSessionOptionsFactory(GetTestLogger(), nullOptions!));
+            new OnnxSessionOptionsFactory(
+                GetTestLogger(),
+                nullOptions!,
+                new StubHardwareDetectionProvider(HardwareAccelerationTier.Cpu)));
     }
 
     [Fact]
@@ -142,7 +187,10 @@ public class OnnxSessionOptionsFactoryTests
         // Arrange
         var options = GetDefaultOptions();
         options.ExecutionProviderPreference = OnnxExecutionProviderPreference.Cpu;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Cpu));
 
         // Act
         factory.Create(out var provider1);
@@ -159,7 +207,10 @@ public class OnnxSessionOptionsFactoryTests
         var options = GetDefaultOptions();
         options.IntraOpNumThreads = null;
         options.InterOpNumThreads = null;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Cpu));
 
         // Act
         var sessionOptions = factory.Create(out var provider);
@@ -180,7 +231,10 @@ public class OnnxSessionOptionsFactoryTests
         // Arrange
         var options = GetDefaultOptions();
         options.ExecutionProviderPreference = preference;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Gpu));
 
         // Act
         var sessionOptions = factory.Create(out var provider);
@@ -198,7 +252,10 @@ public class OnnxSessionOptionsFactoryTests
         // Arrange - Force CPU preference to ensure it works
         var options = GetDefaultOptions();
         options.ExecutionProviderPreference = OnnxExecutionProviderPreference.Cpu;
-        var factory = new OnnxSessionOptionsFactory(GetTestLogger(), Options.Create(options));
+        var factory = new OnnxSessionOptionsFactory(
+            GetTestLogger(),
+            Options.Create(options),
+            new StubHardwareDetectionProvider(HardwareAccelerationTier.Cpu));
 
         // Act
         var sessionOptions = factory.Create(out var provider);

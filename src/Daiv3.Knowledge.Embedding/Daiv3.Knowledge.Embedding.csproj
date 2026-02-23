@@ -21,6 +21,10 @@
     <PackageReference Include="System.Numerics.Tensors" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Daiv3.Infrastructure.Shared\Daiv3.Infrastructure.Shared.csproj" />
+  </ItemGroup>
+
   <!-- Conditional package references based on TFM for hardware acceleration -->
   <ItemGroup Condition="$(TargetFramework.Contains('windows'))">
     <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.20.1" />

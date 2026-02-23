@@ -1,3 +1,4 @@
+using Daiv3.Infrastructure.Shared.Hardware;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daiv3.Knowledge.Embedding;
@@ -20,9 +21,11 @@ public static class EmbeddingServiceExtensions
             services.Configure<EmbeddingOnnxOptions>(_ => { });
         }
 
+        services.AddHardwareDetection();
         services.AddSingleton<IOnnxSessionOptionsFactory, OnnxSessionOptionsFactory>();
         services.AddSingleton<IOnnxInferenceSessionProvider, OnnxInferenceSessionProvider>();
-        services.AddSingleton<IVectorSimilarityService, CpuVectorSimilarityService>();
+        services.AddSingleton<CpuVectorSimilarityService>();
+        services.AddSingleton<IVectorSimilarityService, HardwareAwareVectorSimilarityService>();
 
         return services;
     }

@@ -1,3 +1,4 @@
+using Daiv3.Infrastructure.Shared.Hardware;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.ML.OnnxRuntime;
@@ -8,20 +9,23 @@ public sealed class OnnxSessionOptionsFactory : IOnnxSessionOptionsFactory
 {
     private readonly ILogger<OnnxSessionOptionsFactory> _logger;
     private readonly EmbeddingOnnxOptions _options;
+    private readonly IHardwareDetectionProvider _hardwareDetection;
 
     public OnnxSessionOptionsFactory(
         ILogger<OnnxSessionOptionsFactory> logger,
-        IOptions<EmbeddingOnnxOptions> options)
+        IOptions<EmbeddingOnnxOptions> options,
+        IHardwareDetectionProvider hardwareDetection)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _hardwareDetection = hardwareDetection ?? throw new ArgumentNullException(nameof(hardwareDetection));
     }
 
     public SessionOptions Create(out OnnxExecutionProvider selectedProvider)
     {
         _options.Validate();
 
-        var preference = _options.ExecutionProviderPreference;
+        var preference = ResolvePreference(_options.ExecutionProviderPreference);
 
 #if NET10_0_WINDOWS10_0_26100_OR_GREATER
         if (preference == OnnxExecutionProviderPreference.Auto ||
@@ -53,6 +57,28 @@ public sealed class OnnxSessionOptionsFactory : IOnnxSessionOptionsFactory
         ApplyCommonOptions(cpuOptions);
         selectedProvider = OnnxExecutionProvider.Cpu;
         return cpuOptions;
+    }
+
+    private OnnxExecutionProviderPreference ResolvePreference(OnnxExecutionProviderPreference preference)
+    {
+        if (preference != OnnxExecutionProviderPreference.Auto)
+        {
+            return preference;
+        }
+
+        var bestTier = _hardwareDetection.GetBestAvailableTier();
+        switch (bestTier)
+        {
+            case HardwareAccelerationTier.Npu:
+                _logger.LogInformation("NPU detected; preferring DirectML for embedding inference.");
+                return OnnxExecutionProviderPreference.DirectML;
+            case HardwareAccelerationTier.Gpu:
+                _logger.LogInformation("GPU detected; preferring DirectML for embedding inference.");
+                return OnnxExecutionProviderPreference.DirectML;
+            default:
+                _logger.LogDebug("No hardware accelerator detected; using CPU for embedding inference.");
+                return OnnxExecutionProviderPreference.Cpu;
+        }
     }
 
     private void ApplyCommonOptions(SessionOptions options)
