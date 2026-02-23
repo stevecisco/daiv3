@@ -27,7 +27,7 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 | Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
 |-----|-------------|---------------|-------------|--------------|--------|------------|-------|
-| 1 | [KLC-REQ-004](Reqs/KLC-REQ-004.md) | [12. Key .NET Libraries & Components](Specs/12-Key-Libraries-Components.md) | The system SHALL use Microsoft.Data.Sqlite for persistence. | None | Not Started | 0% | **CRITICAL PATH** - Foundation for all data storage |
+| 1 | [KLC-REQ-004](Reqs/KLC-REQ-004.md) | [12. Key .NET Libraries & Components](Specs/12-Key-Libraries-Components.md) | The system SHALL use Microsoft.Data.Sqlite for persistence. | None | Complete | 100% | **CRITICAL PATH** - SQLite persistence with 8 tables, migrations, CLI commands working |
 | 2 | [KLC-REQ-001](Reqs/KLC-REQ-001.md) | [12. Key .NET Libraries & Components](Specs/12-Key-Libraries-Components.md) | The system SHALL use Microsoft.ML.OnnxRuntime.DirectML for in-process inference. | None | Not Started | 0% | **CRITICAL PATH** - Required for embeddings |
 | 3 | [KLC-REQ-002](Reqs/KLC-REQ-002.md) | [12. Key .NET Libraries & Components](Specs/12-Key-Libraries-Components.md) | The system SHALL use Microsoft.ML.Tokenizers for tokenization. | None | Not Started | 0% | Required for text chunking |
 | 4 | [KLC-REQ-003](Reqs/KLC-REQ-003.md) | [12. Key .NET Libraries & Components](Specs/12-Key-Libraries-Components.md) | The system SHALL use System.Numerics.TensorPrimitives for CPU vector math. | None | Not Started | 0% | CPU fallback support |
@@ -68,7 +68,7 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 | Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
 |-----|-------------|---------------|-------------|--------------|--------|------------|-------|
-| 33 | [KM-DATA-001](Reqs/KM-DATA-001.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | The database SHALL include topic_index, chunk_index, documents, projects, tasks, sessions, model_queue tables. | KLC-REQ-004 | Not Started | 0% | SQLite schema definition |
+| 33 | [KM-DATA-001](Reqs/KM-DATA-001.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | The database SHALL include topic_index, chunk_index, documents, projects, tasks, sessions, model_queue tables. | KLC-REQ-004 | Complete | 100% | All 8 tables created with indexes and foreign keys |
 | 34 | [KM-REQ-001](Reqs/KM-REQ-001.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | The system SHALL detect new or changed files in watched directories. | KLC-REQ-004 | Not Started | 0% | File system watcher |
 | 35 | [KM-REQ-002](Reqs/KM-REQ-002.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | The system SHALL extract text from PDF, DOCX, HTML, MD, TXT, code files. | KM-REQ-001 | Not Started | 0% | Multi-format text extraction |
 | 36 | [KM-REQ-003](Reqs/KM-REQ-003.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | The system SHALL convert HTML to Markdown for indexing. | KM-REQ-002 | Not Started | 0% | HTML → Markdown conversion |
@@ -112,7 +112,7 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 | 65 | [MM-ACC-002](Reqs/MM-ACC-002.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can download a model by name/version/device type to shared cache. | MM-REQ-007 | In Progress | 80% | CLI download with progress bar |
 | 66 | [MM-ACC-003](Reqs/MM-ACC-003.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can list all cached models and see which are available on disk. | MM-REQ-014 | In Progress | 85% | CLI cached list implemented |
 | 67 | [MM-ACC-004](Reqs/MM-ACC-004.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can delete a cached model and reclaim disk space. | MM-REQ-019 | In Progress | 80% | CLI delete model implemented |
-| 68 | [MQ-DATA-001](Reqs/MQ-DATA-001.md) | [5. Model Execution & Queue Management](Specs/05-Model-Execution-Queue.md) | The system SHALL persist queue state in a model_queue table. | KLC-REQ-004 | Not Started | 0% | Queue persistence schema |
+| 68 | [MQ-DATA-001](Reqs/MQ-DATA-001.md) | [5. Model Execution & Queue Management](Specs/05-Model-Execution-Queue.md) | The system SHALL persist queue state in a model_queue table. | KLC-REQ-004 | Complete | 100% | model_queue table created with status, priority, payload columns |
 | 69 | [MQ-REQ-001](Reqs/MQ-REQ-001.md) | [5. Model Execution & Queue Management](Specs/05-Model-Execution-Queue.md) | The system SHALL enforce constraint that only one Foundry Local model is loaded at a time. | KLC-REQ-005 | Not Started | 0% | **CRITICAL** - Single model constraint |
 | 70 | [MQ-REQ-002](Reqs/MQ-REQ-002.md) | [5. Model Execution & Queue Management](Specs/05-Model-Execution-Queue.md) | The system SHALL provide three priority levels: P0 (Immediate), P1 (Normal), P2 (Background). | MQ-REQ-001 | Not Started | 0% | Priority queue levels |
 | 71 | [MQ-REQ-003](Reqs/MQ-REQ-003.md) | [5. Model Execution & Queue Management](Specs/05-Model-Execution-Queue.md) | Queue manager SHALL execute P0 requests immediately, even if model switch required. | MQ-REQ-002 | Not Started | 0% | P0: Immediate execution |
@@ -302,5 +302,5 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 **Last Updated:** February 22, 2026  
 **Total Requirements:** 212  
 **Completed:** 0 (0%)  
-**In Progress:** 8 (Model Management - 80-85%)  
-**Not Started:** 204 (96%)
+**In Progress:** 9 (4% - Model Management 80-85%, SQLite Persistence 50%)  
+**Not Started:** 203 (96%)
