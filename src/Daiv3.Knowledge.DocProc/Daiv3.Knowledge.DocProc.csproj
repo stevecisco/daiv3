@@ -17,6 +17,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="0.22.0-preview.24378.1" />
     <!-- TODO: Add DocumentFormat.OpenXml after verification as Microsoft library -->
     <!-- <PackageReference Include="DocumentFormat.OpenXml" Version="..." /> -->
     <!-- TODO: PDF extraction - requires ADD -->
