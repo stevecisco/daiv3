@@ -1,0 +1,327 @@
+using Daiv3.Knowledge.DocProc;
+using Daiv3.Knowledge.Embedding;
+using Daiv3.Persistence;
+using Daiv3.Persistence.Entities;
+using Daiv3.Persistence.Repositories;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using System.Security.Cryptography;
+
+namespace Daiv3.Knowledge;
+
+/// <summary>
+/// Orchestrates the knowledge document ingestion pipeline.
+/// Handles text extraction, chunking, embedding generation, and SQLite storage.
+/// </summary>
+public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
+{
+    private readonly DocumentRepository _documentRepository;
+    private readonly IVectorStoreService _vectorStore;
+    private readonly ITextChunker _textChunker;
+    private readonly ITokenizerProvider _tokenizerProvider;
+    private readonly ILogger<KnowledgeDocumentProcessor> _logger;
+    private readonly DocumentProcessingOptions _options;
+
+    public KnowledgeDocumentProcessor(
+        DocumentRepository documentRepository,
+        IVectorStoreService vectorStore,
+        ITextChunker textChunker,
+        ITokenizerProvider tokenizerProvider,
+        ILogger<KnowledgeDocumentProcessor> logger,
+        DocumentProcessingOptions? options = null)
+    {
+        _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
+        _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
+        _textChunker = textChunker ?? throw new ArgumentNullException(nameof(textChunker));
+        _tokenizerProvider = tokenizerProvider ?? throw new ArgumentNullException(nameof(tokenizerProvider));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options ?? new DocumentProcessingOptions();
+    }
+
+    public async Task<DocumentProcessingResult> ProcessDocumentAsync(
+        string documentPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(documentPath);
+
+        var stopwatch = Stopwatch.StartNew();
+        var result = new DocumentProcessingResult { DocumentId = GenerateDocumentId(documentPath) };
+
+        try
+        {
+            if (!File.Exists(documentPath))
+            {
+                result.Success = false;
+                result.ErrorMessage = "File not found";
+                stopwatch.Stop();
+                result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
+                _logger.LogWarning("Document file not found: {Path}", documentPath);
+                return result;
+            }
+
+            var fileInfo = new FileInfo(documentPath);
+            var fileHash = await ComputeFileHashAsync(documentPath, cancellationToken).ConfigureAwait(false);
+
+            // Check if document already exists and hasn't changed
+            var existingDoc = await _documentRepository.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            var existingEntry = existingDoc.FirstOrDefault(d => d.SourcePath == documentPath);
+
+            if (existingEntry != null && _options.SkipUnchangedDocuments && existingEntry.FileHash == fileHash)
+            {
+                result.Success = true;
+                result.ErrorMessage = "Document unchanged (skipped)";
+                stopwatch.Stop();
+                result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
+                _logger.LogDebug("Skipped processing unchanged document: {Path}", documentPath);
+                return result;
+            }
+
+            // Extract text from document (placeholder - actual extraction logic needed)
+            var text = await ExtractTextAsync(documentPath, cancellationToken).ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                result.Success = false;
+                result.ErrorMessage = "No text content extracted";
+                stopwatch.Stop();
+                result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
+                _logger.LogWarning("No text extracted from document: {Path}", documentPath);
+                return result;
+            }
+
+            // Generate topic summary (placeholder - SLM integration needed)
+            var summary = GenerateTopicSummary(text);
+            var summaryTokens = CountTokens(summary);
+
+            // Chunk the document
+            var chunks = _textChunker.Chunk(text);
+
+            if (chunks.Count == 0)
+            {
+                result.Success = false;
+                result.ErrorMessage = "Document could not be chunked";
+                stopwatch.Stop();
+                result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
+                return result;
+            }
+
+            // Create or update document entry
+            var docId = result.DocumentId;
+            var document = new Document
+            {
+                DocId = docId,
+                SourcePath = documentPath,
+                FileHash = fileHash,
+                Format = Path.GetExtension(documentPath),
+                SizeBytes = fileInfo.Length,
+                LastModified = fileInfo.LastWriteTimeUtc.ToFileTimeUtc(),
+                Status = "indexed",
+                CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                MetadataJson = null
+            };
+
+            // Check if we need to update existing document
+            if (existingEntry != null)
+            {
+                // Delete old embeddings first
+                await _vectorStore.DeleteTopicAndChunksAsync(docId, cancellationToken).ConfigureAwait(false);
+                await _documentRepository.UpdateAsync(document, cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Updated document: {Path}", documentPath);
+            }
+            else
+            {
+                await _documentRepository.AddAsync(document, cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Added new document: {Path}", documentPath);
+            }
+
+            // Generate and store embeddings
+            // Placeholder: actual embedding generation will use ONNX Runtime
+            var summaryEmbedding = new float[384]; // 384 dims for Tier 1
+            Array.Fill(summaryEmbedding, 0.1f); // Placeholder
+
+            await _vectorStore.StoreTopicIndexAsync(
+                docId,
+                summary,
+                summaryEmbedding,
+                documentPath,
+                fileHash,
+                ct: cancellationToken).ConfigureAwait(false);
+
+            // Store chunks with embeddings
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                var chunkEmbedding = new float[768]; // 768 dims for Tier 2
+                Array.Fill(chunkEmbedding, 0.1f); // Placeholder
+
+                await _vectorStore.StoreChunkAsync(
+                    docId,
+                    chunks[i].Text,
+                    chunkEmbedding,
+                    i,
+                    ct: cancellationToken).ConfigureAwait(false);
+            }
+
+            result.Success = true;
+            result.ChunkCount = chunks.Count;
+            result.SummaryTokens = summaryTokens;
+            result.TotalTokens = CountTokens(text);
+
+            _logger.LogInformation(
+                "Successfully processed document {DocId}: {ChunkCount} chunks, {TotalTokens} tokens",
+                docId,
+                result.ChunkCount,
+                result.TotalTokens);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.ErrorMessage = ex.Message;
+            _logger.LogError(ex, "Error processing document: {Path}", documentPath);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
+        }
+
+        return result;
+    }
+
+    public async Task<IReadOnlyList<DocumentProcessingResult>> ProcessDocumentsAsync(
+        IEnumerable<string> documentPaths,
+        IProgress<(int Processed, int Total, string CurrentFile)>? progressCallback = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(documentPaths);
+
+        var paths = documentPaths.ToList();
+        var results = new List<DocumentProcessingResult>();
+
+        for (int i = 0; i < paths.Count; i++)
+        {
+            try
+            {
+                var result = await ProcessDocumentAsync(paths[i], cancellationToken).ConfigureAwait(false);
+                results.Add(result);
+
+                progressCallback?.Report((i + 1, paths.Count, paths[i]));
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing document in batch: {Path}", paths[i]);
+            }
+        }
+
+        _logger.LogInformation(
+            "Processed {SuccessCount}/{TotalCount} documents successfully",
+            results.Count(r => r.Success),
+            paths.Count);
+
+        return results;
+    }
+
+    public async Task<DocumentProcessingResult> UpdateDocumentAsync(
+        string documentPath,
+        CancellationToken cancellationToken = default)
+    {
+        return await ProcessDocumentAsync(documentPath, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<bool> RemoveDocumentAsync(
+        string documentPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(documentPath);
+
+        try
+        {
+            var allDocs = await _documentRepository.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            var doc = allDocs.FirstOrDefault(d => d.SourcePath == documentPath);
+
+            if (doc == null)
+            {
+                _logger.LogWarning("Document not found for removal: {Path}", documentPath);
+                return false;
+            }
+
+            // Delete embeddings and index entries
+            await _vectorStore.DeleteTopicAndChunksAsync(doc.DocId, cancellationToken).ConfigureAwait(false);
+
+            // Delete document record
+            await _documentRepository.DeleteAsync(doc.DocId, cancellationToken).ConfigureAwait(false);
+
+            _logger.LogInformation("Removed document from index: {Path}", documentPath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing document: {Path}", documentPath);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Generates a document ID from the file path.
+    /// </summary>
+    private static string GenerateDocumentId(string filePath)
+    {
+        // Use hash of the canonical path as ID
+        var canonicalPath = Path.GetFullPath(filePath);
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(canonicalPath));
+        return Convert.ToHexString(hash).ToLower()[..16]; // First 16 chars of hex
+    }
+
+    /// <summary>
+    /// Computes SHA256 hash of a file.
+    /// </summary>
+    private static async Task<string> ComputeFileHashAsync(string filePath, CancellationToken cancellationToken)
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = File.OpenRead(filePath);
+        var hash = await sha256.ComputeHashAsync(stream, cancellationToken).ConfigureAwait(false);
+        return Convert.ToHexString(hash);
+    }
+
+    /// <summary>
+    /// Extracts text from a document.
+    /// Currently placeholder - will integrate with actual text extraction services.
+    /// </summary>
+    private async Task<string> ExtractTextAsync(string filePath, CancellationToken cancellationToken)
+    {
+        // Placeholder implementation - reads file as text for .txt files
+        var extension = Path.GetExtension(filePath).ToLowerInvariant();
+
+        return extension switch
+        {
+            ".txt" => await File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false),
+            ".md" => await File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false),
+            _ => throw new NotSupportedException($"Document type not supported: {extension}")
+        };
+    }
+
+    /// <summary>
+    /// Generates a topic summary from document text.
+    /// Placeholder - will integrate with local SLM.
+    /// </summary>
+    private static string GenerateTopicSummary(string text)
+    {
+        // Placeholder: take first 2-3 sentences
+        var sentences = text.Split('.', '!', '?');
+        var summary = string.Join(". ", sentences.Take(3)).TrimEnd() + ".";
+        return summary.Length > 500 ? summary[..500] : summary;
+    }
+
+    /// <summary>
+    /// Counts tokens in text using the configured tokenizer.
+    /// </summary>
+    private int CountTokens(string text)
+    {
+        // Placeholder: approximate word count
+        return text.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+}
