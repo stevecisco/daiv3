@@ -4,11 +4,33 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:Daiv3.App.Maui"
-    Title="Daiv3.App.Maui">
+    xmlns:pages="clr-namespace:Daiv3.App.Maui.Pages"
+    Title="DAIv3">
 
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    <TabBar>
+        <ShellContent
+            Title="Dashboard"
+            Icon="home.png"
+            ContentTemplate="{DataTemplate pages:DashboardPage}"
+            Route="DashboardPage" />
+
+        <ShellContent
+            Title="Chat"
+            Icon="chat.png"
+            ContentTemplate="{DataTemplate pages:ChatPage}"
+            Route="ChatPage" />
+
+        <ShellContent
+            Title="Projects"
+            Icon="folder.png"
+            ContentTemplate="{DataTemplate pages:ProjectsPage}"
+            Route="ProjectsPage" />
+
+        <ShellContent
+            Title="Settings"
+            Icon="settings.png"
+            ContentTemplate="{DataTemplate pages:SettingsPage}"
+            Route="SettingsPage" />
+    </TabBar>
 
 </Shell>

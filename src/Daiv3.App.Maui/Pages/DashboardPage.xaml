@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Daiv3.App.Maui.ViewModels"
+             x:Class="Daiv3.App.Maui.Pages.DashboardPage"
+             x:DataType="vm:DashboardViewModel"
+             Title="{Binding Title}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="20">
+            
+            <!-- Header -->
+            <Label Text="System Status Dashboard"
+                   FontSize="24"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center" />
+
+            <!-- Hardware Status Section -->
+            <Frame BackgroundColor="{StaticResource Gray100}"
+                   Padding="15"
+                   CornerRadius="10">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Hardware Status"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="5">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Overall:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding HardwareStatus}" />
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Text="NPU:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding NpuStatus}" />
+                        
+                        <Label Grid.Row="2" Grid.Column="0" Text="GPU:" FontAttributes="Bold" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding GpuStatus}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Task Queue Section -->
+            <Frame BackgroundColor="{StaticResource Gray100}"
+                   Padding="15"
+                   CornerRadius="10">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Task Queue"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto" RowSpacing="5">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Queued Tasks:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding QueuedTasks}" />
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Text="Completed Tasks:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding CompletedTasks}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Current Activity Section -->
+            <Frame BackgroundColor="{StaticResource Gray100}"
+                   Padding="15"
+                   CornerRadius="10">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Current Activity"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <Label Text="{Binding CurrentActivity}"
+                           FontSize="14" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Loading Indicator -->
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                              IsVisible="{Binding IsBusy}"
+                              Color="{StaticResource Primary}"
+                              VerticalOptions="Center"
+                              HorizontalOptions="Center" />
+
+            <!-- Refresh Note -->
+            <Label Text="Dashboard auto-refreshes periodically. Integration with hardware detection and model queue pending."
+                   FontSize="12"
+                   Opacity="0.6"
+                   HorizontalOptions="Center"
+                   HorizontalTextAlignment="Center"
+                   Margin="0,10,0,0" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

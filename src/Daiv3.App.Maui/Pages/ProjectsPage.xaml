@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Daiv3.App.Maui.ViewModels"
+             x:Class="Daiv3.App.Maui.Pages.ProjectsPage"
+             x:DataType="vm:ProjectsViewModel"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*">
+        
+        <!-- Toolbar -->
+        <HorizontalStackLayout Grid.Row="0"
+                              Padding="15"
+                              Spacing="10"
+                              BackgroundColor="{StaticResource Gray100}">
+            <Button Text="New Project"
+                    Command="{Binding CreateProjectCommand}" />
+        </HorizontalStackLayout>
+
+        <!-- Projects List -->
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Projects}"
+                        SelectionMode="Single"
+                        SelectedItem="{Binding SelectedProject}"
+                        Margin="10">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center"
+                                    HorizontalOptions="Center"
+                                    Spacing="10">
+                    <Label Text="No projects yet"
+                           FontSize="18"
+                           Opacity="0.6"
+                           HorizontalOptions="Center" />
+                    <Label Text="Click 'New Project' to create one"
+                           FontSize="14"
+                           Opacity="0.4"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProjectItem">
+                    <Frame Padding="15"
+                           Margin="5"
+                           BackgroundColor="{StaticResource Gray100}"
+                           CornerRadius="8">
+                        <Grid ColumnDefinitions="*,Auto"
+                              RowDefinitions="Auto,Auto,Auto">
+                            
+                            <!-- Project Name -->
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="{Binding Name}"
+                                   FontSize="18"
+                                   FontAttributes="Bold" />
+
+                            <!-- Delete Button -->
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Text="Delete"
+                                    BackgroundColor="{StaticResource Gray300}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ProjectsViewModel}}, Path=DeleteProjectCommand}"
+                                    CommandParameter="{Binding .}" />
+
+                            <!-- Description -->
+                            <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                   Text="{Binding Description}"
+                                   FontSize="14"
+                                   Opacity="0.7"
+                                   Margin="0,5,0,0" />
+
+                            <!-- Metadata -->
+                            <HorizontalStackLayout Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                                  Spacing="15"
+                                                  Margin="0,10,0,0">
+                                <Label Text="{Binding CreatedDate, StringFormat='Created: {0:MMM dd, yyyy}'}"
+                                       FontSize="12"
+                                       Opacity="0.6" />
+                                <Label Text="{Binding TaskCount, StringFormat='Tasks: {0}'}"
+                                       FontSize="12"
+                                       Opacity="0.6" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Loading Indicator -->
+        <ActivityIndicator Grid.Row="1"
+                          IsRunning="{Binding IsBusy}"
+                          IsVisible="{Binding IsBusy}"
+                          Color="{StaticResource Primary}"
+                          VerticalOptions="Center"
+                          HorizontalOptions="Center" />
+    </Grid>
+
+</ContentPage>

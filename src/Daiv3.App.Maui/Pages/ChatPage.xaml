@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Daiv3.App.Maui.ViewModels"
+             x:Class="Daiv3.App.Maui.Pages.ChatPage"
+             x:DataType="vm:ChatViewModel"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="*,Auto">
+        <!-- Chat Messages Area -->
+        <CollectionView Grid.Row="0"
+                        ItemsSource="{Binding Messages}"
+                        Margin="10">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:ChatMessage">
+                    <Grid Padding="5"
+                          ColumnDefinitions="Auto,*,Auto">
+                        
+                        <!-- User Message (right-aligned) -->
+                        <Frame Grid.Column="2"
+                               BackgroundColor="{StaticResource Primary}"
+                               Padding="10"
+                               CornerRadius="10"
+                               Margin="50,5,0,5"
+                               IsVisible="{Binding IsUser}">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding Text}"
+                                       TextColor="White"
+                                       FontSize="14" />
+                                <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                       TextColor="White"
+                                       FontSize="10"
+                                       Opacity="0.7"
+                                       HorizontalOptions="End" />
+                            </VerticalStackLayout>
+                        </Frame>
+
+                        <!-- AI Message (left-aligned) -->
+                        <Frame Grid.Column="0"
+                               BackgroundColor="{StaticResource Gray200}"
+                               Padding="10"
+                               CornerRadius="10"
+                               Margin="0,5,50,5"
+                               IsVisible="{Binding IsUser, Converter={StaticResource InvertedBoolConverter}}">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding Text}"
+                                       TextColor="Black"
+                                       FontSize="14" />
+                                <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                       TextColor="Black"
+                                       FontSize="10"
+                                       Opacity="0.5"
+                                       HorizontalOptions="Start" />
+                            </VerticalStackLayout>
+                        </Frame>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Input Area -->
+        <Grid Grid.Row="1"
+              Padding="10"
+              ColumnDefinitions="*,Auto,Auto"
+              BackgroundColor="{StaticResource Gray100}">
+            
+            <Entry Grid.Column="0"
+                   Text="{Binding MessageInput}"
+                   Placeholder="Type a message..."
+                   VerticalOptions="Center"
+                   IsEnabled="{Binding IsWaitingForResponse, Converter={StaticResource InvertedBoolConverter}}" />
+
+            <Button Grid.Column="1"
+                    Text="Send"
+                    Command="{Binding SendMessageCommand}"
+                    Margin="5,0"
+                    IsEnabled="{Binding IsWaitingForResponse, Converter={StaticResource InvertedBoolConverter}}" />
+
+            <Button Grid.Column="2"
+                    Text="Clear"
+                    Command="{Binding ClearChatCommand}"
+                    BackgroundColor="{StaticResource Gray300}" />
+        </Grid>
+
+        <!-- Loading Indicator -->
+        <ActivityIndicator Grid.Row="0"
+                          IsRunning="{Binding IsWaitingForResponse}"
+                          IsVisible="{Binding IsWaitingForResponse}"
+                          Color="{StaticResource Primary}"
+                          VerticalOptions="Center"
+                          HorizontalOptions="Center" />
+    </Grid>
+
+</ContentPage>
