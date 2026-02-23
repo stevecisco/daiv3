@@ -46,13 +46,24 @@ A comprehensive distributed AI system with support for:
 
 ### Code Quality Gates
 - ✅ All code **must compile** without errors/warnings
-- ✅ All **unit tests must pass**
+- ✅ All **unit tests must pass** (100% passing before completion)
+- ✅ All **integration tests must pass** (for DB, file I/O, network operations)
+- ✅ **Tests MUST be created** during implementation (not after)
 - ✅ Use **dependency injection** and testable patterns
 - ✅ Implement **comprehensive logging** with `ILogger<T>`
 - ✅ Implement **proper error handling** at all boundaries
+- ✅ Verify **resource cleanup** (no connection/file leaks)
+
+### Testing Requirements (MANDATORY)
+**Tests are NOT optional - they are part of the implementation:**
+1. Create **unit tests immediately** after implementing code (same session)
+2. Create **integration tests** for infrastructure components (DB, file I/O, external services)
+3. **All tests MUST pass** before marking feature complete
+4. Document any **test failures as BLOCKING issues** in requirement doc
+5. Never mark requirement "Complete" with failing tests
 
 ### Testing Strategy
-1. Unit tests → 2. Integration tests → 3. CLI validation → 4. MAUI implementation
+1. Implement code → 2. Create unit tests → 3. Create integration tests → 4. Verify all pass → 5. CLI validation → 6. MAUI implementation
 
 ### Dependency Management
 - ⚠️ **Check `approved-dependencies.md` BEFORE adding or upgrading ANY dependency**

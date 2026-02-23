@@ -3,7 +3,7 @@ namespace Daiv3.Persistence;
 /// <summary>
 /// Contains SQL scripts for database schema migrations.
 /// </summary>
-internal static class SchemaScripts
+public static class SchemaScripts
 {
     /// <summary>
     /// Migration 001: Initial database schema

@@ -123,11 +123,102 @@ Use conditional compilation for platform-specific implementations:
 - See `FoundryLocal.Management` project as reference implementation
 
 ### 3. Testability & Testing Requirements
+
+**CRITICAL: Tests are NOT optional - they are a MANDATORY part of feature completion.**
+
+#### Mandatory Test Creation Process
+
+**For EVERY new feature or component implementation, you MUST:**
+
+1. **Create Unit Tests IMMEDIATELY after implementing code** (not as a separate step)
+   - Unit tests MUST be created in the same session as the implementation
+   - NEVER mark implementation as complete without unit tests
+   - Unit tests MUST cover:
+     - Public API surface (all public methods, properties)
+     - Error conditions and edge cases
+     - Null/empty input handling
+     - Configuration validation
+     - Constructor parameter validation
+   
+2. **Create Integration Tests for infrastructure components** (databases, file I/O, external services)
+   - Integration tests MUST be created for:
+     - Database access layers
+     - File system operations
+     - Network/HTTP operations
+     - External service integrations
+   - Integration tests MUST cover:
+     - Happy path scenarios
+     - Error handling and recovery
+     - Resource cleanup (connections, files, transactions)
+     - Concurrent access scenarios (if applicable)
+
+3. **All Tests MUST Pass Before Completion**
+   - Run tests immediately after creation: `dotnet test`
+   - Fix any failing tests before proceeding
+   - Verify tests in CI/CD environment (if available)
+   - **NEVER** mark a requirement as "Complete" with failing tests
+   - Document any known test failures as blocking issues in requirement doc
+
+4. **Test Project Structure**
+   - Unit tests: `tests/unit/Daiv3.UnitTests/[ComponentName]/`
+   - Integration tests: `tests/integration/Daiv3.[ComponentName].IntegrationTests/`
+   - Follow existing test project patterns (`Daiv3.UnitTests.csproj`, multi-targeting for Windows-specific features)
+
+#### Why This Was Missed (Root Cause Analysis)
+
+**Previous Implementation Gap:**
+- Instructions stated "All unit tests MUST pass" but didn't explicitly require **creating** tests
+- Implied that tests would exist, but didn't mandate test creation as part of implementation
+- No explicit workflow showing "implement → test → verify" cycle
+- Requirement documents didn't have test creation as explicit tasks initially
+
+**Updated Enforcement:**
+- Tests are now an integral part of the implementation checklist
+- Test creation is mandatory, not optional
+- Requirements MUST include test creation tasks with estimates
+- Implementation and testing are a single atomic unit of work
+
+#### Testing Best Practices
+
 - **Code MUST be designed to be testable** - favor dependency injection, interfaces, and loose coupling
 - **All unit tests MUST pass** before marking any feature as complete
 - Aim for high test coverage on critical paths (orchestration, model execution, knowledge management)
 - Tests must be meaningful and verify actual behavior, not just code coverage metrics
-- Integration tests in `FoundryLocal.IntegrationTests` MUST pass for any changes affecting core APIs
+- Integration tests MUST include proper resource cleanup (dispose connections, delete temp files, etc.)
+- Test failures due to resource cleanup issues (file locking, connection leaks) are BLOCKING issues
+
+#### Test Naming Conventions
+
+**Unit Tests:**
+```csharp
+public class [ClassName]Tests
+{
+    [Fact]
+    public void MethodName_Scenario_ExpectedBehavior()
+    {
+        // Arrange
+        // Act  
+        // Assert
+    }
+}
+```
+
+**Integration Tests:**
+```csharp
+public class [ComponentName]IntegrationTests : IAsyncLifetime
+{
+    [Fact]
+    public async Task Operation_WithRealData_CompletesSuccessfully()
+    {
+        // Arrange
+        // Act
+        // Assert
+    }
+    
+    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task DisposeAsync() { /* cleanup */ }
+}
+```
 
 ### 4. Dependency & Library Management Philosophy
 
@@ -294,27 +385,41 @@ The following are automatically approved and do NOT require ADD or registry entr
 
 **Real-World Validation Before GUI Implementation:**
 
-After unit tests and non-destructive integration tests pass, features MUST be validated in a real-world scenario using the CLI application before implementing UI in the MAUI application.
+After unit tests and integration tests pass, features MUST be validated in a real-world scenario using the CLI application before implementing UI in the MAUI application.
 
-**Implementation Workflow:**
+**Complete Implementation Workflow:**
 1. **Develop core library functionality** in appropriate library (e.g., `Daiv3.Knowledge`, `Daiv3.Orchestration`)
-2. **Write and pass unit tests** for the library functionality
-3. **Write and pass integration tests** (non-destructive only) for the library functionality
-4. **Implement CLI command/feature** in `Daiv3.App.Cli` that exercises the library functionality
-5. **Manually test via CLI** with real data and real-world scenarios
-6. **Identify and fix bugs** discovered during CLI testing
-7. **Update CLI implementation** based on lessons learned
-8. **Only after CLI validation is complete:**
-   - Design MAUI UI/UX for the feature
-   - Implement MAUI application feature
-   - MAUI implementation can leverage lessons learned from CLI experience
+2. **Write unit tests** for the library functionality (same session as implementation)
+3. **Verify unit tests pass** (`dotnet test`)
+4. **Write integration tests** (for infrastructure components: DB, file I/O, network)
+5. **Verify integration tests pass** (`dotnet test`)
+6. **Fix any failing tests** - tests MUST be green before proceeding
+7. **Implement CLI command/feature** in `Daiv3.App.Cli` that exercises the library functionality
+8. **Manually test via CLI** with real data and real-world scenarios
+9. **Identify and fix bugs** discovered during CLI testing
+10. **Update CLI implementation** based on lessons learned
+11. **Only after CLI validation is complete:**
+    - Design MAUI UI/UX for the feature
+    - Implement MAUI application feature
+    - MAUI implementation can leverage lessons learned from CLI experience
 
 **Rationale:**
-- CLI testing reveals integration issues earlier
-- Real-world usage patterns expose edge cases not covered by unit tests
+- Unit tests verify isolated component behavior
+- Integration tests verify real infrastructure interactions
+- CLI testing reveals integration issues and real-world edge cases
+- Real-world usage patterns expose scenarios not covered by automated tests
 - Debugging is simpler in CLI vs. GUI
 - CLI commands serve as working examples for MAUI implementation
 - Reduces rework in complex MAUI UI implementation
+
+**Test-Driven Validation Checklist:**
+- ✅ Unit tests created and passing
+- ✅ Integration tests created and passing (if applicable)
+- ✅ No resource leaks (connections, files, memory)
+- ✅ Error handling tested and verified
+- ✅ CLI command implemented and tested with realistic data
+- ✅ Performance acceptable for expected data volumes
+- ✅ Logging provides actionable diagnostic information
 
 **CLI Test Scenarios:**
 - Test with realistic data volumes
@@ -505,6 +610,82 @@ After unit tests and non-destructive integration tests pass, features MUST be va
 - ❌ Throwing generic exceptions (use specific types)
 - ❌ Logging and rethrowing (creates duplicate logs)
 - ❌ Leaking sensitive data in exception messages
+
+---
+
+## Feature Completion Criteria (Definition of Done)
+
+A feature or requirement is NOT complete unless ALL of the following criteria are met:
+
+### 1. Implementation Complete
+- ✅ All code implemented according to requirement specification
+- ✅ Code compiles without errors or warnings
+- ✅ Code follows .NET best practices and project conventions
+- ✅ Dependency injection properly configured
+- ✅ Comprehensive logging implemented with `ILogger<T>`
+
+### 2. Testing Complete
+- ✅ **Unit tests created and passing (100%)**
+  - All public API methods covered
+  - Edge cases and error conditions tested
+  - Configuration validation tested
+- ✅ **Integration tests created and passing (if applicable)**
+  - Database operations tested with real SQLite
+  - File I/O operations tested with temp files
+  - External service integrations tested (or mocked)
+  - Resource cleanup verified (no leaks)
+- ✅ **No failing tests** - ALL tests must be green
+- ✅ **No known test issues** - file locking, memory leaks, flaky tests resolved
+
+### 3. CLI Validation Complete (for user-facing features)
+- ✅ CLI command implemented and functional
+- ✅ Manually tested with realistic data
+- ✅ Error handling validated
+- ✅ Performance acceptable
+
+### 4. Documentation Complete
+- ✅ Requirement document updated with implementation details
+- ✅ Implementation tasks marked complete
+- ✅ Known issues documented (if any) with resolution plan
+- ✅ API documentation (XML comments) on public members
+- ✅ Master-Implementation-Tracker.md updated
+
+### 5. Code Quality Gates Passed
+- ✅ No compiler warnings
+- ✅ Error handling at all boundaries
+- ✅ Proper resource disposal (IDisposable, IAsyncDisposable)
+- ✅ Thread-safety considered for shared resources
+
+### Blocking Issues
+
+If ANY of the following exist, the requirement CANNOT be marked complete:
+
+- ❌ Failing unit tests
+- ❌ Failing integration tests
+- ❌ Known bugs or issues without resolution plan
+- ❌ Resource leaks (memory, connections, files)
+- ❌ Compilation errors or warnings
+- ❌ Missing test coverage for critical paths
+
+### Completion Checklist Template
+
+Copy this checklist to requirement documents:
+
+```markdown
+## Completion Checklist
+
+- [ ] Implementation complete and compiles without warnings
+- [ ] Unit tests created and passing (X/X tests)
+- [ ] Integration tests created and passing (X/X tests)
+- [ ] CLI validated (if applicable)
+- [ ] Requirement document updated with implementation details
+- [ ] Master tracker updated
+- [ ] No blocking issues or resource leaks
+- [ ] Code reviewed for quality and best practices
+
+**Status:** [In Progress/Blocked/Complete]
+**Blocking Issues:** [None / List issues]
+```
 
 ---
 
