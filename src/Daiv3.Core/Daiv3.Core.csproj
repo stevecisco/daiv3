@@ -7,4 +7,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Define Windows-specific conditional compilation constant for net10.0-windows10.0.26100 -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.26100'">
+    <DefineConstants>$(DefineConstants);NET10_0_WINDOWS10_0_26100_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
 </Project>

@@ -8,6 +8,11 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
+  <!-- Define Windows-specific conditional compilation constant for net10.0-windows10.0.26100 -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.26100'">
+    <DefineConstants>$(DefineConstants);NET10_0_WINDOWS10_0_26100_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- Reference all library projects for testing -->
     <ProjectReference Include="..\..\..\src\Daiv3.Core\Daiv3.Core.csproj" />

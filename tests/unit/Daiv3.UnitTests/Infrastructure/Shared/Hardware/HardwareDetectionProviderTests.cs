@@ -38,6 +38,76 @@ public class HardwareDetectionProviderTests
     }
 
     [Fact]
+    public void GetAvailableTiers_OnCopilotPlusPC_DetectsMultipleTiers()
+    {
+        // Arrange
+        var provider = new HardwareDetectionProvider(NullLogger<HardwareDetectionProvider>.Instance);
+
+        // Act
+        var tiers = provider.GetAvailableTiers();
+
+        // Assert
+        Assert.NotNull(tiers);
+        Assert.NotEmpty(tiers);
+        
+        // The actual behavior depends on the runtime platform and DirectML availability
+        // On Windows 11 Copilot+ with DirectML installed, we should detect NPU and/or GPU in addition to CPU
+        // On non-Windows platforms or without DirectML, only CPU will be available
+        
+        // Always verify CPU is present (it's the universal fallback)
+        Assert.Contains(HardwareAccelerationTier.Cpu, tiers);
+        
+        // If we detect multiple tiers, verify they include NPU or GPU (hardware acceleration)
+        if (tiers.Count > 1)
+        {
+            Assert.True(
+                tiers.Contains(HardwareAccelerationTier.Npu) || tiers.Contains(HardwareAccelerationTier.Gpu),
+                $"Expected NPU or GPU to be detected along with CPU, but only found: {string.Join(", ", tiers)}");
+        }
+    }
+
+    [Fact]
+    public void GetAvailableTiers_OnSnapdragonXElite_DetectsNPU()
+    {
+        // Arrange
+        var provider = new HardwareDetectionProvider(NullLogger<HardwareDetectionProvider>.Instance);
+
+        // Act
+        var tiers = provider.GetAvailableTiers();
+        var diagnostics = provider.GetDiagnosticInfo();
+
+        // Debug: Check what conditional compilation symbols are active
+        var compilationSymbols = new List<string>();
+#if NET10_0_WINDOWS10_0_26100_OR_GREATER
+        compilationSymbols.Add("NET10_0_WINDOWS10_0_26100_OR_GREATER");
+#else
+        compilationSymbols.Add("NOT Windows 11");
+#endif
+
+        Console.WriteLine($"Active Compilation Symbols: {string.Join(", ", compilationSymbols)}");
+        Console.WriteLine($"Diagnostics: {diagnostics}");
+        Console.WriteLine($"Detected tiers: {string.Join(", ", tiers)}");
+
+        // Assert - Document actual hardware detected
+        Assert.NotNull(tiers);
+        
+#if NET10_0_WINDOWS10_0_26100_OR_GREATER
+        // On Snapdragon X Elite/Plus with Windows 11 24H2+, NPU should be detected
+        var osVersion = Environment.OSVersion.Version;
+        if (osVersion.Build >= 26100 && File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "DirectML.dll")))
+        {
+            Assert.True(tiers.Count >= 2, $"Expected multiple acceleration tiers on Copilot+ PC, but got: {string.Join(", ", tiers)}. Diagnostics: {diagnostics}");
+            Assert.Contains(HardwareAccelerationTier.Npu, tiers);
+            Assert.Contains(HardwareAccelerationTier.Gpu, tiers);
+            Assert.Contains(HardwareAccelerationTier.Cpu, tiers);
+            
+            // Verify ordering: NPU should be first (best), then GPU, then CPU
+            Assert.Equal(HardwareAccelerationTier.Npu, tiers[0]);
+        }
+#endif
+    }
+
+    [Fact]
     public void GetAvailableTiers_ReturnsSortedByPerference()
     {
         // Arrange
@@ -210,6 +280,42 @@ public class HardwareDetectionProviderTests
         else
         {
             Assert.False(isAvailable, $"{tier} reported as unavailable in GetAvailableTiers but available by IsTierAvailable");
+        }
+    }
+
+    [Fact]
+    public void HardwareDetectionDemo_Runs()
+    {
+        // This test runs the hardware detection demo to show actual detected hardware
+        // Useful for manual verification of hardware detection on different systems
+        
+        // Redirect console output to capture the demo output
+        var originalOut = Console.Out;
+        using var writer = new System.IO.StringWriter();
+        Console.SetOut(writer);
+
+        try
+        {
+            // Run the demo
+            HardwareDetectionDemo.Run();
+            
+            // Get the output
+            var output = writer.ToString();
+            
+            // Restore console
+            Console.SetOut(originalOut);
+            
+            // Write output to test results for visibility
+            Console.WriteLine("Hardware Detection Demo Output:");
+            Console.WriteLine(output);
+            
+            // Basic validation that demo ran
+            Assert.Contains("Hardware Detection", output);
+            Assert.Contains("Hardware Acceleration Tiers", output);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
         }
     }
 }

@@ -199,6 +199,53 @@ Use conditional compilation for platform-specific implementations:
 - Integration tests MUST include proper resource cleanup (dispose connections, delete temp files, etc.)
 - Test failures due to resource cleanup issues (file locking, connection leaks) are BLOCKING issues
 
+#### Debugging & Diagnostics Best Practices
+
+**⚠️ CRITICAL: Avoid DLL Locking in PowerShell/Terminals**
+
+**NEVER use these patterns** as they lock assemblies and prevent compilation:
+```powershell
+# ❌ FORBIDDEN - Locks DLL in PowerShell process
+[System.Reflection.Assembly]::LoadFrom("path/to/assembly.dll")
+[System.Reflection.Assembly]::Load(...)
+Add-Type -Path "path/to/assembly.dll"
+```
+
+**Why This is Blocking:**
+- Once a .NET assembly is loaded into PowerShell, it CANNOT be unloaded
+- Subsequent builds will fail with "file in use" errors
+- Requires restarting VS Code or Terminal to release the lock
+- Affects ALL subsequent compilation attempts until process restart
+
+**Approved Alternatives for Assembly Inspection:**
+```powershell
+# ✅ Use dotnet CLI tools (doesn't lock assemblies)
+dotnet build <project> --verbosity detailed
+
+# ✅ Use ildasm or dotnet-ildasm for IL inspection (read-only)
+ildasm /text path/to/assembly.dll
+
+# ✅ Use dotnet-dump for process inspection (doesn't lock files)
+dotnet-dump analyze <dumpfile>
+
+# ✅ Check build output for TFM information
+Get-ChildItem -Path "bin/Debug" -Directory  # List TFM folders
+
+# ✅ Use MSBuild properties for TFM detection at build time
+dotnet build /p:TargetFramework=net10.0-windows10.0.26100
+```
+
+**For Runtime Diagnostics:**
+- Use `Console.WriteLine()` with conditional compilation for debug output
+- Use `ILogger` for structured logging instead of reflection
+- Run tests with `--logger "console;verbosity=detailed"` to see output
+- Create dedicated test/demo programs instead of runtime inspection
+
+**If DLL Gets Locked:**
+- Immediately stop and restart VS Code
+- DO NOT continue attempting builds (wastes time)
+- Clear bin/obj folders if needed: `dotnet clean`
+
 #### Test Naming Conventions
 
 **Unit Tests:**
@@ -1115,11 +1162,12 @@ If any requirement is genuinely ambiguous or contradictory:
 
 ---
 
-**Last Updated:** February 22, 2026
-**Version:** 1.5
+**Last Updated:** February 23, 2026
+**Version:** 1.6
 **Status:** Active - Shared instructions referenced by all AI tools
 
 **Changelog:**
+- **v1.6 (Feb 23, 2026):** Added critical guidance on avoiding DLL locking in PowerShell/terminals; debugging best practices to prevent file lock issues requiring IDE restart
 - **v1.5 (Feb 22, 2026):** Extracted from .vscode/copilot-instructions.md as shared instructions for all AI tools
 - **v1.4 (Feb 22, 2026):** Added Target Framework & Platform Configuration guidance; multi-targeting pattern for Windows-specific optimizations (NPU/DirectML)
 - **v1.3 (Feb 22, 2026):** Added CLI-first testing strategy; comprehensive logging & observability requirements; error handling & resilience guidelines

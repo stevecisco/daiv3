@@ -65,6 +65,14 @@ A comprehensive distributed AI system with support for:
 ### Testing Strategy
 1. Implement code → 2. Create unit tests → 3. Create integration tests → 4. Verify all pass → 5. CLI validation → 6. MAUI implementation
 
+### Debugging Best Practices
+- ⚠️ **NEVER use `[System.Reflection.Assembly]::LoadFrom()` in PowerShell** - locks DLLs and prevents compilation
+- ⚠️ **NEVER use `Add-Type -Path` in terminals** - same issue, requires VS Code restart
+- ✅ Use `dotnet build --verbosity detailed` for build diagnostics instead
+- ✅ Use `Console.WriteLine()` or `ILogger` for runtime diagnostics
+- ✅ Create dedicated test programs instead of runtime reflection
+- 🔧 If DLL locked: Restart VS Code immediately, don't waste time retrying builds
+
 ### Dependency Management
 - ⚠️ **Check `approved-dependencies.md` BEFORE adding or upgrading ANY dependency**
 - ⚠️ **Create Architecture Decision Document (ADD)** for external libraries
@@ -158,8 +166,8 @@ See [AI-Instructions.md - Sub-Agent section](../Docs/AI-Instructions.md#sub-agen
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** February 22, 2026  
+**Version:** 1.1  
+**Last Updated:** February 23, 2026  
 **Status:** Active - Repository-wide GitHub Copilot instructions  
 
 **📖 For complete details, see [AI-Instructions.md](../Docs/AI-Instructions.md)**

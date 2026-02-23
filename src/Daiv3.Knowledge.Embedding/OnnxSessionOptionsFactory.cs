@@ -29,7 +29,10 @@ public sealed class OnnxSessionOptionsFactory : IOnnxSessionOptionsFactory
         {
             try
             {
-                var directMlOptions = SessionOptions.MakeSessionOptionWithDirectML();
+                // When using Microsoft.ML.OnnxRuntime.DirectML package, 
+                // creating a new SessionOptions() automatically uses DirectML
+                var directMlOptions = new SessionOptions();
+                directMlOptions.AppendExecutionProvider_DML(0);
                 ApplyCommonOptions(directMlOptions);
                 selectedProvider = OnnxExecutionProvider.DirectML;
                 return directMlOptions;
