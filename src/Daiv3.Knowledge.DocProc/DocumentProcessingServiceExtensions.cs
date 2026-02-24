@@ -25,4 +25,28 @@ public static class DocumentProcessingServiceExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Adds file system watcher services to the dependency injection container.
+    /// </summary>
+    /// <param name="services">The service collection</param>
+    /// <param name="configureOptions">Optional configuration action</param>
+    /// <returns>The service collection for chaining</returns>
+    public static IServiceCollection AddFileSystemWatcher(
+        this IServiceCollection services,
+        Action<FileSystemWatcherOptions>? configureOptions = null)
+    {
+        if (configureOptions != null)
+        {
+            services.Configure(configureOptions);
+        }
+        else
+        {
+            services.Configure<FileSystemWatcherOptions>(_ => { });
+        }
+
+        services.AddSingleton<IFileSystemWatcher, FileSystemWatcherService>();
+
+        return services;
+    }
 }
