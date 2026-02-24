@@ -36,6 +36,7 @@ The following categories are **automatically approved** and do not require entri
 | Dependency Name | Version | Status | Description | Decision Date | Reason / Notes | ADD Reference |
 |-----------------|---------|--------|-------------|---------------|----------------|---------------|
 | UglyToad.PdfPig | 1.7.0-custom-5 | Approved | PDF text extraction | 2026-02-23 | Required for KM-REQ-002 and KLC-REQ-009; includes aligned subpackages | [ADD-20260223-pdf-processing.md](decisions/ADD-20260223-pdf-processing.md) |
+| ReverseMarkdown | 3.23.0 | Approved | HTML to Markdown conversion | 2026-02-23 | Required for KM-REQ-003; lightweight HTML to Markdown conversion for document indexing | [ADD-20260223-html-to-markdown.md](decisions/ADD-20260223-html-to-markdown.md) |
 
 ## Rejected Dependencies
 

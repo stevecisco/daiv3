@@ -20,6 +20,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
     private readonly ITextChunker _textChunker;
     private readonly ITokenizerProvider _tokenizerProvider;
     private readonly ITextExtractor _textExtractor;
+    private readonly IHtmlToMarkdownConverter _htmlToMarkdownConverter;
     private readonly ILogger<KnowledgeDocumentProcessor> _logger;
     private readonly DocumentProcessingOptions _options;
 
@@ -29,6 +30,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         ITextChunker textChunker,
         ITokenizerProvider tokenizerProvider,
         ITextExtractor textExtractor,
+        IHtmlToMarkdownConverter htmlToMarkdownConverter,
         ILogger<KnowledgeDocumentProcessor> logger,
         DocumentProcessingOptions? options = null)
     {
@@ -37,6 +39,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         _textChunker = textChunker ?? throw new ArgumentNullException(nameof(textChunker));
         _tokenizerProvider = tokenizerProvider ?? throw new ArgumentNullException(nameof(tokenizerProvider));
         _textExtractor = textExtractor ?? throw new ArgumentNullException(nameof(textExtractor));
+        _htmlToMarkdownConverter = htmlToMarkdownConverter ?? throw new ArgumentNullException(nameof(htmlToMarkdownConverter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? new DocumentProcessingOptions();
     }
@@ -89,6 +92,22 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
                 result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
                 _logger.LogWarning("No text extracted from document: {Path}", documentPath);
                 return result;
+            }
+
+            // Convert HTML to Markdown if this is an HTML document
+            var extension = Path.GetExtension(documentPath).ToLowerInvariant();
+            if (extension is ".html" or ".htm")
+            {
+                try
+                {
+                    text = _htmlToMarkdownConverter.ConvertHtmlToMarkdown(text);
+                    _logger.LogDebug("Converted HTML document to Markdown: {Path}", documentPath);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to convert HTML to Markdown, using plain text extraction for: {Path}", documentPath);
+                    // Continue with plain text extraction if conversion fails
+                }
             }
 
             // Generate topic summary (placeholder - SLM integration needed)

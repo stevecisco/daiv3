@@ -362,12 +362,18 @@ public class KnowledgeDocumentProcessorIntegrationTests
             .Setup(x => x.ExtractAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns((string path, CancellationToken token) => File.ReadAllTextAsync(path, token));
 
+        var mockHtmlToMarkdownConverter = new Mock<IHtmlToMarkdownConverter>();
+        mockHtmlToMarkdownConverter
+            .Setup(x => x.ConvertHtmlToMarkdown(It.IsAny<string>()))
+            .Returns((string html) => html); // Pass-through for testing
+
         return new KnowledgeDocumentProcessor(
             documentRepo,
             vectorStore,
             mockTextChunker.Object,
             mockTokenizer.Object,
             mockTextExtractor.Object,
+            mockHtmlToMarkdownConverter.Object,
             logger,
             options);
     }

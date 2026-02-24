@@ -23,6 +23,7 @@ public static class DocumentProcessingServiceExtensions
         services.AddSingleton<ITokenizerProvider, TokenizerProvider>();
         services.AddSingleton<ITextChunker, TextChunker>();
         services.AddSingleton<ITextExtractor, DocumentTextExtractor>();
+        services.AddSingleton<IHtmlToMarkdownConverter, HtmlToMarkdownConverter>();
 
         return services;
     }
