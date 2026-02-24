@@ -19,6 +19,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
     private readonly IVectorStoreService _vectorStore;
     private readonly ITextChunker _textChunker;
     private readonly ITokenizerProvider _tokenizerProvider;
+    private readonly ITextExtractor _textExtractor;
     private readonly ILogger<KnowledgeDocumentProcessor> _logger;
     private readonly DocumentProcessingOptions _options;
 
@@ -27,6 +28,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         IVectorStoreService vectorStore,
         ITextChunker textChunker,
         ITokenizerProvider tokenizerProvider,
+        ITextExtractor textExtractor,
         ILogger<KnowledgeDocumentProcessor> logger,
         DocumentProcessingOptions? options = null)
     {
@@ -34,6 +36,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
         _textChunker = textChunker ?? throw new ArgumentNullException(nameof(textChunker));
         _tokenizerProvider = tokenizerProvider ?? throw new ArgumentNullException(nameof(tokenizerProvider));
+        _textExtractor = textExtractor ?? throw new ArgumentNullException(nameof(textExtractor));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? new DocumentProcessingOptions();
     }
@@ -76,8 +79,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
                 return result;
             }
 
-            // Extract text from document (placeholder - actual extraction logic needed)
-            var text = await ExtractTextAsync(documentPath, cancellationToken).ConfigureAwait(false);
+            var text = await _textExtractor.ExtractAsync(documentPath, cancellationToken).ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -285,23 +287,6 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         using var stream = File.OpenRead(filePath);
         var hash = await sha256.ComputeHashAsync(stream, cancellationToken).ConfigureAwait(false);
         return Convert.ToHexString(hash);
-    }
-
-    /// <summary>
-    /// Extracts text from a document.
-    /// Currently placeholder - will integrate with actual text extraction services.
-    /// </summary>
-    private async Task<string> ExtractTextAsync(string filePath, CancellationToken cancellationToken)
-    {
-        // Placeholder implementation - reads file as text for .txt files
-        var extension = Path.GetExtension(filePath).ToLowerInvariant();
-
-        return extension switch
-        {
-            ".txt" => await File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false),
-            ".md" => await File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false),
-            _ => throw new NotSupportedException($"Document type not supported: {extension}")
-        };
     }
 
     /// <summary>

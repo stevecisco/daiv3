@@ -33,6 +33,9 @@ public static class KnowledgeServiceExtensions
         services.AddScoped<IVectorStoreService, VectorStoreService>();
         services.AddScoped<ITwoTierIndexService, TwoTierIndexService>();
 
+        // Register document processing dependencies
+        services.AddDocumentProcessingServices();
+
         // Register document processor
         var options = new DocumentProcessingOptions();
         configureOptions?.Invoke(options);

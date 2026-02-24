@@ -35,7 +35,7 @@ The following categories are **automatically approved** and do not require entri
 
 | Dependency Name | Version | Status | Description | Decision Date | Reason / Notes | ADD Reference |
 |-----------------|---------|--------|-------------|---------------|----------------|---------------|
-| *No external dependencies approved yet* | - | - | Project follows "custom implementation first" philosophy | 2026-02-22 | Minimize attack surface and maximize control | [Copilot Instructions](./../../../.vscode/copilot-instructions.md) |
+| UglyToad.PdfPig | 1.7.0-custom-5 | Approved | PDF text extraction | 2026-02-23 | Required for KM-REQ-002 and KLC-REQ-009; includes aligned subpackages | [ADD-20260223-pdf-processing.md](decisions/ADD-20260223-pdf-processing.md) |
 
 ## Rejected Dependencies
 
@@ -48,7 +48,6 @@ The following categories are **automatically approved** and do not require entri
 | Dependency Name | Versions Evaluated | Purpose | ADD Document | Status | KLC Reference |
 |-----------------|-------------------|---------|--------------|--------|--------|
 | AngleSharp vs HtmlAgilityPack | TBD | HTML parsing for web content extraction | ADD-HtmlParser | Pending Decision | KLC-REQ-007 |
-| PdfPig | TBD | PDF text extraction | ADD-PdfProcessing | Pending | KLC-REQ-009 |
 | Model Context Protocol .NET SDK | TBD | Model Context Protocol tool integration | ADD-McpIntegration | Pending | KLC-REQ-008 |
 | UI Framework (WinUI 3, Windows App SDK, or MAUI) | TBD | User interface implementation | ADD-UiFramework | Pending Decision | KLC-REQ-011 |
 
@@ -127,7 +126,7 @@ The following libraries are already covered by pre-approved categories:
 
 **Owner:** Project maintainer / architect
 
-**Last Updated:** 2026-02-22
+**Last Updated:** 2026-02-23
 
 ## References
 

@@ -357,11 +357,17 @@ public class KnowledgeDocumentProcessorIntegrationTests
             .Setup(x => x.GetTokenizer())
             .Throws(new NotImplementedException("Tokenizer not needed for this test"));
 
+        var mockTextExtractor = new Mock<ITextExtractor>();
+        mockTextExtractor
+            .Setup(x => x.ExtractAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns((string path, CancellationToken token) => File.ReadAllTextAsync(path, token));
+
         return new KnowledgeDocumentProcessor(
             documentRepo,
             vectorStore,
             mockTextChunker.Object,
             mockTokenizer.Object,
+            mockTextExtractor.Object,
             logger,
             options);
     }

@@ -22,6 +22,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
     private readonly Mock<IVectorStoreService> _mockVectorStore;
     private readonly Mock<ITextChunker> _mockTextChunker;
     private readonly Mock<ITokenizerProvider> _mockTokenizerProvider;
+    private readonly Mock<ITextExtractor> _mockTextExtractor;
     private readonly TempFileHandler _tempFileHelper;
     private readonly KnowledgeDocumentProcessor _service;
 
@@ -38,13 +39,19 @@ public class KnowledgeDocumentProcessorTests : IDisposable
         _mockVectorStore = new Mock<IVectorStoreService>();
         _mockTextChunker = new Mock<ITextChunker>();
         _mockTokenizerProvider = new Mock<ITokenizerProvider>();
+        _mockTextExtractor = new Mock<ITextExtractor>();
         _tempFileHelper = new TempFileHandler();
+
+        _mockTextExtractor
+            .Setup(x => x.ExtractAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns((string path, CancellationToken _) => Task.FromResult(File.ReadAllText(path)));
 
         _service = new KnowledgeDocumentProcessor(
             _mockDocumentRepository.Object,
             _mockVectorStore.Object,
             _mockTextChunker.Object,
             _mockTokenizerProvider.Object,
+            _mockTextExtractor.Object,
             NullLogger<KnowledgeDocumentProcessor>.Instance);
     }
 
@@ -133,6 +140,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
             _mockVectorStore.Object,
             _mockTextChunker.Object,
             _mockTokenizerProvider.Object,
+            _mockTextExtractor.Object,
             NullLogger<KnowledgeDocumentProcessor>.Instance,
             options);
 
