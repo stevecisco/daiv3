@@ -21,6 +21,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
     private readonly ITokenizerProvider _tokenizerProvider;
     private readonly ITextExtractor _textExtractor;
     private readonly IHtmlToMarkdownConverter _htmlToMarkdownConverter;
+    private readonly ITopicSummaryService _topicSummaryService;
     private readonly ILogger<KnowledgeDocumentProcessor> _logger;
     private readonly DocumentProcessingOptions _options;
 
@@ -31,6 +32,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         ITokenizerProvider tokenizerProvider,
         ITextExtractor textExtractor,
         IHtmlToMarkdownConverter htmlToMarkdownConverter,
+        ITopicSummaryService topicSummaryService,
         ILogger<KnowledgeDocumentProcessor> logger,
         DocumentProcessingOptions? options = null)
     {
@@ -40,6 +42,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         _tokenizerProvider = tokenizerProvider ?? throw new ArgumentNullException(nameof(tokenizerProvider));
         _textExtractor = textExtractor ?? throw new ArgumentNullException(nameof(textExtractor));
         _htmlToMarkdownConverter = htmlToMarkdownConverter ?? throw new ArgumentNullException(nameof(htmlToMarkdownConverter));
+        _topicSummaryService = topicSummaryService ?? throw new ArgumentNullException(nameof(topicSummaryService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? new DocumentProcessingOptions();
     }
@@ -110,8 +113,9 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
                 }
             }
 
-            // Generate topic summary (placeholder - SLM integration needed)
-            var summary = GenerateTopicSummary(text);
+            // Generate topic summary using extractive summarization
+            var summary = await _topicSummaryService.GenerateSummaryAsync(text, cancellationToken)
+                .ConfigureAwait(false);
             var summaryTokens = CountTokens(summary);
 
             // Chunk the document
@@ -306,18 +310,6 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         using var stream = File.OpenRead(filePath);
         var hash = await sha256.ComputeHashAsync(stream, cancellationToken).ConfigureAwait(false);
         return Convert.ToHexString(hash);
-    }
-
-    /// <summary>
-    /// Generates a topic summary from document text.
-    /// Placeholder - will integrate with local SLM.
-    /// </summary>
-    private static string GenerateTopicSummary(string text)
-    {
-        // Placeholder: take first 2-3 sentences
-        var sentences = text.Split('.', '!', '?');
-        var summary = string.Join(". ", sentences.Take(3)).TrimEnd() + ".";
-        return summary.Length > 500 ? summary[..500] : summary;
     }
 
     /// <summary>

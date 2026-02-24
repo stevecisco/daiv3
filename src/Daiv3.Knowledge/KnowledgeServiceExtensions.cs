@@ -21,6 +21,7 @@ public static class KnowledgeServiceExtensions
     public static IServiceCollection AddKnowledgeLayer(
         this IServiceCollection services,
         Action<DocumentProcessingOptions>? configureOptions = null,
+        Action<TopicSummaryOptions>? configureSummaryOptions = null,
         Action<KnowledgeLayerGuardrails>? configureGuardrails = null)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -32,6 +33,18 @@ public static class KnowledgeServiceExtensions
         // Register core Knowledge Layer services
         services.AddScoped<IVectorStoreService, VectorStoreService>();
         services.AddScoped<ITwoTierIndexService, TwoTierIndexService>();
+
+        // Register topic summarization service
+        var summaryOptions = new TopicSummaryOptions();
+        configureSummaryOptions?.Invoke(summaryOptions);
+        services.Configure<TopicSummaryOptions>(opts =>
+        {
+            opts.MinSentences = summaryOptions.MinSentences;
+            opts.MaxSentences = summaryOptions.MaxSentences;
+            opts.MaxCharacters = summaryOptions.MaxCharacters;
+            opts.PreserveSentenceOrder = summaryOptions.PreserveSentenceOrder;
+        });
+        services.AddScoped<ITopicSummaryService, TopicSummaryService>();
 
         // Register document processing dependencies
         services.AddDocumentProcessingServices();

@@ -44,6 +44,12 @@ public class KnowledgeDocumentProcessorTests : IDisposable
         _mockHtmlToMarkdownConverter = new Mock<IHtmlToMarkdownConverter>();
         _tempFileHelper = new TempFileHandler();
 
+        var mockTopicSummaryService = new Mock<ITopicSummaryService>();
+        mockTopicSummaryService
+            .Setup(x => x.GenerateSummaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string text, CancellationToken _) => 
+                text.Split('.').First() + ".");
+
         _mockTextExtractor
             .Setup(x => x.ExtractAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns((string path, CancellationToken _) => Task.FromResult(File.ReadAllText(path)));
@@ -59,6 +65,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
             _mockTokenizerProvider.Object,
             _mockTextExtractor.Object,
             _mockHtmlToMarkdownConverter.Object,
+            mockTopicSummaryService.Object,
             NullLogger<KnowledgeDocumentProcessor>.Instance);
     }
 
@@ -142,6 +149,13 @@ public class KnowledgeDocumentProcessorTests : IDisposable
             .ReturnsAsync(new List<Document> { existingDoc });
 
         var options = new DocumentProcessingOptions { SkipUnchangedDocuments = true };
+        
+        var mockTopicSummaryService = new Mock<ITopicSummaryService>();
+        mockTopicSummaryService
+            .Setup(x => x.GenerateSummaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string text, CancellationToken _) => 
+                text.Split('.').First() + ".");
+
         var serviceWithOptions = new KnowledgeDocumentProcessor(
             _mockDocumentRepository.Object,
             _mockVectorStore.Object,
@@ -149,6 +163,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
             _mockTokenizerProvider.Object,
             _mockTextExtractor.Object,
             _mockHtmlToMarkdownConverter.Object,
+            mockTopicSummaryService.Object,
             NullLogger<KnowledgeDocumentProcessor>.Instance,
             options);
 
