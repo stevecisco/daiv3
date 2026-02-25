@@ -1,3 +1,4 @@
+using Daiv3.Infrastructure.Shared.Logging;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
@@ -36,7 +37,11 @@ public class KnowledgeDatabaseFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Create database context
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
+        var loggerFactory = LoggerFactory.Create(builder => 
+        {
+            builder.AddConsole().SetMinimumLevel(LogLevel.Debug);
+            builder.AddFileLogging(Path.Combine(Path.GetTempPath(), "daiv3_tests"), "knowledge_test", LogLevel.Debug);
+        });
         var options = Options.Create(new PersistenceOptions { DatabasePath = _testDbPath });
         _context = new DatabaseContext(loggerFactory.CreateLogger<DatabaseContext>(), options);
 
@@ -49,6 +54,7 @@ public class KnowledgeDatabaseFixture : IAsyncLifetime
         services.AddSingleton(_context);
         services.AddSingleton(loggerFactory.CreateLogger<VectorStoreService>());
         services.AddSingleton(loggerFactory.CreateLogger<TwoTierIndexService>());
+        services.AddSingleton(loggerFactory);
         services.AddSingleton<IVectorSimilarityService, CpuVectorSimilarityService>();
         services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
 
@@ -60,6 +66,16 @@ public class KnowledgeDatabaseFixture : IAsyncLifetime
         // Register Knowledge services
         services.AddScoped<IVectorStoreService, VectorStoreService>();
         services.AddScoped<ITwoTierIndexService, TwoTierIndexService>();
+
+        // Register embedding services for real model testing
+        var modelPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Daiv3", "models", "embeddings", "model.onnx");
+        
+        services.AddEmbeddingServices(opts =>
+        {
+            opts.ModelPath = modelPath;
+        });
 
         ServiceProvider = services.BuildServiceProvider();
     }

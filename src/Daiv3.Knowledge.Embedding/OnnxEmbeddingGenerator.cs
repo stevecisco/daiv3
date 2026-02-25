@@ -78,11 +78,7 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator
 
     private DenseTensor<long>? CreateTokenTypeIds(int tokenCount)
     {
-        if (string.IsNullOrWhiteSpace(_onnxOptions.TokenTypeIdsTensorName))
-        {
-            return null;
-        }
-
+        // Always create token_type_ids (zeros) - many models require this input
         var tokenTypeIds = new long[tokenCount];
         return new DenseTensor<long>(tokenTypeIds, new[] { 1, tokenCount });
     }

@@ -23,10 +23,30 @@ public sealed class FileLoggerProvider : ILoggerProvider
 		_logPrefix = logPrefix;
 		_minLevel = minLevel;
 
-		// Ensure log directory exists
-		if (!Directory.Exists(_logDirectory))
+		// Ensure log directory exists - use try/catch to handle access issues
+		try
 		{
-			Directory.CreateDirectory(_logDirectory);
+			if (!Directory.Exists(_logDirectory))
+			{
+				Directory.CreateDirectory(_logDirectory);
+			}
+		}
+		catch (Exception ex)
+		{
+			// If we can't create the log directory, fall back to temp directory
+			_logDirectory = Path.Combine(Path.GetTempPath(), "daiv3_logs");
+			try
+			{
+				if (!Directory.Exists(_logDirectory))
+				{
+					Directory.CreateDirectory(_logDirectory);
+				}
+			}
+			catch
+			{
+				// If even temp fails, log to current directory as last resort
+				_logDirectory = Directory.GetCurrentDirectory();
+			}
 		}
 
 		// Initialize log file

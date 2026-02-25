@@ -11,7 +11,7 @@ public sealed class EmbeddingOnnxOptions
 
     public string AttentionMaskTensorName { get; set; } = "attention_mask";
 
-    public string? TokenTypeIdsTensorName { get; set; }
+    public string TokenTypeIdsTensorName { get; set; } = "token_type_ids";
 
     public string OutputTensorName { get; set; } = "last_hidden_state";
 

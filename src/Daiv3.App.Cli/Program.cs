@@ -110,6 +110,25 @@ public class Program
         settingsCommand.AddCommand(settingsShowCommand);
         rootCommand.AddCommand(settingsCommand);
 
+        // Embedding commands
+        var embeddingCommand = new Command("embedding", "Embedding generation and testing");
+        
+        var embeddingTestCommand = new Command("test", "Test embedding generation with sample text");
+        var textOption = new Option<string>(
+            aliases: new[] { "--text", "-t" },
+            description: "Text to embed",
+            getDefaultValue: () => "The quick brown fox jumps over the lazy dog");
+        embeddingTestCommand.AddOption(textOption);
+        embeddingTestCommand.SetHandler(async (string text) =>
+        {
+            var host = CreateHost();
+            var exitCode = await EmbeddingTestCommand(host, text);
+            Environment.Exit(exitCode);
+        }, textOption);
+
+        embeddingCommand.AddCommand(embeddingTestCommand);
+        rootCommand.AddCommand(embeddingCommand);
+
         return await rootCommand.InvokeAsync(args);
     }
 
@@ -144,7 +163,7 @@ public class Program
     private static string GetDefaultEmbeddingModelPath()
     {
         var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(baseDir, "Daiv3", "models", "embedding.onnx");
+        return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "model.onnx");
     }
 
     private static async Task<int> DatabaseInitCommand(IHost host)
@@ -381,4 +400,68 @@ public class Program
             return 1;
         }
     }
+
+    private static async Task<int> EmbeddingTestCommand(IHost host, string text)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Testing embedding generation with text: {Text}", text);
+
+            var generator = host.Services.GetRequiredService<IEmbeddingGenerator>();
+            
+            Console.WriteLine("EMBEDDING TEST");
+            Console.WriteLine("==============");
+            Console.WriteLine($"Input text: {text}");
+            Console.WriteLine();
+            Console.Write("Generating embedding... ");
+            
+            var embedding = await generator.GenerateEmbeddingAsync(text);
+            
+            Console.WriteLine("✓ Success!");
+            Console.WriteLine();
+            Console.WriteLine($"Embedding dimensions: {embedding.Length}");
+            
+            // Calculate basic statistics
+            float magnitude = 0;
+            float max = embedding[0];
+            float min = embedding[0];
+            
+            for (int i = 0; i < embedding.Length; i++)
+            {
+                magnitude += embedding[i] * embedding[i];
+                if (embedding[i] > max) max = embedding[i];
+                if (embedding[i] < min) min = embedding[i];
+            }
+            
+            magnitude = (float)Math.Sqrt(magnitude);
+            
+            Console.WriteLine($"Vector magnitude: {magnitude:F4}");
+            Console.WriteLine($"Value range: [{min:F6}, {max:F6}]");
+            Console.WriteLine();
+            Console.WriteLine("First 10 embedding values:");
+            for (int i = 0; i < Math.Min(10, embedding.Length); i++)
+            {
+                Console.WriteLine($"  [{i,3}] = {embedding[i]:F6}");
+            }
+            
+            if (embedding.Length > 10)
+            {
+                Console.WriteLine($"  ... ({embedding.Length - 10} more values)");
+            }
+            
+            logger.LogInformation("✓ Embedding test completed successfully. Dimensions: {Dimensions}, Magnitude: {Magnitude:F4}",
+                embedding.Length, magnitude);
+            
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to generate embedding: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Embedding generation failed");
+            return 1;
+        }
+    }
+
 }

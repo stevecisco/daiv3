@@ -1,7 +1,7 @@
 # DAIv3 CLI Command Examples
 
 > **Auto-Updated**: This file is automatically updated as new CLI commands are implemented.
-> **Last Updated**: February 23, 2026
+> **Last Updated**: February 25, 2026
 
 ## Overview
 
@@ -189,6 +189,67 @@ NOTE: Settings persistence integration pending.
 
 ---
 
+## Embedding Commands
+
+### Test Embedding Generation
+```bash
+.\run-cli.bat embedding test
+# With custom text
+.\run-cli.bat embedding test --text "Your text here"
+# Short form
+.\run-cli.bat embedding test -t "Your text here"
+```
+
+Tests embedding generation with the ONNX embedding model. Generates a 768-dimensional normalized vector for the input text and displays statistics.
+
+**Requirements:**
+- Embedding model must exist at: `%LOCALAPPDATA%\Daiv3\models\embeddings\model.onnx`
+- If model is not present, run the MAUI application first to bootstrap the model from bundled resources
+
+**Output Example (Success):**
+```
+EMBEDDING TEST
+==============
+Input text: The quick brown fox jumps over the lazy dog
+
+Generating embedding... ✓ Success!
+
+Embedding dimensions: 768
+Vector magnitude: 1.0000
+Value range: [-0.166835, 0.298630]
+
+First 10 embedding values:
+  [  0] = 0.058221
+  [  1] = 0.016115
+  [  2] = -0.166835
+  [  3] = 0.037738
+  [  4] = 0.011134
+  [  5] = 0.041877
+  [  6] = 0.006807
+  [  7] = 0.028149
+  [  8] = 0.022657
+  [  9] = -0.005705
+  ... (758 more values)
+```
+
+**Output Example (Model Not Found):**
+```
+EMBEDDING TEST
+==============
+Input text: The quick brown fox jumps over the lazy dog
+
+Generating embedding... ✗ Failed to generate embedding: ONNX model file not found.
+```
+
+**Validation Points:**
+- ✓ Embedding dimensions: 768 (normalized vector)
+- ✓ Vector magnitude: ~1.0000 (normalized)
+- ✓ Value range: Approximately [-1, 1]
+- ✓ No NaN or Infinity values in output
+- ✓ Model loaded using DirectML acceleration (or CPU fallback)
+
+---
+
 ## Help and Documentation
 
 ### General Help
@@ -298,4 +359,4 @@ When implementing new CLI commands:
 
 **Version**: 1.0  
 **Requirement**: ARCH-REQ-002 (Presentation Layer)  
-**Last Updated**: February 23, 2026
+**Last Updated**: February 25, 2026

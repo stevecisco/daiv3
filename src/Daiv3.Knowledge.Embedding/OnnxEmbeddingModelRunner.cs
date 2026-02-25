@@ -33,7 +33,8 @@ public sealed class OnnxEmbeddingModelRunner : IOnnxEmbeddingModelRunner
             inputs.Add(NamedOnnxValue.CreateFromTensor(_options.InputIdsTensorName, input.InputIds));
             inputs.Add(NamedOnnxValue.CreateFromTensor(_options.AttentionMaskTensorName, input.AttentionMask));
 
-            if (!string.IsNullOrWhiteSpace(_options.TokenTypeIdsTensorName) && input.TokenTypeIds != null)
+            // Always add token_type_ids if provided - required by most embedding models
+            if (input.TokenTypeIds != null)
             {
                 inputs.Add(NamedOnnxValue.CreateFromTensor(_options.TokenTypeIdsTensorName, input.TokenTypeIds));
             }
