@@ -541,6 +541,69 @@ public sealed class KnowledgeDocumentProcessorTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcessDocumentAsync_GeneratesEmbeddings_ForSummaryAndChunks()
+    {
+        // Arrange
+        var filePath = _tempFileHelper.CreateTempFile("Summary sentence. Second sentence.");
+        var chunks = new List<TextChunk>
+        {
+            new TextChunk("chunk one", 0, 9, 2),
+            new TextChunk("chunk two", 10, 9, 2)
+        };
+
+        _mockDocumentRepository
+            .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Document>());
+
+        _mockTextChunker
+            .Setup(x => x.Chunk(It.IsAny<string>()))
+            .Returns(chunks);
+
+        _mockDocumentRepository
+            .Setup(x => x.AddAsync(It.IsAny<Document>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("doc-id");
+
+        _mockVectorStore
+            .Setup(x => x.StoreTopicIndexAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<float[]>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync("topic-id");
+
+        _mockVectorStore
+            .Setup(x => x.StoreChunkAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<float[]>(),
+                It.IsAny<int>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync("chunk-id");
+
+        // Act
+        var result = await _service.ProcessDocumentAsync(filePath, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.Success);
+        _mockEmbeddingGenerator.Verify(
+            x => x.GenerateEmbeddingAsync("Summary sentence.", It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockEmbeddingGenerator.Verify(
+            x => x.GenerateEmbeddingAsync("chunk one", It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockEmbeddingGenerator.Verify(
+            x => x.GenerateEmbeddingAsync("chunk two", It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockEmbeddingGenerator.Verify(
+            x => x.GenerateEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(3));
+    }
+
+    [Fact]
     public async Task ProcessDocumentAsync_RejectsEmptyTextContent()
     {
         // Arrange
