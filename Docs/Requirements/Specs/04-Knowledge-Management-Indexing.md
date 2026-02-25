@@ -27,6 +27,9 @@ This document specifies requirements derived from Section 4 of the design docume
 ## Embedding Requirements
 - KM-REQ-013: Embeddings SHALL be generated using ONNX Runtime in-process.
 - KM-REQ-014: The system SHALL support nomic-embed-text or all-MiniLM-L6-v2 models.
+- KM-EMB-MODEL-001: The system SHALL maintain a registry of supported embedding models with metadata required for selection, validation, and tokenizer alignment.
+- KM-EMB-MODEL-002: The system SHALL discover embedding models in the local embeddings directory and optionally download approved models from Hugging Face.
+- KM-EMB-MODEL-003: The system SHALL allow selection of the active embedding model for Tier 1 and Tier 2 embeddings and persist the selection in settings.
 - KM-REQ-015: Tier 1 embeddings SHALL use a smaller dimension model (e.g., 384 dims) for speed.
 - KM-REQ-016: Tier 2 embeddings SHALL use 768 dimensions for higher fidelity.
 

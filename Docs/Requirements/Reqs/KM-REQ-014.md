@@ -7,8 +7,10 @@ The system SHALL support nomic-embed-text or all-MiniLM-L6-v2 models.
 
 ## Implementation Plan
 - Identify the owning component and interface boundary.
-- Define data contracts, configuration, and defaults.
-- Implement the core logic with clear error handling and logging.
+- Define data contracts, configuration, and defaults for per-model selection.
+- Introduce an embedding model registry with model metadata and tokenizer mapping.
+- Add discovery and download workflows for embedding models.
+- Implement selection and validation logic (Tier 1 and Tier 2 model choices).
 - Add integration points to orchestration and UI where applicable.
 - Document configuration and operational behavior.
 
@@ -20,9 +22,18 @@ The system SHALL support nomic-embed-text or all-MiniLM-L6-v2 models.
 - Manual verification via UI workflows when applicable.
 
 ## Usage and Operational Notes
-- Describe how this capability is invoked or configured.
-- List user-visible effects and any UI surfaces involved.
-- Specify operational constraints (offline mode, budgets, permissions).
+- Configuration selects the active embedding model for Tier 1 and Tier 2.
+- Each embedding model entry MUST declare tokenizer configuration and vocab bounds.
+- Selection MUST validate model signature compatibility (input/output tensor names, pooling, dimensions).
+- Models may be discovered from `%LOCALAPPDATA%\\Daiv3\\models\\embeddings\\` and optionally downloaded.
+- If auto-download is disabled, missing models MUST produce a clear error with remediation steps.
+- UI surfaces (CLI/MAUI) SHOULD show model pros/cons and selection status.
+
+## Blocking Tasks / Open Questions
+- Define the embedding model registry schema and required metadata fields (tokenizer config, vocab bounds, tensor names).
+- Decide the Hugging Face download policy (allowlist only vs user-provided model id) and checksum requirements.
+- Define re-index behavior when Tier 1 or Tier 2 model selection changes.
+- Backlog: dynamic model switching during runtime (non-happy-path).
 
 ## Dependencies
 - HW-REQ-003
@@ -31,4 +42,8 @@ The system SHALL support nomic-embed-text or all-MiniLM-L6-v2 models.
 - KLC-REQ-004
 
 ## Related Requirements
-- None
+- KM-REQ-015
+- KM-REQ-016
+- KM-EMB-MODEL-001
+- KM-EMB-MODEL-002
+- KM-EMB-MODEL-003
