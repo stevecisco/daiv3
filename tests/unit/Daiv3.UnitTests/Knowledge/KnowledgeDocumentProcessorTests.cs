@@ -6,16 +6,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Daiv3.Knowledge;
 using Daiv3.Knowledge.DocProc;
+using Daiv3.Knowledge.Embedding;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.ML.Tokenizers;
 using Moq;
 using Xunit;
 
 namespace Daiv3.UnitTests.Knowledge;
 
-public class KnowledgeDocumentProcessorTests : IDisposable
+public sealed class KnowledgeDocumentProcessorTests : IDisposable
 {
     private readonly Mock<IDatabaseContext> _mockDatabaseContext;
     private readonly Mock<DocumentRepository> _mockDocumentRepository;
@@ -24,6 +26,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
     private readonly Mock<ITokenizerProvider> _mockTokenizerProvider;
     private readonly Mock<ITextExtractor> _mockTextExtractor;
     private readonly Mock<IHtmlToMarkdownConverter> _mockHtmlToMarkdownConverter;
+    private readonly Mock<IEmbeddingGenerator> _mockEmbeddingGenerator;
     private readonly TempFileHandler _tempFileHelper;
     private readonly KnowledgeDocumentProcessor _service;
 
@@ -42,6 +45,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
         _mockTokenizerProvider = new Mock<ITokenizerProvider>();
         _mockTextExtractor = new Mock<ITextExtractor>();
         _mockHtmlToMarkdownConverter = new Mock<IHtmlToMarkdownConverter>();
+        _mockEmbeddingGenerator = new Mock<IEmbeddingGenerator>();
         _tempFileHelper = new TempFileHandler();
 
         var mockTopicSummaryService = new Mock<ITopicSummaryService>();
@@ -58,6 +62,15 @@ public class KnowledgeDocumentProcessorTests : IDisposable
             .Setup(x => x.ConvertHtmlToMarkdown(It.IsAny<string>()))
             .Returns((string html) => html); // Pass-through for testing
 
+        var tokenizer = TiktokenTokenizer.CreateForEncoding("r50k_base");
+        _mockTokenizerProvider
+            .Setup(x => x.GetTokenizer())
+            .Returns(tokenizer);
+
+        _mockEmbeddingGenerator
+            .Setup(x => x.GenerateEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new float[8]);
+
         _service = new KnowledgeDocumentProcessor(
             _mockDocumentRepository.Object,
             _mockVectorStore.Object,
@@ -66,6 +79,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
             _mockTextExtractor.Object,
             _mockHtmlToMarkdownConverter.Object,
             mockTopicSummaryService.Object,
+            _mockEmbeddingGenerator.Object,
             NullLogger<KnowledgeDocumentProcessor>.Instance);
     }
 
@@ -164,6 +178,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
             _mockTextExtractor.Object,
             _mockHtmlToMarkdownConverter.Object,
             mockTopicSummaryService.Object,
+            _mockEmbeddingGenerator.Object,
             NullLogger<KnowledgeDocumentProcessor>.Instance,
             options);
 
@@ -173,7 +188,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.True(result.Success);
-        Assert.NotEmpty(result.ErrorMessage);
+        Assert.False(string.IsNullOrEmpty(result.ErrorMessage));
         Assert.Contains("unchanged", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         // Verify that vector store operations were NOT called
         _mockVectorStore.Verify(
@@ -416,7 +431,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.False(result.Success);
-        Assert.NotEmpty(result.ErrorMessage);
+        Assert.False(string.IsNullOrEmpty(result.ErrorMessage));
     }
 
     [Fact]
@@ -541,7 +556,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.False(result.Success);
-        Assert.NotEmpty(result.ErrorMessage);
+        Assert.False(string.IsNullOrEmpty(result.ErrorMessage));
         Assert.Contains("text content extracted", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -642,7 +657,7 @@ public class KnowledgeDocumentProcessorTests : IDisposable
     }
 
     // Helper class to manage temp files
-    private class TempFileHandler : IDisposable
+    private sealed class TempFileHandler : IDisposable
     {
         private readonly List<string> _tempFiles = new();
 

@@ -22,6 +22,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
     private readonly ITextExtractor _textExtractor;
     private readonly IHtmlToMarkdownConverter _htmlToMarkdownConverter;
     private readonly ITopicSummaryService _topicSummaryService;
+    private readonly IEmbeddingGenerator _embeddingGenerator;
     private readonly ILogger<KnowledgeDocumentProcessor> _logger;
     private readonly DocumentProcessingOptions _options;
 
@@ -33,6 +34,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         ITextExtractor textExtractor,
         IHtmlToMarkdownConverter htmlToMarkdownConverter,
         ITopicSummaryService topicSummaryService,
+        IEmbeddingGenerator embeddingGenerator,
         ILogger<KnowledgeDocumentProcessor> logger,
         DocumentProcessingOptions? options = null)
     {
@@ -43,6 +45,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         _textExtractor = textExtractor ?? throw new ArgumentNullException(nameof(textExtractor));
         _htmlToMarkdownConverter = htmlToMarkdownConverter ?? throw new ArgumentNullException(nameof(htmlToMarkdownConverter));
         _topicSummaryService = topicSummaryService ?? throw new ArgumentNullException(nameof(topicSummaryService));
+        _embeddingGenerator = embeddingGenerator ?? throw new ArgumentNullException(nameof(embeddingGenerator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? new DocumentProcessingOptions();
     }
@@ -159,10 +162,10 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
                 _logger.LogInformation("Added new document: {Path}", documentPath);
             }
 
-            // Generate and store embeddings
-            // Placeholder: actual embedding generation will use ONNX Runtime
-            var summaryEmbedding = new float[384]; // 384 dims for Tier 1
-            Array.Fill(summaryEmbedding, 0.1f); // Placeholder
+            // Generate and store embeddings using ONNX Runtime
+            var summaryEmbedding = await _embeddingGenerator
+                .GenerateEmbeddingAsync(summary, cancellationToken)
+                .ConfigureAwait(false);
 
             await _vectorStore.StoreTopicIndexAsync(
                 docId,
@@ -175,8 +178,9 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
             // Store chunks with embeddings
             for (int i = 0; i < chunks.Count; i++)
             {
-                var chunkEmbedding = new float[768]; // 768 dims for Tier 2
-                Array.Fill(chunkEmbedding, 0.1f); // Placeholder
+                var chunkEmbedding = await _embeddingGenerator
+                    .GenerateEmbeddingAsync(chunks[i].Text, cancellationToken)
+                    .ConfigureAwait(false);
 
                 await _vectorStore.StoreChunkAsync(
                     docId,

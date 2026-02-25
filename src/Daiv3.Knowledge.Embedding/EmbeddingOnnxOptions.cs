@@ -7,6 +7,18 @@ public sealed class EmbeddingOnnxOptions
 {
     public string ModelPath { get; set; } = string.Empty;
 
+    public string InputIdsTensorName { get; set; } = "input_ids";
+
+    public string AttentionMaskTensorName { get; set; } = "attention_mask";
+
+    public string? TokenTypeIdsTensorName { get; set; }
+
+    public string OutputTensorName { get; set; } = "last_hidden_state";
+
+    public EmbeddingPoolingStrategy PoolingStrategy { get; set; } = EmbeddingPoolingStrategy.MeanPooling;
+
+    public bool NormalizeEmbeddings { get; set; } = true;
+
     public OnnxExecutionProviderPreference ExecutionProviderPreference { get; set; } =
         OnnxExecutionProviderPreference.Auto;
 
@@ -23,6 +35,21 @@ public sealed class EmbeddingOnnxOptions
         if (string.IsNullOrWhiteSpace(ModelPath))
         {
             throw new InvalidOperationException("Embedding model path must be configured.");
+        }
+
+        if (string.IsNullOrWhiteSpace(InputIdsTensorName))
+        {
+            throw new InvalidOperationException("InputIds tensor name must be configured.");
+        }
+
+        if (string.IsNullOrWhiteSpace(AttentionMaskTensorName))
+        {
+            throw new InvalidOperationException("AttentionMask tensor name must be configured.");
+        }
+
+        if (string.IsNullOrWhiteSpace(OutputTensorName))
+        {
+            throw new InvalidOperationException("Output tensor name must be configured.");
         }
     }
 

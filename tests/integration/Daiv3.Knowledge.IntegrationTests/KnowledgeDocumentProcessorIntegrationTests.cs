@@ -1,9 +1,13 @@
 using System.Text;
+using System.Threading;
+using Daiv3.Knowledge;
 using Daiv3.Knowledge.DocProc;
+using Daiv3.Knowledge.Embedding;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.ML.Tokenizers;
 using Moq;
 using Xunit;
 
@@ -352,10 +356,10 @@ public class KnowledgeDocumentProcessorIntegrationTests
             });
 
         var mockTokenizer = new Mock<ITokenizerProvider>();
-        // The tokenizer provider is not directly used in document processing, so minimal setup is needed
+        var tokenizer = TiktokenTokenizer.CreateForEncoding("r50k_base");
         mockTokenizer
             .Setup(x => x.GetTokenizer())
-            .Throws(new NotImplementedException("Tokenizer not needed for this test"));
+            .Returns(tokenizer);
 
         var mockTextExtractor = new Mock<ITextExtractor>();
         mockTextExtractor
@@ -367,6 +371,16 @@ public class KnowledgeDocumentProcessorIntegrationTests
             .Setup(x => x.ConvertHtmlToMarkdown(It.IsAny<string>()))
             .Returns((string html) => html); // Pass-through for testing
 
+        var mockTopicSummaryService = new Mock<ITopicSummaryService>();
+        mockTopicSummaryService
+            .Setup(x => x.GenerateSummaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string text, CancellationToken _) => text.Split('.').First() + ".");
+
+        var mockEmbeddingGenerator = new Mock<IEmbeddingGenerator>();
+        mockEmbeddingGenerator
+            .Setup(x => x.GenerateEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new float[8]);
+
         return new KnowledgeDocumentProcessor(
             documentRepo,
             vectorStore,
@@ -374,6 +388,8 @@ public class KnowledgeDocumentProcessorIntegrationTests
             mockTokenizer.Object,
             mockTextExtractor.Object,
             mockHtmlToMarkdownConverter.Object,
+            mockTopicSummaryService.Object,
+            mockEmbeddingGenerator.Object,
             logger,
             options);
     }

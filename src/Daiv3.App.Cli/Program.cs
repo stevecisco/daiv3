@@ -2,7 +2,9 @@ using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Daiv3.Infrastructure.Shared.Logging;
 using Daiv3.Persistence;
+using Daiv3.Knowledge.Embedding;
 
 namespace Daiv3.App.Cli;
 
@@ -121,6 +123,7 @@ public class Program
                 {
                     builder.AddConsole();
                     builder.SetMinimumLevel(LogLevel.Information);
+                    builder.AddFileLogging("cli", LogLevel.Debug);
                 });
 
                 // Add persistence layer
@@ -128,8 +131,20 @@ public class Program
                 {
                     // Use default options (database in %LOCALAPPDATA%\Daiv3\)
                 });
+
+                var modelPath = GetDefaultEmbeddingModelPath();
+                services.AddEmbeddingServices(options =>
+                {
+                    options.ModelPath = modelPath;
+                });
             })
             .Build();
+    }
+
+    private static string GetDefaultEmbeddingModelPath()
+    {
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(baseDir, "Daiv3", "models", "embedding.onnx");
     }
 
     private static async Task<int> DatabaseInitCommand(IHost host)

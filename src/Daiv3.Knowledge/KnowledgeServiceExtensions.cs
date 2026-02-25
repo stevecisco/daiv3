@@ -22,7 +22,9 @@ public static class KnowledgeServiceExtensions
         this IServiceCollection services,
         Action<DocumentProcessingOptions>? configureOptions = null,
         Action<TopicSummaryOptions>? configureSummaryOptions = null,
-        Action<KnowledgeLayerGuardrails>? configureGuardrails = null)
+        Action<KnowledgeLayerGuardrails>? configureGuardrails = null,
+        Action<EmbeddingOnnxOptions>? configureEmbeddingOptions = null,
+        Action<EmbeddingTokenizationOptions>? configureEmbeddingTokenizationOptions = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -48,6 +50,9 @@ public static class KnowledgeServiceExtensions
 
         // Register document processing dependencies
         services.AddDocumentProcessingServices();
+
+        // Register embedding services
+        services.AddEmbeddingServices(configureEmbeddingOptions, configureEmbeddingTokenizationOptions);
 
         // Register document processor
         var options = new DocumentProcessingOptions();

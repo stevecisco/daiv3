@@ -10,7 +10,8 @@ public static class EmbeddingServiceExtensions
 {
     public static IServiceCollection AddEmbeddingServices(
         this IServiceCollection services,
-        Action<EmbeddingOnnxOptions>? configureOptions = null)
+        Action<EmbeddingOnnxOptions>? configureOptions = null,
+        Action<EmbeddingTokenizationOptions>? configureTokenizationOptions = null)
     {
         if (configureOptions != null)
         {
@@ -21,9 +22,21 @@ public static class EmbeddingServiceExtensions
             services.Configure<EmbeddingOnnxOptions>(_ => { });
         }
 
+        if (configureTokenizationOptions != null)
+        {
+            services.Configure(configureTokenizationOptions);
+        }
+        else
+        {
+            services.Configure<EmbeddingTokenizationOptions>(_ => { });
+        }
+
         services.AddHardwareDetection();
         services.AddSingleton<IOnnxSessionOptionsFactory, OnnxSessionOptionsFactory>();
         services.AddSingleton<IOnnxInferenceSessionProvider, OnnxInferenceSessionProvider>();
+        services.AddSingleton<IEmbeddingTokenizerProvider, EmbeddingTokenizerProvider>();
+        services.AddSingleton<IOnnxEmbeddingModelRunner, OnnxEmbeddingModelRunner>();
+        services.AddSingleton<IEmbeddingGenerator, OnnxEmbeddingGenerator>();
         services.AddSingleton<CpuVectorSimilarityService>();
         services.AddSingleton<IVectorSimilarityService, HardwareAwareVectorSimilarityService>();
 
