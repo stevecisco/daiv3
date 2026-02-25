@@ -518,6 +518,32 @@ The following are automatically approved and do NOT require ADD or registry entr
 **If user approves downgrade, document:**
 - Requirement document that mandated the downgrade
 - Date and explicit approval from user
+
+### 4.2. Repository Large File & Model Asset Policy
+
+**ABSOLUTE RULE:** Do NOT add files larger than 95 MB to Git history. This applies to binaries, models, datasets, and media assets.
+
+**Before staging any large file, you MUST:**
+1. **Check file size first** (local file system) and compare to the 95 MB threshold.
+2. **Refuse Git commits** for files above the threshold and propose alternatives.
+3. **Add or update `.gitignore`** to prevent accidental commits of large files (for example: `*.onnx`).
+
+**Required alternatives for large model files (ONNX, embeddings, etc.):**
+1. **Download-on-first-run pattern**
+   - Store a small manifest (model name, version, SHA256, size, URL) in the repo.
+   - Download the model at app launch or first use.
+   - Verify checksum and store in app data (per-user, per-machine).
+2. **External distribution**
+   - Use a hosted artifact location (private blob storage, release assets, or approved CDN).
+   - Keep only pointers/manifest in Git.
+3. **Optional offline packaging** (only if approved)
+   - Use a separate installer or package that is not Git-tracked.
+
+**If a requirement changes due to file size limits:**
+- Update the requirement document to reflect the new distribution approach.
+- Note the change explicitly in the requirement’s implementation notes.
+
+**Reminder:** GitHub enforces a 100 MB file limit. The project policy uses 95 MB to enforce a safe margin.
 - Breaking changes and workarounds implemented
 - Future upgrade strategy
 
