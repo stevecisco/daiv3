@@ -1,84 +1,93 @@
 using Microsoft.Extensions.Logging;
+using Daiv3.Knowledge.Embedding;
 
 namespace Daiv3.App.Maui.Services;
 
 /// <summary>
-/// Bootstraps the embedding model by copying it from bundled resources to app data directory on first launch.
+/// Bootstraps both Tier 1 and Tier 2 embedding models by downloading them from Azure Blob Storage on first launch.
 /// </summary>
 public class EmbeddingModelBootstrapService
 {
 	private readonly ILogger<EmbeddingModelBootstrapService> _logger;
+	private readonly IEmbeddingModelDownloadService _downloadService;
+	
+	// Tier 1: all-MiniLM-L6-v2 (384 dimensions) - Topic/Summary level
+	private const string Tier1ModelDownloadUrl = "https://stdaiv3.blob.core.windows.net/models/embedding/onnx/all-MiniLM-L6-v2/model.onnx";
+	
+	// Tier 2: nomic-embed-text-v1.5 (768 dimensions) - Chunk level
+	private const string Tier2ModelDownloadUrl = "https://stdaiv3.blob.core.windows.net/models/embedding/onnx/nomic-embed-text-v1.5/model.onnx";
 
-	public EmbeddingModelBootstrapService(ILogger<EmbeddingModelBootstrapService> logger)
+	public EmbeddingModelBootstrapService(
+		ILogger<EmbeddingModelBootstrapService> logger,
+		IEmbeddingModelDownloadService downloadService)
 	{
 		_logger = logger;
+		_downloadService = downloadService;
 	}
 
 	/// <summary>
-	/// Ensures the embedding model exists in the app data directory.
-	/// If not present, copies it from the bundled resources.
+	/// Ensures both Tier 1 and Tier 2 embedding models exist in the app data directory.
+	/// If not present, downloads them from Azure Blob Storage.
 	/// </summary>
-	public async Task EnsureModelAsync()
+	/// <param name="onProgress">Optional callback for progress updates.</param>
+	public async Task<bool> EnsureModelsAsync(Action<DownloadProgress>? onProgress = null)
 	{
 		try
 		{
-			var modelPath = GetModelDestinationPath();
-			var modelDirectory = Path.GetDirectoryName(modelPath);
+			var progress = onProgress != null
+				? new Progress<DownloadProgress>(onProgress)
+				: null;
 
-			// Create directory if it doesn't exist
-			if (!Directory.Exists(modelDirectory))
+			// Download Tier 1 model (all-MiniLM-L6-v2)
+			var tier1Path = GetTier1ModelPath();
+			_logger.LogInformation("Checking for Tier 1 embedding model at {ModelPath}", tier1Path);
+			
+			var tier1Success = await _downloadService.EnsureModelExistsAsync(
+				tier1Path,
+				Tier1ModelDownloadUrl,
+				progress);
+
+			if (!tier1Success)
 			{
-				Directory.CreateDirectory(modelDirectory!);
-				_logger.LogInformation("Created model directory: {ModelDirectory}", modelDirectory);
+				_logger.LogError("Failed to ensure Tier 1 embedding model exists");
+				return false;
 			}
 
-			// Check if model already exists
-			if (File.Exists(modelPath))
+			// Download Tier 2 model (nomic-embed-text-v1.5)
+			var tier2Path = GetTier2ModelPath();
+			_logger.LogInformation("Checking for Tier 2 embedding model at {ModelPath}", tier2Path);
+			
+			var tier2Success = await _downloadService.EnsureModelExistsAsync(
+				tier2Path,
+				Tier2ModelDownloadUrl,
+				progress);
+
+			if (!tier2Success)
 			{
-				_logger.LogInformation("Embedding model already exists at {ModelPath}", modelPath);
-				return;
+				_logger.LogError("Failed to ensure Tier 2 embedding model exists");
+				return false;
 			}
 
-			// Copy from bundled resources
-			await CopyModelFromResourcesAsync(modelPath);
+			_logger.LogInformation("Both embedding models are ready");
+			return true;
 		}
 		catch (Exception ex)
 		{
-			_logger.LogError(ex, "Error bootstrapping embedding model");
-			throw;
+			_logger.LogError(ex, "Error bootstrapping embedding models");
+			return false;
 		}
 	}
 
-	private async Task CopyModelFromResourcesAsync(string destinationPath)
-	{
-		try
-		{
-			// Access the model from bundled resources
-			// MauiAsset LogicalName strips "Resources\Raw" prefix, so path is just "models/model.onnx"
-			var resourcePath = "models/model.onnx";
-			
-			_logger.LogInformation("Attempting to open bundled resource: {ResourcePath}", resourcePath);
-			
-			using var sourceStream = await FileSystem.OpenAppPackageFileAsync(resourcePath);
-			using var destinationStream = File.Create(destinationPath);
-			
-			_logger.LogInformation("Copying model from bundle to {DestinationPath}...", destinationPath);
-			await sourceStream.CopyToAsync(destinationStream);
-			
-			var fileInfo = new FileInfo(destinationPath);
-			_logger.LogInformation("Successfully copied embedding model to {ModelPath} ({SizeBytes} bytes)", 
-				destinationPath, fileInfo.Length);
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Failed to copy embedding model from resources to {DestinationPath}", destinationPath);
-			throw;
-		}
-	}
-
-	private static string GetModelDestinationPath()
+	public static string GetTier1ModelPath()
 	{
 		var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "model.onnx");
+		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "all-MiniLM-L6-v2", "model.onnx");
+	}
+
+	public static string GetTier2ModelPath()
+	{
+		var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "nomic-embed-text-v1.5", "model.onnx");
 	}
 }
+

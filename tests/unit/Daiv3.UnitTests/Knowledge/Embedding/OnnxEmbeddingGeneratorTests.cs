@@ -1,7 +1,6 @@
 using Daiv3.Knowledge.Embedding;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.ML.Tokenizers;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Xunit;
 
@@ -125,8 +124,33 @@ public class OnnxEmbeddingGeneratorTests
 
     private sealed class StubTokenizerProvider : IEmbeddingTokenizerProvider
     {
-        private readonly Tokenizer _tokenizer = TiktokenTokenizer.CreateForEncoding("r50k_base");
+        private readonly IEmbeddingTokenizer _tokenizer = new StubTokenizer();
 
-        public Tokenizer GetTokenizer() => _tokenizer;
+        public IEmbeddingTokenizer GetEmbeddingTokenizer() => _tokenizer;
+    }
+
+    private sealed class StubTokenizer : IEmbeddingTokenizer
+    {
+        public string Name => "StubTokenizer";
+        public string ModelId => "test-model";
+        public int VocabularySize => 50257;
+
+        public long[] Tokenize(string text)
+        {
+            // Simple stub: return token IDs based on word count
+            if (string.IsNullOrWhiteSpace(text))
+                return Array.Empty<long>();
+
+            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return words.Select((_, i) => (long)i).ToArray();
+        }
+
+        public bool ValidateTokenIds(long[] tokenIds) => tokenIds.All(id => id >= 0 && id < VocabularySize);
+
+        public IReadOnlyDictionary<string, int> GetSpecialTokens() => new Dictionary<string, int>
+        {
+            { "UNK", 0 },
+            { "PAD", 1 }
+        };
     }
 }

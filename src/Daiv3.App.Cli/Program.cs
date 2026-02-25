@@ -15,6 +15,9 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // Bootstrap embedding model before processing commands
+        await EnsureEmbeddingModelAsync();
+
         var rootCommand = new RootCommand("Daiv3 CLI - Distributed AI System");
 
         // Database commands
@@ -163,7 +166,7 @@ public class Program
     private static string GetDefaultEmbeddingModelPath()
     {
         var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "model.onnx");
+        return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "nomic-embed-text-v1.5", "model.onnx");
     }
 
     private static async Task<int> DatabaseInitCommand(IHost host)
@@ -464,4 +467,143 @@ public class Program
         }
     }
 
+    private static async Task EnsureEmbeddingModelAsync()
+    {
+        // Tier 1: all-MiniLM-L6-v2 (384 dimensions) - Topic/Summary level
+        const string Tier1ModelDownloadUrl = "https://stdaiv3.blob.core.windows.net/models/embedding/onnx/all-MiniLM-L6-v2/model.onnx";
+        
+        // Tier 2: nomic-embed-text-v1.5 (768 dimensions) - Chunk level
+        const string Tier2ModelDownloadUrl = "https://stdaiv3.blob.core.windows.net/models/embedding/onnx/nomic-embed-text-v1.5/model.onnx";
+        
+        try
+        {
+            var tier1Path = GetTier1ModelPath();
+            var tier2Path = GetTier2ModelPath();
+            
+            // Check if both models already exist
+            var tier1Exists = File.Exists(tier1Path);
+            var tier2Exists = File.Exists(tier2Path);
+            
+            if (tier1Exists && tier2Exists)
+            {
+                return; // Both models already exist, no need to download
+            }
+
+            // Create a temporary host just for bootstrapping
+            using var tempHost = Host.CreateDefaultBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddLogging(builder =>
+                    {
+                        builder.AddConsole();
+                        builder.SetMinimumLevel(LogLevel.Information);
+                    });
+                    services.AddEmbeddingServices();
+                })
+                .Build();
+
+            var downloadService = tempHost.Services.GetRequiredService<IEmbeddingModelDownloadService>();
+            var logger = tempHost.Services.GetRequiredService<ILogger<Program>>();
+
+            // Download Tier 1 model if needed
+            if (!tier1Exists)
+            {
+                Console.WriteLine("Tier 1 embedding model (all-MiniLM-L6-v2) not found.");
+                Console.WriteLine("Downloading from Azure Blob Storage...");
+                Console.WriteLine();
+
+                var lastPercent = -1.0;
+                var success = await downloadService.EnsureModelExistsAsync(
+                    tier1Path,
+                    Tier1ModelDownloadUrl,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"Tier 1 Progress: {percent:F1}% ({progress.BytesDownloaded / 1024.0 / 1024.0:F2} MB / {(progress.TotalBytes ?? 0) / 1024.0 / 1024.0:F2} MB)");
+                                lastPercent = percent;
+                            }
+                        }
+                        else if (!string.IsNullOrEmpty(progress.Status))
+                        {
+                            Console.WriteLine($"Tier 1: {progress.Status}");
+                        }
+                    }));
+
+                if (success)
+                {
+                    Console.WriteLine("✓ Tier 1 model download completed successfully");
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.WriteLine("✗ Tier 1 model download failed. Some features may not be available.");
+                    Console.WriteLine();
+                }
+            }
+
+            // Download Tier 2 model if needed
+            if (!tier2Exists)
+            {
+                Console.WriteLine("Tier 2 embedding model (nomic-embed-text-v1.5) not found.");
+                Console.WriteLine("Downloading from Azure Blob Storage...");
+                Console.WriteLine();
+
+                var lastPercent = -1.0;
+                var success = await downloadService.EnsureModelExistsAsync(
+                    tier2Path,
+                    Tier2ModelDownloadUrl,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"Tier 2 Progress: {percent:F1}% ({progress.BytesDownloaded / 1024.0 / 1024.0:F2} MB / {(progress.TotalBytes ?? 0) / 1024.0 / 1024.0:F2} MB)");
+                                lastPercent = percent;
+                            }
+                        }
+                        else if (!string.IsNullOrEmpty(progress.Status))
+                        {
+                            Console.WriteLine($"Tier 2: {progress.Status}");
+                        }
+                    }));
+
+                if (success)
+                {
+                    Console.WriteLine("✓ Tier 2 model download completed successfully");
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.WriteLine("✗ Tier 2 model download failed. Some features may not be available.");
+                    Console.WriteLine();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Error bootstrapping embedding models: {ex.Message}");
+            Console.WriteLine("Some features may not be available.");
+            Console.WriteLine();
+        }
+    }
+
+    private static string GetTier1ModelPath()
+    {
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "all-MiniLM-L6-v2", "model.onnx");
+    }
+
+    private static string GetTier2ModelPath()
+    {
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "nomic-embed-text-v1.5", "model.onnx");
+    }
+
 }
+

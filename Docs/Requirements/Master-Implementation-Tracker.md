@@ -294,9 +294,9 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 | Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
 |-----|-------------|---------------|-------------|--------------|--------|------------|-------|
 | 40.1 | [KM-EMB-MODEL-001](Reqs/KM-EMB-MODEL-001.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Registry of embedding models with metadata and tokenizer alignment. | KM-REQ-013 | Not Started | 0% | Embedding model registry |
-| 40.2 | [KM-EMB-MODEL-002](Reqs/KM-EMB-MODEL-002.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Discover local embedding models and optionally download from Hugging Face. | KM-EMB-MODEL-001 | Not Started | 0% | Model discovery and download |
+| 40.2 | [KM-EMB-MODEL-002](Reqs/KM-EMB-MODEL-002.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Discover local embedding models and download from Azure Blob Storage on first initialization. | KM-EMB-MODEL-001 | Not Started | 0% | Model discovery and download (v0.1: Azure, v0.2+: Hugging Face) |
 | 40.3 | [KM-EMB-MODEL-003](Reqs/KM-EMB-MODEL-003.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Select active embedding models for Tier 1 and Tier 2 with settings persistence. | KM-EMB-MODEL-001, KM-EMB-MODEL-002 | Not Started | 0% | Model selection and settings |
-| 40.4 | [KM-EMB-MODEL-TOKENIZER](Reqs/KM-EMB-MODEL-TOKENIZER.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Pluggable tokenizer interface supporting multiple tokenizer implementations. | KM-EMB-MODEL-001 | Not Started | 0% | Tokenizer abstraction (v0.1: SentencePiece, v0.2+: BERT/WordPiece) |
+| 40.4 | [KM-EMB-MODEL-TOKENIZER](Reqs/KM-EMB-MODEL-TOKENIZER.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Pluggable tokenizer interface supporting multiple tokenizer implementations. | KM-EMB-MODEL-001 | **Complete** | **100%** | Tokenizer abstraction (BERT WordPiece for all-MiniLM-L6-v2, SentencePiece for nomic-embed-text-v1.5) |
 
 ---
 

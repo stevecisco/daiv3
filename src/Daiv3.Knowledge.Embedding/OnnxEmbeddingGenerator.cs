@@ -37,25 +37,32 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator
         _tokenizationOptions.Validate();
         ct.ThrowIfCancellationRequested();
 
-        var tokenizer = _tokenizerProvider.GetTokenizer();
-        var tokens = tokenizer.EncodeToTokens(
-            text,
-            out _,
-            _tokenizationOptions.ConsiderPreTokenization,
-            _tokenizationOptions.ConsiderNormalization);
+        var tokenizer = _tokenizerProvider.GetEmbeddingTokenizer();
+        var tokenIds = tokenizer.Tokenize(text);
 
-        if (tokens.Count == 0)
+        if (tokenIds.Length == 0)
         {
             throw new InvalidOperationException("Tokenizer produced no tokens for embedding generation.");
         }
 
-        var tokenCount = Math.Min(tokens.Count, _tokenizationOptions.MaxTokens);
+        // Validate tokens are within model vocabulary
+        if (!tokenizer.ValidateTokenIds(tokenIds))
+        {
+            _logger.LogError(
+                "Tokenizer {TokenizerName} produced invalid token IDs. Vocabulary size: {VocabSize}",
+                tokenizer.Name,
+                tokenizer.VocabularySize);
+            throw new InvalidOperationException(
+                $"Tokenizer produced token IDs outside vocabulary bounds (vocab size: {tokenizer.VocabularySize})");
+        }
+
+        var tokenCount = Math.Min(tokenIds.Length, _tokenizationOptions.MaxTokens);
         var inputIds = new long[tokenCount];
         var attentionMask = new long[tokenCount];
 
         for (int i = 0; i < tokenCount; i++)
         {
-            inputIds[i] = tokens[i].Id;
+            inputIds[i] = tokenIds[i];
             attentionMask[i] = 1;
         }
 
@@ -72,7 +79,11 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator
             NormalizeInPlace(embedding);
         }
 
-        _logger.LogDebug("Generated embedding with dimension {Dimension}.", embedding.Length);
+        _logger.LogDebug(
+            "Generated {Dimension}-dimensional embedding using {TokenizerName} ({TokenCount} tokens).",
+            embedding.Length,
+            tokenizer.Name,
+            tokenCount);
         return embedding;
     }
 

@@ -12,7 +12,7 @@ This document defines requirements and architecture for managing embedding model
 ## Functional Requirements
 - KM-REQ-014: The system SHALL support nomic-embed-text or all-MiniLM-L6-v2 models.
 - KM-EMB-MODEL-001: The system SHALL maintain a registry of supported embedding models with metadata required for selection, validation, and tokenizer alignment.
-- KM-EMB-MODEL-002: The system SHALL discover embedding models in the local embeddings directory and optionally download approved models from Hugging Face.
+- KM-EMB-MODEL-002: The system SHALL discover embedding models in the local embeddings directory and download both Tier 1 (all-MiniLM-L6-v2) and Tier 2 (nomic-embed-text-v1.5) models from Azure Blob Storage on first initialization.
 - KM-EMB-MODEL-003: The system SHALL allow selection of the active embedding model for Tier 1 and Tier 2 embeddings and persist the selection in settings.
 
 ## Architecture
@@ -20,7 +20,7 @@ This document defines requirements and architecture for managing embedding model
 ### Core Components
 - EmbeddingModelRegistry: Loads model metadata and validates registry entries.
 - EmbeddingModelCatalog: Lists local models discovered in the embeddings directory.
-- EmbeddingModelDownloader: Optional download workflow with checksum validation.
+- EmbeddingModelDownloader: Downloads models from Azure Blob Storage on first initialization with progress reporting (v0.1: required, v0.2+: optional for additional models).
 - EmbeddingModelSelector: Applies active model selection for Tier 1 and Tier 2.
 - EmbeddingTokenizerFactory: Builds tokenizers using per-model configuration.
 
@@ -29,16 +29,17 @@ Default layout under `%LOCALAPPDATA%\\Daiv3\\models\\embeddings\\`:
 
 - embeddings/
   - registry.json
-  - nomic-embed-text-v1.5/
+  - all-MiniLM-L6-v2/
     - model.onnx
     - model.json
-  - all-MiniLM-L6-v2/
+  - nomic-embed-text-v1.5/
     - model.onnx
     - model.json
 
 Notes:
 - registry.json defines supported models and tokenizer settings.
 - model.json defines model-specific metadata and optional checksums.
+- For v0.1, both all-MiniLM-L6-v2 and nomic-embed-text-v1.5 are downloaded from Azure Blob Storage on first run.
 
 ### Configuration
 Example configuration options:
@@ -49,7 +50,9 @@ EmbeddingModels:
   Tier2ModelId: "nomic-embed-text-v1.5"
   ModelsPath: "%LOCALAPPDATA%\\Daiv3\\models\\embeddings"
   RegistryPath: "%LOCALAPPDATA%\\Daiv3\\models\\embeddings\\registry.json"
-  AutoDownloadEnabled: false
+  Tier1DownloadUrl: "https://stdaiv3.blob.core.windows.net/models/embedding/onnx/all-MiniLM-L6-v2/model.onnx"
+  Tier2DownloadUrl: "https://stdaiv3.blob.core.windows.net/models/embedding/onnx/nomic-embed-text-v1.5/model.onnx"
+  AutoDownloadEnabled: true
 ```
 
 ### Tokenizer Alignment

@@ -20,16 +20,16 @@ A model package is either:
 ```
 %LOCALAPPDATA%\Daiv3\models\embeddings\
 ├── registry.json                           # Master registry of all installed models
-├── nomic-embed-text-v1.5/                 # One folder per model (v0.1 bundled)
+├── all-MiniLM-L6-v2/                      # Tier 1: Topic/Summary (384 dims) - v0.1
 │   ├── model.onnx                         # ONNX model file
 │   ├── config.json                        # Model metadata and configuration
-│   ├── sentencepiece.model                # SentencePiece vocabulary/tokenizer
+│   ├── vocab.txt                          # WordPiece vocabulary
 │   └── README.md                          # Model documentation (optional)
-└── all-minilm-l6-v2/                      # Future: additional models (v0.2+)
-    ├── model.onnx
-    ├── config.json
-    ├── wordpiece-vocab.txt
-    └── README.md
+└── nomic-embed-text-v1.5/                 # Tier 2: Chunk (768 dims) - v0.1
+    ├── model.onnx                         # ONNX model file
+    ├── config.json                        # Model metadata and configuration
+    ├── sentencepiece.model                # SentencePiece vocabulary/tokenizer (optional)
+    └── README.md                          # Model documentation (optional)
 ```
 
 ## File Specifications
@@ -159,9 +159,44 @@ A model package is either:
 }
 ```
 
-## Package Distribution Formats (Future v0.2+)
+## Package Distribution Formats
 
-### ZIP Distribution
+### v0.1 - Azure Blob Storage (Current)
+For the initial release (v0.1), both embedding models are distributed via Azure Blob Storage to avoid bundling large model files with the application:
+
+**Tier 1 Model (Topic/Summary - 384 dimensions):**
+```
+Model: all-MiniLM-L6-v2
+Download URL: https://stdaiv3.blob.core.windows.net/models/embedding/onnx/all-MiniLM-L6-v2/model.onnx
+Target Path: %LOCALAPPDATA%\Daiv3\models\embeddings\all-MiniLM-L6-v2\model.onnx
+Size: ~86 MB
+```
+
+**Tier 2 Model (Chunk - 768 dimensions):**
+```
+Model: nomic-embed-text-v1.5
+Download URL: https://stdaiv3.blob.core.windows.net/models/embedding/onnx/nomic-embed-text-v1.5/model.onnx
+Target Path: %LOCALAPPDATA%\Daiv3\models\embeddings\nomic-embed-text-v1.5\model.onnx
+Size: ~522 MB
+```
+
+**Download Behavior:**
+- Both CLI and MAUI applications SHALL check for both models on initialization
+- If either model is missing, download from Azure Blob Storage with progress reporting
+- Display download progress: percentage, bytes downloaded, total size
+- Downloads are sequential (Tier 1 first, then Tier 2)
+- Validate file size after each download
+- Log download completion and model paths
+- Both models use the same tokenizer (r50k_base encoding via Microsoft.ML.Tokenizers)
+
+**Benefits:**
+- Reduces application package size significantly (~608 MB saved)
+- Avoids app store size limitations
+- Enables model updates without application updates (future)
+- Faster initial application install
+- Supports two-tier search architecture from v0.1
+
+### v0.2+ - ZIP Distribution (Future)
 ```
 daiv3-embedding-model-nomic-v1.5.zip
 ├── model/
@@ -192,7 +227,33 @@ When installing or discovering a package, the system MUST:
 5. **Validate tokenizer plugin** — Required plugin is registered in system
 6. **Validate tensor names** — ONNX tensor names match config.json
 
-## Installation Flow (v0.2+)
+## Installation Flow
+
+### v0.1 - Download on First Initialization
+
+```
+Application starts (CLI or MAUI)
+                     ↓
+         Check: %LOCALAPPDATA%\Daiv3\models\embeddings\nomic-embed-text-v1.5\model.onnx exists?
+                     ↓
+         No → Download from Azure Blob Storage
+                     ↓
+         Display progress to user (%, bytes, total)
+                     ↓
+         Save to: %LOCALAPPDATA%\Daiv3\models\embeddings\nomic-embed-text-v1.5\model.onnx
+                     ↓
+         Validate file size and basic integrity
+                     ↓
+         Model ready for use
+```
+
+**Error Handling:**
+- Network failure → Display error with retry instructions
+- Disk full → Display error with space requirements
+- Download timeout → Display error with manual download option
+- Corrupted download → Delete partial file and retry
+
+### v0.2+ - Manual Installation
 
 ```
 User downloads: daiv3-embedding-model-all-minilm-v2.zip

@@ -53,21 +53,43 @@ public static class MauiProgram
 
 		var app = builder.Build();
 
-		// Bootstrap the embedding model on app startup (fire-and-forget)
-		// Don't block app startup - model will be copied in background
+		// Bootstrap both embedding models on app startup
+		// This runs in the background and logs progress
 		var logger = app.Services.GetRequiredService<ILogger<EmbeddingModelBootstrapService>>();
 		_ = Task.Run(async () =>
 		{
 			try
 			{
-				logger.LogInformation("Starting embedding model bootstrap");
+				logger.LogInformation("Starting embedding models bootstrap (Tier 1 and Tier 2)");
 				var bootstrapService = app.Services.GetRequiredService<EmbeddingModelBootstrapService>();
-				await bootstrapService.EnsureModelAsync();
-				logger.LogInformation("Embedding model bootstrap completed successfully");
+				
+				var success = await bootstrapService.EnsureModelsAsync(progress =>
+				{
+					if (progress.PercentComplete.HasValue)
+					{
+						logger.LogInformation("Model download: {Percent:F1}% ({Downloaded:N0} / {Total:N0} bytes)",
+							progress.PercentComplete.Value,
+							progress.BytesDownloaded,
+							progress.TotalBytes ?? 0);
+					}
+					else
+					{
+						logger.LogInformation("Model download: {Status}", progress.Status);
+					}
+				});
+
+				if (success)
+				{
+					logger.LogInformation("Embedding models bootstrap completed successfully");
+				}
+				else
+				{
+					logger.LogError("Embedding models bootstrap failed");
+				}
 			}
 			catch (Exception ex)
 			{
-				logger.LogError(ex, "Error bootstrapping embedding model");
+				logger.LogError(ex, "Error bootstrapping embedding models");
 			}
 		});
 
@@ -77,6 +99,6 @@ public static class MauiProgram
 	private static string GetDefaultEmbeddingModelPath()
 	{
 		var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "model.onnx");
+		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "nomic-embed-text-v1.5", "model.onnx");
 	}
 }

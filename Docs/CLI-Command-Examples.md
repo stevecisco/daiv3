@@ -203,10 +203,53 @@ NOTE: Settings persistence integration pending.
 Tests embedding generation with the ONNX embedding model. Generates a 768-dimensional normalized vector for the input text and displays statistics.
 
 **Requirements:**
-- Embedding model must exist at: `%LOCALAPPDATA%\Daiv3\models\embeddings\model.onnx`
-- If model is not present, run the MAUI application first to bootstrap the model from bundled resources
+- **Two-tier embedding models** (automatically downloaded on first run):
+  - **Tier 1 (Topic/Summary):** all-MiniLM-L6-v2 (~86 MB) - 384 dimensions
+    - Path: `%LOCALAPPDATA%\Daiv3\models\embeddings\all-MiniLM-L6-v2\model.onnx`
+  - **Tier 2 (Chunk):** nomic-embed-text-v1.5 (~522 MB) - 768 dimensions
+    - Path: `%LOCALAPPDATA%\Daiv3\models\embeddings\nomic-embed-text-v1.5\model.onnx`
+- Download progress is displayed in the console
+- Requires internet connectivity for first-time initialization
+- Both models use the same tokenizer (r50k_base encoding)
 
-**Output Example (Success):**
+**Output Example (First Run - Two-Tier Model Download):**
+```
+Tier 1 embedding model (all-MiniLM-L6-v2) not found.
+Downloading from Azure Blob Storage...
+
+Tier 1 Progress: 5.0% (4.31 MB / 86.22 MB)
+Tier 1 Progress: 10.0% (8.62 MB / 86.22 MB)
+...
+Tier 1 Progress: 95.0% (81.91 MB / 86.22 MB)
+✓ Tier 1 model download completed successfully
+
+Tier 2 embedding model (nomic-embed-text-v1.5) not found.
+Downloading from Azure Blob Storage...
+
+Tier 2 Progress: 5.0% (26.10 MB / 521.96 MB)
+Tier 2 Progress: 10.0% (52.20 MB / 521.96 MB)
+...
+Tier 2 Progress: 95.0% (495.86 MB / 521.96 MB)
+✓ Tier 2 model download completed successfully
+
+EMBEDDING TEST
+==============
+Input text: The quick brown fox jumps over the lazy dog
+
+Generating embedding... ✓ Success!
+
+Embedding dimensions: 768
+Vector magnitude: 1.0000
+Value range: [-0.166835, 0.298630]
+
+First 10 embedding values:
+  [  0] = 0.058221
+  [  1] = 0.016115
+  [  2] = -0.166835
+  [  3] = 0.037738
+```
+
+**Output Example (Subsequent Runs):**
 ```
 EMBEDDING TEST
 ==============
