@@ -417,3 +417,5 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+# ONNX model files (large files, should be downloaded separately)
+*.onnx
