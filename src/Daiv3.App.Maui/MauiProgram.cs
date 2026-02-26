@@ -53,14 +53,14 @@ public static class MauiProgram
 
 		var app = builder.Build();
 
-		// Bootstrap both embedding models on app startup
+		// Bootstrap embedding and OCR models on app startup
 		// This runs in the background and logs progress
 		var logger = app.Services.GetRequiredService<ILogger<EmbeddingModelBootstrapService>>();
 		_ = Task.Run(async () =>
 		{
 			try
 			{
-				logger.LogInformation("Starting embedding models bootstrap (Tier 1 and Tier 2)");
+				logger.LogInformation("Starting model bootstrap (embedding Tier 1, Tier 2, and OCR models)");
 				var bootstrapService = app.Services.GetRequiredService<EmbeddingModelBootstrapService>();
 				
 				var success = await bootstrapService.EnsureModelsAsync(progress =>
@@ -80,16 +80,16 @@ public static class MauiProgram
 
 				if (success)
 				{
-					logger.LogInformation("Embedding models bootstrap completed successfully");
+					logger.LogInformation("Model bootstrap completed successfully");
 				}
 				else
 				{
-					logger.LogError("Embedding models bootstrap failed");
+					logger.LogError("Model bootstrap failed");
 				}
 			}
 			catch (Exception ex)
 			{
-				logger.LogError(ex, "Error bootstrapping embedding models");
+				logger.LogError(ex, "Error bootstrapping models");
 			}
 		});
 
