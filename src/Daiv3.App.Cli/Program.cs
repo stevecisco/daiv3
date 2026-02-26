@@ -1064,6 +1064,7 @@ public class Program
                     services.AddLogging(builder =>
                     {
                         builder.AddConsole();
+                        builder.AddFileLogging("cli", LogLevel.Debug);
                         builder.SetMinimumLevel(LogLevel.Information);
                     });
                     services.AddEmbeddingServices();
@@ -1071,6 +1072,7 @@ public class Program
                 .Build();
 
             var bootstrapService = tempHost.Services.GetRequiredService<EmbeddingModelBootstrapService>();
+            var logger = tempHost.Services.GetRequiredService<ILogger<Program>>();
             
             // Bootstrap all models (embeddings Tier 1/2, OCR, multimodal) with progress reporting
             var success = await bootstrapService.EnsureModelsAsync(progress =>
@@ -1080,18 +1082,28 @@ public class Program
                     var percent = progress.PercentComplete.Value;
                     var mb = progress.BytesDownloaded / 1024.0 / 1024.0;
                     var totalMb = (progress.TotalBytes ?? 0) / 1024.0 / 1024.0;
-                    Console.WriteLine($"Download: {percent:F1}% ({mb:F2} MB / {totalMb:F2} MB)");
+                    var message = $"Download: {percent:F1}% ({mb:F2} MB / {totalMb:F2} MB)";
+                    Console.WriteLine(message);
+                    logger.LogInformation(message);
                 }
                 else if (!string.IsNullOrEmpty(progress.Status))
                 {
-                    Console.WriteLine($"• {progress.Status}");
+                    var message = $"• {progress.Status}";
+                    Console.WriteLine(message);
+                    logger.LogInformation(message);
                 }
             });
 
             if (!success)
             {
-                Console.WriteLine("✗ Some models failed to download. Some features may not be available.");
+                var message = "✗ Some models failed to download. Some features may not be available.";
+                Console.WriteLine(message);
+                logger.LogWarning(message);
                 Console.WriteLine();
+            }
+            else
+            {
+                logger.LogInformation("All models bootstrapped successfully");
             }
         }
         catch (Exception ex)
