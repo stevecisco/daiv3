@@ -15,8 +15,8 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        // Bootstrap embedding model before processing commands
-        await EnsureEmbeddingModelAsync();
+        // Bootstrap all models (embeddings Tier 1/2, OCR, and multimodal) before processing commands
+        await EnsureAllModelsAsync();
 
         var rootCommand = new RootCommand("Daiv3 CLI - Distributed AI System");
 
@@ -131,6 +131,39 @@ public class Program
 
         embeddingCommand.AddCommand(embeddingTestCommand);
         rootCommand.AddCommand(embeddingCommand);
+
+        // Multimodal CLIP commands
+        var multimodalCommand = new Command("multimodal", "CLIP multimodal image-text embedding testing");
+        
+        var multimodalTextCommand = new Command("text", "Test text embedding with CLIP");
+        var multimodalTextOption = new Option<string>(
+            aliases: new[] { "--text", "-t" },
+            description: "Text to encode",
+            getDefaultValue: () => "a dog and a cat");
+        multimodalTextCommand.AddOption(multimodalTextOption);
+        multimodalTextCommand.SetHandler(async (string text) =>
+        {
+            var host = CreateHost();
+            var exitCode = await MultimodalTextCommand(host, text);
+            Environment.Exit(exitCode);
+        }, multimodalTextOption);
+
+        multimodalCommand.AddCommand(multimodalTextCommand);
+        rootCommand.AddCommand(multimodalCommand);
+
+        // OCR commands
+        var ocrCommand = new Command("ocr", "Optical Character Recognition (OCR) testing");
+        
+        var ocrTestCommand = new Command("test", "Test OCR with sample text");
+        ocrTestCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await OcrTestCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        ocrCommand.AddCommand(ocrTestCommand);
+        rootCommand.AddCommand(ocrCommand);
 
         return await rootCommand.InvokeAsync(args);
     }
@@ -467,6 +500,91 @@ public class Program
         }
     }
 
+    private static async Task<int> MultimodalTextCommand(IHost host, string text)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Testing CLIP text encoding with text: {Text}", text);
+
+            Console.WriteLine("CLIP MULTIMODAL TEXT ENCODING TEST");
+            Console.WriteLine("==================================");
+            Console.WriteLine($"Input text: {text}");
+            Console.WriteLine();
+            
+            // TODO: Integrate with actual CLIP text encoder when available
+            Console.WriteLine("Status: CLIP text encoder integration pending");
+            Console.WriteLine();
+            Console.WriteLine("Expected capabilities:");
+            Console.WriteLine("  • Text encoding into 512-dimensional vectors");
+            Console.WriteLine("  • Normalized L2 distance for similarity comparison");
+            Console.WriteLine("  • Image-text similarity matching for vision tasks");
+            Console.WriteLine();
+            Console.WriteLine("Model Information:");
+            Console.WriteLine("  • Model: xenova/clip-vit-base-patch32");
+            Console.WriteLine("  • Text Encoder Output Dims: 512");
+            Console.WriteLine("  • Vision Encoder Output Dims: 512");
+            Console.WriteLine("  • Hardware: NPU/GPU (full precision), CPU (quantized)");
+            Console.WriteLine();
+            
+            logger.LogInformation("CLIP text encoding test completed (integration pending)");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to test CLIP text encoding: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "CLIP text encoding test failed");
+            return 1;
+        }
+    }
+
+    private static async Task<int> OcrTestCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Testing OCR capabilities");
+
+            Console.WriteLine("OCR (OPTICAL CHARACTER RECOGNITION) TEST");
+            Console.WriteLine("========================================");
+            Console.WriteLine();
+            
+            // TODO: Integrate with actual TrOCR encoder-decoder when available
+            Console.WriteLine("Status: TrOCR integration pending");
+            Console.WriteLine();
+            Console.WriteLine("Expected capabilities:");
+            Console.WriteLine("  • Document and handwriting text recognition");
+            Console.WriteLine("  • Support for multiple languages");
+            Console.WriteLine("  • Encoder-decoder architecture for accurate transcription");
+            Console.WriteLine();
+            Console.WriteLine("Model Information:");
+            Console.WriteLine("  • Base Model: microsoft/trocr-base-printed");
+            Console.WriteLine("  • Architecture: Vision Encoder (ViT) + Text Decoder (LSTM)");
+            Console.WriteLine("  • Input: Normalized image patches");
+            Console.WriteLine("  • Output: Text tokens (character sequences)");
+            Console.WriteLine();
+            Console.WriteLine("Hardware Variants:");
+            Console.WriteLine("  • NPU/GPU: FP16 precision for accelerated inference");
+            Console.WriteLine("  • CPU: Quantized (int8) for efficient CPU execution");
+            Console.WriteLine();
+            Console.WriteLine("Usage Example:");
+            Console.WriteLine("  ocr test");
+            Console.WriteLine("    Demonstrates OCR capabilities on sample images");
+            Console.WriteLine();
+            
+            logger.LogInformation("OCR test completed (integration pending)");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to test OCR: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "OCR test failed");
+            return 1;
+        }
+    }
+
     private static async Task EnsureEmbeddingModelAsync()
     {
         // Tier 1: all-MiniLM-L6-v2 (384 dimensions) - Topic/Summary level
@@ -605,5 +723,381 @@ public class Program
         return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "nomic-embed-text-v1.5", "model.onnx");
     }
 
-}
+    private static async Task EnsureOcrModelsAsync()
+    {
+        // TrOCR: Microsoft Transformer-based OCR for printed and handwritten text
+        const string OcrEncoderFp16Url = "https://stdaiv3.blob.core.windows.net/models/ocr/trocr-base-printed/fp16/encoder_model.onnx";
+        const string OcrDecoderFp16Url = "https://stdaiv3.blob.core.windows.net/models/ocr/trocr-base-printed/fp16/decoder_model.onnx";
+        const string OcrEncoderQuantizedUrl = "https://stdaiv3.blob.core.windows.net/models/ocr/trocr-base-printed/quantized/encoder_model_int8.onnx";
+        const string OcrDecoderQuantizedUrl = "https://stdaiv3.blob.core.windows.net/models/ocr/trocr-base-printed/quantized/decoder_model_int8.onnx";
 
+        try
+        {
+            var encoderFp16Path = GetOcrEncoderModelPath(useFp16: true);
+            var decoderFp16Path = GetOcrDecoderModelPath(useFp16: true);
+            var encoderQuantizedPath = GetOcrEncoderModelPath(useFp16: false);
+            var decoderQuantizedPath = GetOcrDecoderModelPath(useFp16: false);
+
+            // Check if models already exist
+            var fp16Exists = File.Exists(encoderFp16Path) && File.Exists(decoderFp16Path);
+            var quantizedExists = File.Exists(encoderQuantizedPath) && File.Exists(decoderQuantizedPath);
+
+            if (fp16Exists && quantizedExists)
+            {
+                return; // Both variants exist
+            }
+
+            using var tempHost = Host.CreateDefaultBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddLogging(builder =>
+                    {
+                        builder.AddConsole();
+                        builder.SetMinimumLevel(LogLevel.Information);
+                    });
+                    services.AddEmbeddingServices();
+                })
+                .Build();
+
+            var downloadService = tempHost.Services.GetRequiredService<IEmbeddingModelDownloadService>();
+
+            // Download FP16 variants for NPU/GPU if needed
+            if (!fp16Exists)
+            {
+                Console.WriteLine("OCR FP16 models (encoder/decoder) not found.");
+                Console.WriteLine("Downloading for NPU/GPU acceleration...");
+                Console.WriteLine();
+
+                var lastPercent = -1.0;
+                var encoderSuccess = await downloadService.EnsureModelExistsAsync(
+                    encoderFp16Path,
+                    OcrEncoderFp16Url,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"OCR Encoder (FP16): {percent:F1}%");
+                                lastPercent = percent;
+                            }
+                        }
+                    }));
+
+                lastPercent = -1.0;
+                var decoderSuccess = await downloadService.EnsureModelExistsAsync(
+                    decoderFp16Path,
+                    OcrDecoderFp16Url,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"OCR Decoder (FP16): {percent:F1}%");
+                                lastPercent = percent;
+                            }
+                        }
+                    }));
+
+                if (encoderSuccess && decoderSuccess)
+                {
+                    Console.WriteLine("✓ OCR FP16 models downloaded successfully");
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.WriteLine("✗ OCR FP16 model download failed.");
+                    Console.WriteLine();
+                }
+            }
+
+            // Download quantized variants for CPU if needed
+            if (!quantizedExists)
+            {
+                Console.WriteLine("OCR quantized models (encoder/decoder) not found.");
+                Console.WriteLine("Downloading for CPU execution...");
+                Console.WriteLine();
+
+                var lastPercent = -1.0;
+                var encoderSuccess = await downloadService.EnsureModelExistsAsync(
+                    encoderQuantizedPath,
+                    OcrEncoderQuantizedUrl,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"OCR Encoder (quantized): {percent:F1}%");
+                                lastPercent = percent;
+                            }
+                        }
+                    }));
+
+                lastPercent = -1.0;
+                var decoderSuccess = await downloadService.EnsureModelExistsAsync(
+                    decoderQuantizedPath,
+                    OcrDecoderQuantizedUrl,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"OCR Decoder (quantized): {percent:F1}%");
+                                lastPercent = percent;
+                            }
+                        }
+                    }));
+
+                if (encoderSuccess && decoderSuccess)
+                {
+                    Console.WriteLine("✓ OCR quantized models downloaded successfully");
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.WriteLine("✗ OCR quantized model download failed.");
+                    Console.WriteLine();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Error bootstrapping OCR models: {ex.Message}");
+            Console.WriteLine();
+        }
+    }
+
+    private static async Task EnsureMultimodalModelsAsync()
+    {
+        // CLIP: Contrastive Language-Image Pre-training for multimodal embeddings
+        const string MultimodalTextFullUrl = "https://stdaiv3.blob.core.windows.net/models/multimodal/clip-vit-base-patch32/full-precision/model.onnx";
+        const string MultimodalVisionFullUrl = "https://stdaiv3.blob.core.windows.net/models/multimodal/clip-vit-base-patch32/full-precision/vision_model.onnx";
+        const string MultimodalTextQuantizedUrl = "https://stdaiv3.blob.core.windows.net/models/multimodal/clip-vit-base-patch32/quantized/model_uint8.onnx";
+        const string MultimodalVisionQuantizedUrl = "https://stdaiv3.blob.core.windows.net/models/multimodal/clip-vit-base-patch32/quantized/vision_model_int8.onnx";
+
+        try
+        {
+            var textFullPath = GetMultimodalTextModelPath(useFullPrecision: true);
+            var visionFullPath = GetMultimodalVisionModelPath(useFullPrecision: true);
+            var textQuantizedPath = GetMultimodalTextModelPath(useFullPrecision: false);
+            var visionQuantizedPath = GetMultimodalVisionModelPath(useFullPrecision: false);
+
+            // Check if models already exist
+            var fullExists = File.Exists(textFullPath) && File.Exists(visionFullPath);
+            var quantizedExists = File.Exists(textQuantizedPath) && File.Exists(visionQuantizedPath);
+
+            if (fullExists && quantizedExists)
+            {
+                return; // Both variants exist
+            }
+
+            using var tempHost = Host.CreateDefaultBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddLogging(builder =>
+                    {
+                        builder.AddConsole();
+                        builder.SetMinimumLevel(LogLevel.Information);
+                    });
+                    services.AddEmbeddingServices();
+                })
+                .Build();
+
+            var downloadService = tempHost.Services.GetRequiredService<IEmbeddingModelDownloadService>();
+
+            // Download full-precision variants for NPU/GPU if needed
+            if (!fullExists)
+            {
+                Console.WriteLine("CLIP full-precision models (text/vision encoders) not found.");
+                Console.WriteLine("Downloading for NPU/GPU acceleration...");
+                Console.WriteLine();
+
+                var lastPercent = -1.0;
+                var textSuccess = await downloadService.EnsureModelExistsAsync(
+                    textFullPath,
+                    MultimodalTextFullUrl,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"CLIP Text Encoder (full): {percent:F1}%");
+                                lastPercent = percent;
+                            }
+                        }
+                    }));
+
+                lastPercent = -1.0;
+                var visionSuccess = await downloadService.EnsureModelExistsAsync(
+                    visionFullPath,
+                    MultimodalVisionFullUrl,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"CLIP Vision Encoder (full): {percent:F1}%");
+                                lastPercent = percent;
+                            }
+                        }
+                    }));
+
+                if (textSuccess && visionSuccess)
+                {
+                    Console.WriteLine("✓ CLIP full-precision models downloaded successfully");
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.WriteLine("✗ CLIP full-precision model download failed.");
+                    Console.WriteLine();
+                }
+            }
+
+            // Download quantized variants for CPU if needed
+            if (!quantizedExists)
+            {
+                Console.WriteLine("CLIP quantized models (text/vision encoders) not found.");
+                Console.WriteLine("Downloading for CPU execution...");
+                Console.WriteLine();
+
+                var lastPercent = -1.0;
+                var textSuccess = await downloadService.EnsureModelExistsAsync(
+                    textQuantizedPath,
+                    MultimodalTextQuantizedUrl,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"CLIP Text Encoder (quantized): {percent:F1}%");
+                                lastPercent = percent;
+                            }
+                        }
+                    }));
+
+                lastPercent = -1.0;
+                var visionSuccess = await downloadService.EnsureModelExistsAsync(
+                    visionQuantizedPath,
+                    MultimodalVisionQuantizedUrl,
+                    new Progress<DownloadProgress>(progress =>
+                    {
+                        if (progress.PercentComplete.HasValue)
+                        {
+                            var percent = progress.PercentComplete.Value;
+                            if (Math.Abs(percent - lastPercent) >= 5.0)
+                            {
+                                Console.WriteLine($"CLIP Vision Encoder (quantized): {percent:F1}%");
+                                lastPercent = percent;
+                            }
+                        }
+                    }));
+
+                if (textSuccess && visionSuccess)
+                {
+                    Console.WriteLine("✓ CLIP quantized models downloaded successfully");
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.WriteLine("✗ CLIP quantized model download failed.");
+                    Console.WriteLine();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Error bootstrapping multimodal models: {ex.Message}");
+            Console.WriteLine();
+        }
+    }
+
+    private static string GetOcrEncoderModelPath(bool useFp16)
+    {
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var variant = useFp16 ? "fp16" : "quantized";
+        return Path.Combine(baseDir, "Daiv3", "models", "ocr", "trocr-base-printed", variant, "encoder_model.onnx");
+    }
+
+    private static string GetOcrDecoderModelPath(bool useFp16)
+    {
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var variant = useFp16 ? "fp16" : "quantized";
+        return Path.Combine(baseDir, "Daiv3", "models", "ocr", "trocr-base-printed", variant, "decoder_model.onnx");
+    }
+
+    private static string GetMultimodalTextModelPath(bool useFullPrecision)
+    {
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var variant = useFullPrecision ? "full-precision" : "quantized";
+        return Path.Combine(baseDir, "Daiv3", "models", "multimodal", "clip-vit-base-patch32", variant, "model.onnx");
+    }
+
+    private static string GetMultimodalVisionModelPath(bool useFullPrecision)
+    {
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var variant = useFullPrecision ? "full-precision" : "quantized";
+        return Path.Combine(baseDir, "Daiv3", "models", "multimodal", "clip-vit-base-patch32", variant, "vision_model.onnx");
+    }
+
+    private static async Task EnsureAllModelsAsync()
+    {
+        try
+        {
+            // Create a temporary host just for bootstrapping models
+            using var tempHost = Host.CreateDefaultBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddLogging(builder =>
+                    {
+                        builder.AddConsole();
+                        builder.SetMinimumLevel(LogLevel.Information);
+                    });
+                    services.AddEmbeddingServices();
+                })
+                .Build();
+
+            var bootstrapService = tempHost.Services.GetRequiredService<EmbeddingModelBootstrapService>();
+            
+            // Bootstrap all models (embeddings Tier 1/2, OCR, multimodal) with progress reporting
+            var success = await bootstrapService.EnsureModelsAsync(progress =>
+            {
+                if (progress.PercentComplete.HasValue)
+                {
+                    var percent = progress.PercentComplete.Value;
+                    var mb = progress.BytesDownloaded / 1024.0 / 1024.0;
+                    var totalMb = (progress.TotalBytes ?? 0) / 1024.0 / 1024.0;
+                    Console.WriteLine($"Download: {percent:F1}% ({mb:F2} MB / {totalMb:F2} MB)");
+                }
+                else if (!string.IsNullOrEmpty(progress.Status))
+                {
+                    Console.WriteLine($"• {progress.Status}");
+                }
+            });
+
+            if (!success)
+            {
+                Console.WriteLine("✗ Some models failed to download. Some features may not be available.");
+                Console.WriteLine();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Error bootstrapping models: {ex.Message}");
+            Console.WriteLine();
+        }
+    }
+}

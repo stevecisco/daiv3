@@ -168,8 +168,12 @@ See [AI-Instructions.md - Sub-Agent section](../Docs/AI-Instructions.md#sub-agen
 
 ---
 
-**Version:** 1.1  
-**Last Updated:** February 23, 2026  
+**Version:** 1.2  
+**Last Updated:** February 25, 2026  
 **Status:** Active - Repository-wide GitHub Copilot instructions  
+**Detailed Instructions Version:** [AI-Instructions.md v1.7](../Docs/AI-Instructions.md)
 
-**📖 For complete details, see [AI-Instructions.md](../Docs/AI-Instructions.md)**
+**Recent Updates:**
+- Added critical guidance on PowerShell command syntax (-Last parameter, not tail)
+- Added pattern for reading from existing log files instead of re-piping console output
+- Improved diagnostic efficiency guidelines

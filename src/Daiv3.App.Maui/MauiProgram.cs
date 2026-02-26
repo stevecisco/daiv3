@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Daiv3.App.Maui.Pages;
-using Daiv3.App.Maui.Services;
 using Daiv3.App.Maui.ViewModels;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Infrastructure.Shared.Logging;
@@ -28,9 +27,6 @@ public static class MauiProgram
 		builder.Logging.SetMinimumLevel(LogLevel.Debug);
 #endif
 		builder.Logging.AddFileLogging("maui", LogLevel.Debug);
-
-		// Register bootstrap service for embedding model
-		builder.Services.AddSingleton<EmbeddingModelBootstrapService>();
 
 		// Register ViewModels
 		builder.Services.AddSingleton<ChatViewModel>();

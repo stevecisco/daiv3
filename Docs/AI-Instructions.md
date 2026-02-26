@@ -285,6 +285,64 @@ dotnet build /p:TargetFramework=net10.0-windows10.0.26100
 - DO NOT continue attempting builds (wastes time)
 - Clear bin/obj folders if needed: `dotnet clean`
 
+#### PowerShell Text Manipulation & Log File Access Patterns
+
+**⚠️ CRITICAL: Use Correct PowerShell Syntax (Not Unix/Linux Equivalents)**
+
+**When truncating console output in PowerShell, use `-Last` parameter, NOT `tail`:**
+
+```powershell
+# ❌ WRONG - PowerShell does not have 'tail' command
+Get-Content output.log | tail -50
+tail -n 50 output.log  # This will fail
+
+# ✅ CORRECT - Use -Last parameter (works immediately, first time)
+Get-Content output.log -Tail 50
+Get-Content output.log | Select-Object -Last 50
+
+# ✅ ALSO CORRECT - Alternative syntax  
+Get-Content output.log | Select-Object -Last 50
+```
+
+**⚠️ CRITICAL: Always Read From Existing Log Files (NOT Console Piping)**
+
+**The application already logs all output to persistent log files. Use these instead of re-executing and piping console output:**
+
+```powershell
+# ❌ INEFFICIENT - Running app again and piping output
+dotnet run --project src/Daiv3.App.Cli/... 2>&1 | Select-String "pattern" | Select-Object -Last 50
+
+# ✅ EFFICIENT - Read existing logs directly
+Get-Content "$env:LOCALAPPDATA\Daiv3\logs\cli-current-date.log" -Tail 100
+
+# ✅ Find most recent log file
+Get-ChildItem "$env:LOCALAPPDATA\Daiv3\logs\" -Filter "*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object { Get-Content $_.FullName -Tail 100 }
+
+# ✅ Read last 50 lines of most recent CLI log
+$latestLog = Get-ChildItem "$env:LOCALAPPDATA\Daiv3\logs\cli-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($latestLog) { Get-Content $latestLog.FullName -Tail 50 }
+```
+
+**Why This Matters:**
+- Log files are persistent and can be re-read without re-running the application
+- Piping console output requires running the app again, wasting time and potentially changing state
+- Log files preserve complete execution history including timestamps
+- Multiple issues can be diagnosed from a single log file without re-execution
+
+**Application Log Locations:**
+- **CLI Logs:** `%LOCALAPPDATA%\Daiv3\logs\cli-YYYY-MM-DD.log`
+- **MAUI Logs:** `%LOCALAPPDATA%\Daiv3\logs\maui-YYYY-MM-DD.log`
+- Log format includes timestamps, log level, component name, and full exception traces
+
+**Pattern for Efficient Diagnostics:**
+1. **Check existing log files first** - don't re-run the app
+2. **Use PowerShell `-Tail` parameter** - not `tail` command
+3. **Use `Select-Object -Last N`** - not piped `tail` or other Unix commands
+4. **For pattern matching, use `Select-String` with `-Context`** to preserve surrounding lines:
+   ```powershell
+   Get-Content $logfile | Select-String "error|fail|exception" -Context 3
+   ```
+
 #### Test Naming Conventions
 
 **Unit Tests:**
@@ -1418,11 +1476,12 @@ If any requirement is genuinely ambiguous or contradictory:
 
 ---
 
-**Last Updated:** February 23, 2026
-**Version:** 1.6
+**Last Updated:** February 25, 2026
+**Version:** 1.7
 **Status:** Active - Shared instructions referenced by all AI tools
 
 **Changelog:**
+- **v1.7 (Feb 25, 2026):** Added critical guidance on PowerShell command syntax (-Last parameter, not tail); added pattern for reading from existing log files instead of re-piping console output; improved diagnostic efficiency
 - **v1.6 (Feb 23, 2026):** Added critical guidance on avoiding DLL locking in PowerShell/terminals; debugging best practices to prevent file lock issues requiring IDE restart
 - **v1.5 (Feb 22, 2026):** Extracted from .vscode/copilot-instructions.md as shared instructions for all AI tools
 - **v1.4 (Feb 22, 2026):** Added Target Framework & Platform Configuration guidance; multi-targeting pattern for Windows-specific optimizations (NPU/DirectML)

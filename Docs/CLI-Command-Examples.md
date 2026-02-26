@@ -293,6 +293,116 @@ Generating embedding... ✗ Failed to generate embedding: ONNX model file not fo
 
 ---
 
+## Multimodal (CLIP) Commands
+
+### Test CLIP Text Encoding
+```bash
+.\run-cli.bat multimodal text
+# With custom text
+.\run-cli.bat multimodal text --text "a person walking in the park"
+# Short form
+.\run-cli.bat multimodal text -t "a person walking in the park"
+```
+
+Tests CLIP multimodal text encoding. Generates a 512-dimensional embedding for image-text similarity matching.
+
+**Requirements:**
+- **CLIP Multimodal Models** (automatically downloaded on first run):
+  - **Full Precision (NPU/GPU):** xenova/clip-vit-base-patch32
+    - Text Encoder: `%LOCALAPPDATA%\Daiv3\models\multimodal\clip-vit-base-patch32\full-precision\model.onnx`
+    - Vision Encoder: `%LOCALAPPDATA%\Daiv3\models\multimodal\clip-vit-base-patch32\full-precision\vision_model.onnx`
+  - **Quantized (CPU):** uint8 quantized variants
+    - Text Encoder (uint8): `%LOCALAPPDATA%\Daiv3\models\multimodal\clip-vit-base-patch32\quantized\model_uint8.onnx`
+    - Vision Encoder (int8): `%LOCALAPPDATA%\Daiv3\models\multimodal\clip-vit-base-patch32\quantized\vision_model_int8.onnx`
+- Hardware-aware variant selection (NPU/GPU → full precision, CPU → quantized)
+- Enables image-text similarity scores and cross-modal retrieval
+
+**Output Example:**
+```
+CLIP MULTIMODAL TEXT ENCODING TEST
+==================================
+Input text: a person walking in the park
+
+Status: CLIP text encoder integration pending
+
+Expected capabilities:
+  • Text encoding into 512-dimensional vectors
+  • Normalized L2 distance for similarity comparison
+  • Image-text similarity matching for vision tasks
+
+Model Information:
+  • Model: xenova/clip-vit-base-patch32
+  • Text Encoder Output Dims: 512
+  • Vision Encoder Output Dims: 512
+  • Hardware: NPU/GPU (full precision), CPU (quantized)
+
+CLIP text encoding test completed (integration pending)
+```
+
+**Validation Points (When Implemented):**
+- ✓ Text embeddings: 512 dimensions (L2 normalized)
+- ✓ Image embeddings: 512 dimensions (L2 normalized)
+- ✓ Similarity scores: Cosine distance between text and image embeddings
+- ✓ Hardware variants properly selected based on detected hardware
+
+---
+
+## OCR Commands
+
+### Test OCR Capabilities
+```bash
+.\run-cli.bat ocr test
+```
+
+Tests Optical Character Recognition (OCR) capabilities using TrOCR. Demonstrates document and handwriting text recognition.
+
+**Requirements:**
+- **TrOCR Models** (automatically downloaded on first run):
+  - **Full Precision (NPU/GPU):** microsoft/trocr-base-printed
+    - Encoder (FP16): `%LOCALAPPDATA%\Daiv3\models\ocr\trocr-base-printed\fp16\encoder_model.onnx`
+    - Decoder (FP16): `%LOCALAPPDATA%\Daiv3\models\trocr-base-printed\fp16\decoder_model.onnx`
+  - **Quantized (CPU):** int8 quantized variants
+    - Encoder (int8): `%LOCALAPPDATA%\Daiv3\models\ocr\trocr-base-printed\quantized\encoder_model_int8.onnx`
+    - Decoder (int8): `%LOCALAPPDATA%\Daiv3\models\ocr\trocr-base-printed\quantized\decoder_model_int8.onnx`
+- Hardware-aware variant selection (NPU/GPU → FP16, CPU → int8)
+- Document and handwriting text recognition
+
+**Output Example:**
+```
+OCR (OPTICAL CHARACTER RECOGNITION) TEST
+========================================
+
+Status: TrOCR integration pending
+
+Expected capabilities:
+  • Document and handwriting text recognition
+  • Support for multiple languages
+  • Encoder-decoder architecture for accurate transcription
+
+Model Information:
+  • Base Model: microsoft/trocr-base-printed
+  • Architecture: Vision Encoder (ViT) + Text Decoder (LSTM)
+  • Input: Normalized image patches
+  • Output: Text tokens (character sequences)
+
+Hardware Variants:
+  • NPU/GPU: FP16 precision for accelerated inference
+  • CPU: Quantized (int8) for efficient CPU execution
+
+Usage Example:
+  ocr test
+    Demonstrates OCR capabilities on sample images
+```
+
+**Validation Points (When Implemented):**
+- ✓ Document text recognition: Accurate transcription of printed text
+- ✓ Handwriting recognition: Support for handwritten documents
+- ✓ Multi-language support: Handle various languages and scripts
+- ✓ Hardware variants properly selected based on detected hardware
+- ✓ Encoder-decoder pipeline coordinates vision understanding with text generation
+
+---
+
 ## Help and Documentation
 
 ### General Help
@@ -314,6 +424,9 @@ Shows all available commands and options.
 .\run-cli.bat chat --help
 .\run-cli.bat projects --help
 .\run-cli.bat settings --help
+.\run-cli.bat embedding --help
+.\run-cli.bat multimodal --help
+.\run-cli.bat ocr --help
 ```
 
 ---

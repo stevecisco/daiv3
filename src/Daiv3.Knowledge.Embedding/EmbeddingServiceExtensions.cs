@@ -42,6 +42,9 @@ public static class EmbeddingServiceExtensions
         
         // Register model download service with HttpClient
         services.AddHttpClient<IEmbeddingModelDownloadService, EmbeddingModelDownloadService>();
+        
+        // Register bootstrap service for model downloads
+        services.AddSingleton<EmbeddingModelBootstrapService>();
 
         return services;
     }
