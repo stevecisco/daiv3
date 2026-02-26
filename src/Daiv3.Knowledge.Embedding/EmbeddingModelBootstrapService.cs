@@ -250,7 +250,7 @@ public class EmbeddingModelBootstrapService
 		var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 		var variant = useFp16 ? "fp16" : "quantized";
 		var fileName = useFp16 ? "encoder_model_fp16.onnx" : "encoder_model_quantized.onnx";
-		return Path.Combine(baseDir, "Daiv3", "models", "ocr", "trocr-base-printed", variant, fileName);
+		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "ocr", "trocr-base-printed", variant, fileName);
 	}
 
 	public static string GetOcrDecoderModelPath(bool useFp16)
@@ -258,7 +258,7 @@ public class EmbeddingModelBootstrapService
 		var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 		var variant = useFp16 ? "fp16" : "quantized";
 		var fileName = useFp16 ? "decoder_model_merged_fp16.onnx" : "decoder_model_merged_quantized.onnx";
-		return Path.Combine(baseDir, "Daiv3", "models", "ocr", "trocr-base-printed", variant, fileName);
+		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "ocr", "trocr-base-printed", variant, fileName);
 	}
 
 	public static string GetMultimodalTextModelPath(bool useFullPrecision)
@@ -266,7 +266,7 @@ public class EmbeddingModelBootstrapService
 		var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 		var variant = useFullPrecision ? "full-precision" : "quantized";
 		var fileName = useFullPrecision ? "model.onnx" : "model_uint8.onnx";
-		return Path.Combine(baseDir, "Daiv3", "models", "multimodal", "clip-vit-base-patch32", variant, fileName);
+		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "multimodal", "clip-vit-base-patch32", variant, fileName);
 	}
 
 	public static string GetMultimodalVisionModelPath(bool useFullPrecision)
@@ -274,6 +274,6 @@ public class EmbeddingModelBootstrapService
 		var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 		var variant = useFullPrecision ? "full-precision" : "quantized";
 		var fileName = useFullPrecision ? "vision_model.onnx" : "vision_model_int8.onnx";
-		return Path.Combine(baseDir, "Daiv3", "models", "multimodal", "clip-vit-base-patch32", variant, fileName);
+		return Path.Combine(baseDir, "Daiv3", "models", "embeddings", "multimodal", "clip-vit-base-patch32", variant, fileName);
 	}
 }

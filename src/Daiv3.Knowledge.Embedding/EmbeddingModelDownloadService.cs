@@ -9,6 +9,7 @@ public class EmbeddingModelDownloadService : IEmbeddingModelDownloadService
 {
     private readonly ILogger<EmbeddingModelDownloadService> _logger;
     private readonly HttpClient _httpClient;
+    private const int DownloadTimeoutSeconds = 1800; // 30 minutes for large model downloads
 
     public EmbeddingModelDownloadService(
         ILogger<EmbeddingModelDownloadService> logger,
@@ -88,26 +89,38 @@ public class EmbeddingModelDownloadService : IEmbeddingModelDownloadService
                 Status = "Initiating download..."
             });
 
-            // Set timeout for download (5 minutes)
-            _httpClient.Timeout = TimeSpan.FromMinutes(5);
+            // Create a timeout cancellation token (reuse passed cancellationToken if provided)
+            using var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            downloadCts.CancelAfter(TimeSpan.FromSeconds(DownloadTimeoutSeconds));
 
-            using var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, downloadCts.Token);
             response.EnsureSuccessStatusCode();
 
             var totalBytes = response.Content.Headers.ContentLength;
             _logger.LogInformation("Download started, total size: {Size:N0} bytes ({SizeMB:F2} MB)",
                 totalBytes, totalBytes / 1024.0 / 1024.0);
 
-            var tempFilePath = destinationPath + ".tmp";
+            // Create staging directory for downloads
+            var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var stagingDir = Path.Combine(baseDir, "Daiv3", "models", "embeddings", "downloads");
+            if (!Directory.Exists(stagingDir))
+            {
+                Directory.CreateDirectory(stagingDir);
+                _logger.LogInformation("Created staging directory: {Directory}", stagingDir);
+            }
+
+            // Download to staging directory with unique filename
+            var stagingFileName = $"{Path.GetFileNameWithoutExtension(destinationPath)}_{Guid.NewGuid():N}{Path.GetExtension(destinationPath)}";
+            var stagingFilePath = Path.Combine(stagingDir, stagingFileName);
             
             try
             {
                 long totalBytesRead;
                 
-                // Download to temp file - enclosed in a scope to ensure proper disposal before moving
+                // Download to staging file - enclosed in a scope to ensure proper disposal before moving
                 {
                     await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                    await using var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+                    await using var fileStream = new FileStream(stagingFilePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
 
                     var buffer = new byte[8192];
                     totalBytesRead = 0;
@@ -152,17 +165,25 @@ public class EmbeddingModelDownloadService : IEmbeddingModelDownloadService
                 {
                     BytesDownloaded = totalBytesRead,
                     TotalBytes = totalBytes ?? totalBytesRead,
-                    Status = "Download complete, finalizing..."
+                    Status = "Download complete, moving to final location..."
                 });
 
-                _logger.LogInformation("Download completed, {Bytes:N0} bytes downloaded", totalBytesRead);
+                _logger.LogInformation("Download completed to staging, {Bytes:N0} bytes downloaded", totalBytesRead);
 
-                // Move temp file to final destination - streams are now disposed
+                // Ensure destination directory exists
+                var destDirectory = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrEmpty(destDirectory) && !Directory.Exists(destDirectory))
+                {
+                    Directory.CreateDirectory(destDirectory);
+                    _logger.LogInformation("Created destination directory: {Directory}", destDirectory);
+                }
+
+                // Move from staging to final destination - streams are now disposed
                 if (File.Exists(destinationPath))
                 {
                     File.Delete(destinationPath);
                 }
-                File.Move(tempFilePath, destinationPath);
+                File.Move(stagingFilePath, destinationPath);
 
                 progress?.Report(new DownloadProgress
                 {
@@ -171,20 +192,21 @@ public class EmbeddingModelDownloadService : IEmbeddingModelDownloadService
                     Status = "Model ready"
                 });
 
-                _logger.LogInformation("Model successfully saved to {Path}", destinationPath);
+                _logger.LogInformation("Model successfully moved from staging to {Path}", destinationPath);
             }
             catch
             {
-                // Clean up temp file on error
-                if (File.Exists(tempFilePath))
+                // Clean up staging file on error
+                if (File.Exists(stagingFilePath))
                 {
                     try
                     {
-                        File.Delete(tempFilePath);
+                        File.Delete(stagingFilePath);
+                        _logger.LogWarning("Deleted staging file after error: {Path}", stagingFilePath);
                     }
-                    catch (Exception cleanupEx)
+                    catch (Exception deleteEx)
                     {
-                        _logger.LogWarning(cleanupEx, "Failed to delete temporary file {Path}", tempFilePath);
+                        _logger.LogWarning(deleteEx, "Failed to delete staging file {Path}", stagingFilePath);
                     }
                 }
                 throw;
