@@ -26,7 +26,11 @@ public static class ModelExecutionServiceExtensions
         services.AddOptions<OnlineProviderOptions>()
             .Bind(configuration.GetSection("OnlineProviders"));
 
+        services.AddOptions<ModelLifecycleOptions>()
+            .Bind(configuration.GetSection("ModelLifecycle"));
+
         // Register core services
+        services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
         services.AddSingleton<IModelQueue, ModelQueue>();
         services.AddSingleton<IFoundryBridge, FoundryBridge>();
         services.AddSingleton<IOnlineProviderRouter, OnlineProviderRouter>();
@@ -40,11 +44,13 @@ public static class ModelExecutionServiceExtensions
     /// <param name="services">Service collection</param>
     /// <param name="configureQueue">Model queue options configuration</param>
     /// <param name="configureOnline">Online provider options configuration</param>
+    /// <param name="configureLifecycle">Model lifecycle options configuration</param>
     /// <returns>Service collection for chaining</returns>
     public static IServiceCollection AddModelExecutionServices(
         this IServiceCollection services,
         Action<ModelQueueOptions>? configureQueue = null,
-        Action<OnlineProviderOptions>? configureOnline = null)
+        Action<OnlineProviderOptions>? configureOnline = null,
+        Action<ModelLifecycleOptions>? configureLifecycle = null)
     {
         // Register configuration options with defaults
         if (configureQueue != null)
@@ -65,7 +71,17 @@ public static class ModelExecutionServiceExtensions
             services.Configure<OnlineProviderOptions>(_ => { });
         }
 
+        if (configureLifecycle != null)
+        {
+            services.Configure(configureLifecycle);
+        }
+        else
+        {
+            services.Configure<ModelLifecycleOptions>(_ => { });
+        }
+
         // Register core services
+        services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
         services.AddSingleton<IModelQueue, ModelQueue>();
         services.AddSingleton<IFoundryBridge, FoundryBridge>();
         services.AddSingleton<IOnlineProviderRouter, OnlineProviderRouter>();
