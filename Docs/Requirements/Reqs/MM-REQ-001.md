@@ -8,6 +8,8 @@ The system SHALL list all available models from the Foundry service catalog with
 ## Rationale
 Users need to see all models available for download before deciding which to cache locally. This must work offline by querying the local catalog endpoint.
 
+**Architectural Context:** This requirement is foundational because Foundry Local **automatically manages hardware-optimized variants** for each model (NPU, GPU, CPU optimizations). By querying the catalog, DAIv3 gains visibility into what Foundry Local provides, allowing it to display variant metadata (execution provider, device type, file size) to users without having to maintain separate variant definitions or hardware detection logic. The catalog is the single source of truth for model availability and optimization opportunities.
+
 ## Implementation Plan
 - Call Foundry service `/foundry/list` endpoint.
 - Parse JSON response containing model metadata.

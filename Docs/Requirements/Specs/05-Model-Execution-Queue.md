@@ -3,9 +3,18 @@
 ## Overview
 This document specifies requirements derived from Section 5 of the design document. It covers model constraints, queue priorities, scheduling, intent resolution, and online routing.
 
+**Key Architectural Point:** The **one-model-at-a-time constraint** is a Foundry Local SDK limitation (not a DAIv3 design choice). This constraint is the reason an intelligent queue system with priority levels and affinity-based batching is essential:
+
+- **Model switching has significant cost** (loading weights from disk can take seconds)
+- **Smart batching minimizes switches** by draining requests for the current model before switching
+- **Priority levels handle interrupts** (P0 user-facing requests can force a switch, P1/P2 background work waits)
+- **Intent resolution picks the right model** before queuing, so similar tasks can be grouped together
+
+This design turns a constraint into an efficiency feature: instead of thrashing between models, DAIv3 batches work intelligently and keeps users responsive.
+
 ## Goals
-- Minimize model thrashing under Foundry Local constraints.
-- Prioritize user-facing tasks.
+- Minimize model thrashing under Foundry Local constraints by intelligent batching and affinity-aware scheduling.
+- Prioritize user-facing tasks while batching background work.
 - Provide deterministic queue behavior.
 
 ## Functional Requirements

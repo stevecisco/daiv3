@@ -5,6 +5,11 @@ Source Spec: 5. Model Execution & Queue Management - Requirements
 ## Requirement
 If P1 requests exist for the current model, the queue SHALL execute them before switching.
 
+## Rationale
+**Model switching in Foundry Local is expensive** (loading large model weights from disk takes multiple seconds). This requirement implements affinity-based batching to minimize these costly switches. By draining all P1 requests for the current model before switching, the queue group-batches work by model, reducing total switching overhead and keeping the user-facing queue responsive.
+
+Without this requirement, a cache-thrashing scenario could occur: switch to model A (slow), process 1 request, switch to model B (slow), process 1 request, repeat → poor end-to-end latency and wasted disk I/O.
+
 ## Implementation Plan
 - Identify the owning component and interface boundary.
 - Define data contracts, configuration, and defaults.

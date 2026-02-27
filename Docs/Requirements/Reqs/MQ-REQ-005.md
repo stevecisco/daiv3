@@ -5,6 +5,9 @@ Source Spec: 5. Model Execution & Queue Management - Requirements
 ## Requirement
 If P2 requests exist for the current model, the queue SHALL drain them before switching.
 
+## Rationale
+Background work (document indexing, scheduled tasks, reasoning pipelines) that is already queued for the current model should complete before a model switch. This extends affinity-based batching to P2 work, maximizing utilization of the current model before the expensive switch operation. P2 requests do not have user-impact latency requirements, so they can wait for model draining without degrading perceived responsiveness.
+
 ## Implementation Plan
 - Identify the owning component and interface boundary.
 - Define data contracts, configuration, and defaults.

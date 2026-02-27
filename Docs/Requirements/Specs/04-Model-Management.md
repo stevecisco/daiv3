@@ -3,12 +3,15 @@
 ## Overview
 This document specifies requirements for managing Small Language Models (SLMs) on the local device. Model management covers discovery, download, caching, variant selection, and lifecycle operations for models used by Foundry Local. The implementation leverages the Foundry service's shared model cache directory (`%LOCALAPPDATA%/.foundry/cache/models`) to avoid duplicate storage and optimize disk usage.
 
+**Key Architectural Point:** Foundry Local **automatically handles hardware detection and variant optimization**. The variant management requirements below ensure DAIv3 can query capabilities and make informed decisions, but the actual optimization is provided by Foundry as a managed service. This eliminates the need for DAIv3 to maintain separate variants or test across hardware tiers.
+
 ## Goals
 - Provide a unified interface for model discovery and lifecycle management.
 - Minimize disk space waste by using the shared Foundry Local cache directory.
-- Enable efficient variant selection (CPU/GPU/NPU) based on device capabilities.
+- Enable efficient variant selection (CPU/GPU/NPU) based on device capabilities—leveraging Foundry Local's automatic hardware optimization.
 - Support progress tracking and cancellation for long-running operations.
 - Provide transparent model inventory and usage information.
+- Avoid reimplementing hardware optimization; rely on Foundry's service catalog for keeping variants current across hardware tiers.
 
 ## Functional Requirements
 
