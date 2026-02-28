@@ -66,11 +66,19 @@ A comprehensive distributed AI system with support for:
 1. Implement code → 2. Create unit tests → 3. Create integration tests → 4. Verify all pass → 5. CLI validation → 6. **Document CLI commands** → 7. MAUI implementation
 
 ### Git Commit Strategy (MANDATORY)
-1. When implementing multiple requirements, create **one commit per completed requirement**.
-2. Commit immediately after requirement completion (do not wait until end of session).
-3. Stage only requirement-related changed files (avoid `git add .` in multi-requirement work).
-4. Use commit message format: `<REQ-ID> - Brief description`.
-5. If two requirements must share inseparable file edits, include both IDs in the same commit and document overlap reason in both requirement docs.
+**When asked to work on multiple requirements, implement them ONE AT A TIME in sequential order:**
+1. ✅ Implement first requirement **completely** (code + tests + docs)
+2. ✅ Update requirement doc and Master-Implementation-Tracker.md
+3. ✅ **Create git commit** for that requirement (stage only related files)
+4. ✅ **Then** proceed to next requirement
+5. ✅ Repeat until all requirements complete
+
+**Key Rules:**
+- Create **one commit per completed requirement** (not one commit at end)
+- Commit **immediately** after requirement completion (do not batch)
+- Stage **only requirement-related files** (avoid `git add .` in multi-requirement work)
+- Use format: `<REQ-ID> - Brief description`
+- See [AI-Instructions.md](../Docs/AI-Instructions.md) § Git Commits for Multi-Requirement Work for complete workflow
 
 ### Debugging Best Practices
 - ⚠️ **NEVER use `[System.Reflection.Assembly]::LoadFrom()` in PowerShell** - locks DLLs and prevents compilation
@@ -175,12 +183,13 @@ See [AI-Instructions.md - Sub-Agent section](../Docs/AI-Instructions.md#sub-agen
 
 ---
 
-**Version:** 1.3  
+**Version:** 1.4  
 **Last Updated:** February 27, 2026  
 **Status:** Active - Repository-wide GitHub Copilot instructions  
-**Detailed Instructions Version:** [AI-Instructions.md v1.8](../Docs/AI-Instructions.md)
+**Detailed Instructions Version:** [AI-Instructions.md v1.9](../Docs/AI-Instructions.md)
 
 **Recent Updates:**
+- **CRITICAL:** Added explicit sequential multi-requirement workflow - implement ONE AT A TIME, commit after EACH requirement
 - Added explicit commit-per-requirement policy with requirement-scoped staging guidance
 - Added critical guidance on PowerShell command syntax (-Last parameter, not tail)
 - Added pattern for reading from existing log files instead of re-piping console output

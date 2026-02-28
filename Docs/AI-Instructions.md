@@ -1079,6 +1079,21 @@ Requirements are organized by category with individual requirement documents:
 
 ## Development Workflow
 
+### ⚠️ CRITICAL: Multi-Requirement Sequential Implementation
+
+**When asked to work on multiple requirements (e.g., "work on REQ-008 through REQ-010"), you MUST implement them ONE AT A TIME in sequential order. DO NOT implement all requirements first and then commit.**
+
+**Required Workflow:**
+1. Complete **first requirement** fully (all 3 phases below)
+2. Create **git commit** for first requirement only
+3. **Then** start second requirement (all 3 phases)
+4. Create **git commit** for second requirement only
+5. Continue until all requirements complete
+
+**See § Git Commits for Multi-Requirement Work for detailed workflow and commit strategy.**
+
+---
+
 ### Phase 1: Planning & Requirements Analysis
 
 Before beginning ANY implementation work:
@@ -1296,6 +1311,33 @@ If you do not update the tracker:
 **MANDATORY: When working on multiple requirements, create a git commit immediately after completing EACH requirement.**
 
 **This is not optional.** Do not batch multiple completed requirements into a single end-of-session commit.
+
+### Sequential Implementation Workflow (MANDATORY)
+
+**When asked to work on multiple requirements (e.g., "work on REQ-008 through REQ-010"), you MUST implement them ONE AT A TIME in sequential order:**
+
+1. ✅ **Implement REQ-008 completely** (code + tests + documentation)
+2. ✅ **Update requirement doc** (MQ-REQ-008.md with implementation details)
+3. ✅ **Update Master-Implementation-Tracker.md** (mark REQ-008 as Complete)
+4. ✅ **Create git commit for REQ-008** (stage only REQ-008 files)
+5. ✅ **Then implement REQ-009 completely** (code + tests + documentation)
+6. ✅ **Update requirement doc** (MQ-REQ-009.md with implementation details)
+7. ✅ **Update Master-Implementation-Tracker.md** (mark REQ-009 as Complete)
+8. ✅ **Create git commit for REQ-009** (stage only REQ-009 files)
+9. ✅ **Continue this pattern** for all remaining requirements
+
+**DO NOT:**
+- ❌ Implement all requirements first, then commit at the end
+- ❌ Implement multiple requirements in parallel
+- ❌ Create a single commit for multiple completed requirements
+- ❌ Skip commits between requirements
+
+**WHY THIS MATTERS:**
+- Atomic commits enable requirement-level rollback if issues are discovered
+- Git history serves as proof of work completion per requirement
+- Code reviews can be scoped to individual requirements
+- Bisecting issues becomes trivial (each commit = one requirement)
+- Progress is visible in real-time, not just at session end
 
 ### Commit Strategy for Multiple Requirements
 
@@ -1562,10 +1604,11 @@ If any requirement is genuinely ambiguous or contradictory:
 ---
 
 **Last Updated:** February 27, 2026
-**Version:** 1.8
+**Version:** 1.9
 **Status:** Active - Shared instructions referenced by all AI tools
 
 **Changelog:**
+- **v1.9 (Feb 27, 2026):** **CRITICAL CLARIFICATION:** Added explicit sequential implementation workflow requirement - when working on multiple requirements, MUST implement them ONE AT A TIME in order with git commit after EACH requirement completion (not batched at end); added prominent workflow sections in Development Workflow and Git Commits sections
 - **v1.8 (Feb 27, 2026):** Clarified mandatory commit-per-requirement workflow for multi-requirement sessions; require requirement-scoped staging (no `git add .`), immediate commit after each completed requirement, and explicit handling for shared-file overlap
 - **v1.7 (Feb 25, 2026):** Added critical guidance on PowerShell command syntax (-Last parameter, not tail); added pattern for reading from existing log files instead of re-piping console output; improved diagnostic efficiency
 - **v1.6 (Feb 23, 2026):** Added critical guidance on avoiding DLL locking in PowerShell/terminals; debugging best practices to prevent file lock issues requiring IDE restart
