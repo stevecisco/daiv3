@@ -317,14 +317,45 @@ Skills are modular capabilities that can be attached to agents or invoked direct
 
   Communication          Draft email, Slack message, meeting summary, action item extraction
 
-  UI Automation          Interact with desktop applications via accessibility APIs or screen automation
-  ---------------------- --------------------------------------------------------------------------------
+## 8.3 Tool Backend Strategy (Direct, CLI, MCP)
 
-## 8.3 MCP Tool Integration
+Daiv3 supports three tool backends, each optimized for different use cases:
 
-ARIA supports the Model Context Protocol (MCP) for tool integration. Any MCP-compatible tool server can be registered and made available to agents and skills. This enables integration with external services, APIs, and local tools without custom development per integration.
+### 8.3.1 Direct C# Services (Preferred for Local Operations)
+Built-in services with zero context overhead and lowest latency. Examples: knowledge search, model queue, scheduling, document processing, embedding generation. These tools are invoked directly via C# interfaces without serialization or RPC overhead.
 
-## 8.4 External Application Integration
+### 8.3.2 CLI Execution (Fallback for External Utilities)
+Shell command invocation for offline external tools, local utilities, and system integration. Examples: file operations (if not using direct services), Windows native tools, local external binaries. CLI tools add minimal context overhead (only when requested) and avoid network latency.
+
+### 8.3.3 MCP (Optional for Remote Services)
+The Model Context Protocol provides standardized integration with persistent remote services and third-party APIs. Examples: GitHub, AWS, external SaaS platforms, remote REST integrations. MCP tools are discoverable and shareable, but incur context token overhead that must be managed given Daiv3's token budget constraints.
+
+### 8.3.4 Tool Routing & Backend Selection
+
+Agents intelligently route tool calls to the most efficient backend:
+
+1. **Direct C# services** are always preferred when available (zero overhead)
+2. **CLI tools** are preferred over MCP for equivalent local operations
+3. **MCP tools** are used only for remote services where direct/CLI backends are unavailable
+
+**Design rationale**: Daiv3 explicitly tracks token budgets (daily/monthly limits on online providers) and is designed as a local-first system. Having all tools serialize through MCP would add unavoidable context overhead on every task. Instead, the system uses MCP as a **delegation mechanism** for external integrations while keeping internal operations overhead-free.
+
+## 8.4 MCP Tool Integration for Remote Services
+
+Any MCP-compatible tool server can be registered and made available to agents and skills. This enables integration with external services and APIs without custom per-integration development. MCP tool registration is optional; the system functions fully without any MCP servers.
+
+**When to use MCP**:
+- External APIs and SaaS platforms (GitHub, AWS, REST services)
+- Shared tool servers with discoverable schemas
+- Scenarios where context token overhead is justified by functionality
+
+**When NOT to use MCP**:
+- Local operations (use direct C# or CLI instead)
+- High-frequency calls or time-critical operations
+- Knowledge search, document processing, or indexing (use direct C#)
+- File operations where CLI or direct approach is available
+
+## 8.5 External Application Integration
 
 Agents can interact with external applications via REST APIs where available, or via UI automation (Windows accessibility APIs, UIAutomation) where APIs are not available. Automation scripts are defined as skills and can be shared.
 
