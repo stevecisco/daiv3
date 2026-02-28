@@ -4,6 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Daiv3.Infrastructure.Shared.Logging;
 using Daiv3.Persistence;
+using Daiv3.Persistence.Entities;
+using Daiv3.Persistence.Repositories;
 using Daiv3.Knowledge.Embedding;
 
 namespace Daiv3.App.Cli;
@@ -74,7 +76,7 @@ public class Program
         projectsListCommand.SetHandler(async () =>
         {
             var host = CreateHost();
-            var exitCode = await Task.FromResult(ProjectsListCommand(host));
+            var exitCode = await ProjectsListCommand(host);
             Environment.Exit(exitCode);
         });
 
@@ -91,7 +93,7 @@ public class Program
         projectsCreateCommand.SetHandler(async (string name, string desc) =>
         {
             var host = CreateHost();
-            var exitCode = await Task.FromResult(ProjectsCreateCommand(host, name, desc));
+            var exitCode = await ProjectsCreateCommand(host, name, desc);
             Environment.Exit(exitCode);
         }, projectNameOption, projectDescOption);
 
@@ -353,18 +355,35 @@ public class Program
         }
     }
 
-    private static int ProjectsListCommand(IHost host)
+    private static async Task<int> ProjectsListCommand(IHost host)
     {
         try
         {
             var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var projectRepository = host.Services.GetRequiredService<ProjectRepository>();
             logger.LogInformation("Listing projects");
 
+            var projects = await projectRepository.GetAllAsync().ConfigureAwait(false);
+
             Console.WriteLine("PROJECTS:");
-            Console.WriteLine("  (No projects - persistence integration pending)");
-            Console.WriteLine();
-            Console.WriteLine("NOTE: Project CRUD operations pending persistence layer integration.");
-            Console.WriteLine("      Use 'projects create --name \"My Project\"' to create a project.");
+            if (projects.Count == 0)
+            {
+                Console.WriteLine("  (No projects found)");
+                Console.WriteLine();
+                Console.WriteLine("Use 'projects create --name \"My Project\"' to create a project.");
+                return 0;
+            }
+
+            foreach (var project in projects)
+            {
+                Console.WriteLine($"  ID: {project.ProjectId}");
+                Console.WriteLine($"  Name: {project.Name}");
+                Console.WriteLine($"  Description: {project.Description ?? string.Empty}");
+                Console.WriteLine($"  Status: {project.Status}");
+                Console.WriteLine($"  Created: {FromUnixSeconds(project.CreatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"  Updated: {FromUnixSeconds(project.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine();
+            }
             
             return 0;
         }
@@ -375,19 +394,42 @@ public class Program
         }
     }
 
-    private static int ProjectsCreateCommand(IHost host, string name, string description)
+    private static async Task<int> ProjectsCreateCommand(IHost host, string name, string description)
     {
         try
         {
             var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var projectRepository = host.Services.GetRequiredService<ProjectRepository>();
             logger.LogInformation("Creating project: {Name}", name);
 
-            var projectId = Guid.NewGuid();
-            Console.WriteLine($"✓ Project created successfully (simulation - persistence integration pending)");
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                Console.WriteLine("✗ Project name is required.");
+                return 1;
+            }
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var projectId = Guid.NewGuid().ToString();
+            var normalizedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+            var currentRootPath = Directory.GetCurrentDirectory();
+
+            await projectRepository.AddAsync(new Project
+            {
+                ProjectId = projectId,
+                Name = name.Trim(),
+                Description = normalizedDescription,
+                RootPaths = currentRootPath,
+                CreatedAt = now,
+                UpdatedAt = now,
+                Status = "active"
+            }).ConfigureAwait(false);
+
+            Console.WriteLine("✓ Project created successfully");
             Console.WriteLine($"  ID: {projectId}");
-            Console.WriteLine($"  Name: {name}");
-            Console.WriteLine($"  Description: {description}");
-            Console.WriteLine($"  Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            Console.WriteLine($"  Name: {name.Trim()}");
+            Console.WriteLine($"  Description: {normalizedDescription ?? string.Empty}");
+            Console.WriteLine("  Status: active");
+            Console.WriteLine($"  Created: {FromUnixSeconds(now):yyyy-MM-dd HH:mm:ss} UTC");
             
             return 0;
         }
@@ -397,6 +439,9 @@ public class Program
             return 1;
         }
     }
+
+    private static DateTimeOffset FromUnixSeconds(long unixSeconds) =>
+        DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
 
     private static int SettingsShowCommand(IHost host)
     {

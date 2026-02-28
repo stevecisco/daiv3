@@ -135,10 +135,12 @@ Displays all projects in the system.
 **Output Example:**
 ```
 PROJECTS:
-  (No projects - persistence integration pending)
-
-NOTE: Project CRUD operations pending persistence layer integration.
-      Use 'projects create --name "My Project"' to create a project.
+  ID: 7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f
+  Name: My Project
+  Description: Project description
+  Status: active
+  Created: 2026-02-28 18:42:11 UTC
+  Updated: 2026-02-28 18:42:11 UTC
 ```
 
 ### Create New Project
@@ -151,11 +153,12 @@ Creates a new project with the specified name and optional description.
 
 **Output Example:**
 ```
-✓ Project created successfully (simulation - persistence integration pending)
+✓ Project created successfully
   ID: ccc3d3cd-75e7-4a90-a2ec-c04109ce1e0c
   Name: My Project
   Description: Project description
-  Created: 2026-02-23 15:05:19
+  Status: active
+  Created: 2026-02-28 18:42:11 UTC
 ```
 
 ---
@@ -438,7 +441,7 @@ Shows all available commands and options.
 | Database | `db init`, `db status` | ✅ Complete | Fully functional |
 | Dashboard | `dashboard` | 🔄 Partial | Hardware detection pending |
 | Chat | `chat`, `chat -m` | 🔄 Partial | Orchestration layer pending |
-| Projects | `projects list`, `projects create` | 🔄 Partial | Persistence layer pending |
+| Projects | `projects list`, `projects create` | ✅ Complete | Persistence-backed project listing and creation |
 | Settings | `settings show` | 🔄 Partial | Configuration service pending |
 
 **Legend:**
