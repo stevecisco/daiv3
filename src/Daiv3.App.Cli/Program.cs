@@ -9,6 +9,7 @@ using Daiv3.Persistence.Repositories;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Scheduler;
 using Daiv3.Orchestration;
+using Daiv3.Orchestration.Configuration;
 
 namespace Daiv3.App.Cli;
 
@@ -438,11 +439,34 @@ public class Program
             Environment.Exit(exitCode);
         }, agentIdExecuteOption, agentGoalOption, agentMaxIterationsOption, agentTimeoutOption, agentTokenBudgetOption);
 
+        var agentLoadCommand = new Command("load", "Load agent(s) from a configuration file or directory");
+        var agentConfigPathOption = new Option<string>(
+            aliases: new[] { "--path", "-p" },
+            description: "Path to configuration file (.json) or directory of configuration files") { IsRequired = true };
+        var agentRecursiveOption = new Option<bool>(
+            aliases: new[] { "--recursive", "-r" },
+            description: "When loading from directory, search subdirectories recursively",
+            getDefaultValue: () => false);
+        var agentValidateOnlyOption = new Option<bool>(
+            aliases: new[] { "--validate-only" },
+            description: "Validate configuration without creating agents",
+            getDefaultValue: () => false);
+        agentLoadCommand.AddOption(agentConfigPathOption);
+        agentLoadCommand.AddOption(agentRecursiveOption);
+        agentLoadCommand.AddOption(agentValidateOnlyOption);
+        agentLoadCommand.SetHandler(async (string path, bool recursive, bool validateOnly) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentLoadCommand(host, path, recursive, validateOnly);
+            Environment.Exit(exitCode);
+        }, agentConfigPathOption, agentRecursiveOption, agentValidateOnlyOption);
+
         agentCommand.AddCommand(agentListCommand);
         agentCommand.AddCommand(agentCreateCommand);
         agentCommand.AddCommand(agentGetCommand);
         agentCommand.AddCommand(agentDeleteCommand);
         agentCommand.AddCommand(agentExecuteCommand);
+        agentCommand.AddCommand(agentLoadCommand);
         rootCommand.AddCommand(agentCommand);
 
         // Settings command
@@ -532,6 +556,12 @@ public class Program
                 {
                     // Use default options (database in %LOCALAPPDATA%\Daiv3\)
                 });
+
+                // Add orchestration services (includes IAgentManager, ISkillRegistry, etc.)
+                services.AddOrchestrationServices();
+
+                // Register agent configuration loader
+                services.AddScoped<AgentConfigFileLoader>();
 
                 var modelPath = GetDefaultEmbeddingModelPath();
                 services.AddEmbeddingServices(options =>
@@ -1848,6 +1878,129 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to execute agent task: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentLoadCommand(
+        IHost host,
+        string configPath,
+        bool recursive,
+        bool validateOnly)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var agentManager = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentManager>();
+            var loader = new Daiv3.Orchestration.Configuration.AgentConfigFileLoader(
+                host.Services.GetRequiredService<ILogger<Daiv3.Orchestration.Configuration.AgentConfigFileLoader>>(),
+                host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.ISkillRegistry>());
+
+            Console.WriteLine("LOADING AGENT CONFIGURATION(S)");
+            Console.WriteLine("=============================");
+            Console.WriteLine();
+
+            // Load configuration file(s)
+            var batch = await loader.LoadAgentBatchAsync(configPath, recursive);
+            
+            if (batch.Agents.Count == 0)
+            {
+                Console.WriteLine("✗ No agent configurations found at the specified path.");
+                return 1;
+            }
+
+            Console.WriteLine($"Found {batch.Agents.Count} agent configuration(s)");
+            Console.WriteLine();
+
+            // Validate all configurations
+            var validationResults = new List<(AgentConfigurationFile config, AgentConfigurationValidationResult result)>();
+            var hasErrors = false;
+
+            foreach (var config in batch.Agents)
+            {
+                var validationResult = loader.ValidateConfiguration(config);
+                validationResults.Add((config, validationResult));
+
+                if (!validationResult.IsValid)
+                {
+                    hasErrors = true;
+                    Console.WriteLine($"✗ {config.Name}:");
+                    foreach (var error in validationResult.Errors)
+                    {
+                        Console.WriteLine($"    Error: {error}");
+                    }
+                }
+
+                if (validationResult.Warnings.Count > 0)
+                {
+                    Console.WriteLine($"⚠ {config.Name}:");
+                    foreach (var warning in validationResult.Warnings)
+                    {
+                        Console.WriteLine($"    Warning: {warning}");
+                    }
+                }
+            }
+
+            if (hasErrors)
+            {
+                Console.WriteLine();
+                Console.WriteLine("✗ Configuration validation failed. Fix errors and try again.");
+                return 1;
+            }
+
+            if (validateOnly)
+            {
+                Console.WriteLine();
+                Console.WriteLine("✓ All configurations are valid.");
+                return 0;
+            }
+
+            // Create agents
+            var createdAgents = new List<Daiv3.Orchestration.Interfaces.Agent>();
+            var failedAgents = new List<(string name, string error)>();
+
+            Console.WriteLine();
+            Console.WriteLine("Creating agents...");
+            Console.WriteLine();
+
+            foreach (var (config, _) in validationResults)
+            {
+                try
+                {
+                    var definition = loader.ToAgentDefinition(config);
+                    var agent = await agentManager.CreateAgentAsync(definition);
+                    createdAgents.Add(agent);
+                    Console.WriteLine($"✓ Created agent: {config.Name} (ID: {agent.Id})");
+                }
+                catch (Exception ex)
+                {
+                    failedAgents.Add((config.Name, ex.Message));
+                    Console.WriteLine($"✗ Failed to create agent '{config.Name}': {ex.Message}");
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("SUMMARY:");
+            Console.WriteLine($"  Successfully created: {createdAgents.Count}");
+            Console.WriteLine($"  Failed to create: {failedAgents.Count}");
+
+            if (failedAgents.Count > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine("  Failed agents:");
+                foreach (var (name, error) in failedAgents)
+                {
+                    Console.WriteLine($"    - {name}: {error}");
+                }
+                return 1;
+            }
+
+            Console.WriteLine();
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to load agent configuration: {ex.Message}");
             return 1;
         }
     }

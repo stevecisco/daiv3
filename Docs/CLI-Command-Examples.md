@@ -735,7 +735,6 @@ Current implementation uses placeholder execution logic. Future integration will
 
 Core iteration loop, termination logic, token tracking, and observability are fully operational.
 
----
 
 ## Settings Commands
 
@@ -833,9 +832,6 @@ EMBEDDING TEST
 Input text: The quick brown fox jumps over the lazy dog
 
 Generating embedding... ✓ Success!
-
-Embedding dimensions: 768
-Vector magnitude: 1.0000
 Value range: [-0.166835, 0.298630]
 
 First 10 embedding values:
@@ -998,18 +994,15 @@ For convenience on Windows, use:
 
 ---
 
-## Help and Documentation
 
 ### General Help
 ```bash
 .\run-cli.bat --help
-# or
 .\run-cli.bat -h
 ```
 Shows all available commands and options.
 
 ### Command-Specific Help
-```bash
 .\run-cli.bat [command] --help
 ```
 
@@ -1078,16 +1071,7 @@ The following commands will be added as features are implemented:
 ## Notes for Developers
 
 ### Adding New Commands
-
-When implementing new CLI commands:
-
-1. **Add command handler** in `src/Daiv3.App.Cli/Program.cs`
-2. **Create unit tests** for the handler logic
-3. **Test manually** using `.\run-cli.bat` 
-4. **Update this file** with:
-   - Command syntax
    - Parameter descriptions
-   - Example usage
    - Expected output
    - Integration status
 
