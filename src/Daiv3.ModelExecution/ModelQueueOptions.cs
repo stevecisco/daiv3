@@ -28,4 +28,10 @@ public class ModelQueueOptions
     /// has no pending matches. Improves deterministic behavior for bursty enqueue patterns.
     /// </summary>
     public int DominantP1SelectionWindowMs { get; set; } = 20;
+
+    /// <summary>
+    /// Short coalescing window used before dominant P2 model selection when the current model
+    /// has no pending matches. Helps reduce unnecessary switches during steady background workloads.
+    /// </summary>
+    public int DominantP2SelectionWindowMs { get; set; } = 20;
 }

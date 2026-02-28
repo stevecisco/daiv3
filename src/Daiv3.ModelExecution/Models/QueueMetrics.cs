@@ -26,6 +26,9 @@ public class QueueMetrics
     /// <summary>Total number of requests routed to online providers.</summary>
     public long TotalOnlineExecutions { get; set; }
 
+    /// <summary>Total number of local model switches performed.</summary>
+    public long TotalModelSwitches { get; set; }
+
     /// <summary>Current number of requests in active execution.</summary>
     public long InFlightExecutions { get; set; }
 

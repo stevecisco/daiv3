@@ -48,6 +48,7 @@ public class ModelQueue : IModelQueue
     private long _totalPreempted;
     private long _totalLocalExecutions;
     private long _totalOnlineExecutions;
+    private long _totalModelSwitches;
     private long _totalQueueWaitMs;
     private long _totalExecutionDurationMs;
     private long _measuredExecutionCount;
@@ -192,6 +193,7 @@ public class ModelQueue : IModelQueue
             TotalPreempted = Interlocked.Read(ref _totalPreempted),
             TotalLocalExecutions = Interlocked.Read(ref _totalLocalExecutions),
             TotalOnlineExecutions = Interlocked.Read(ref _totalOnlineExecutions),
+            TotalModelSwitches = Interlocked.Read(ref _totalModelSwitches),
             InFlightExecutions = Interlocked.Read(ref _inFlightExecutions),
             AverageQueueWaitMs = dequeued > 0
                 ? Interlocked.Read(ref _totalQueueWaitMs) / (double)dequeued
@@ -358,24 +360,29 @@ public class ModelQueue : IModelQueue
                 scannedRequests.Add(req);
             }
 
-            // No match found in lookahead - take first request (will cause model switch)
+            // No match found in lookahead. Drain remaining P2 queue and choose the model
+            // with the most pending P2 work to minimize model switches under steady workloads.
             if (scannedRequests.Count > 0)
             {
-                var firstRequest = scannedRequests[0];
-                var newModelId = DetermineModelId(firstRequest.Request);
-
-                _logger.LogInformation(
-                    "No P2 requests for current model {CurrentModelId} in lookahead, switching to {NewModelId}",
-                    _currentModelId, newModelId);
-
-                // Requeue the rest
-                foreach (var req in scannedRequests.Skip(1))
+                if (_options.DominantP2SelectionWindowMs > 0)
                 {
-                    await _backgroundChannel.Writer.WriteAsync(req);
+                    await Task.Delay(_options.DominantP2SelectionWindowMs);
                 }
 
-                MarkRequestDequeued(firstRequest);
-                return firstRequest;
+                while (_backgroundChannel.Reader.TryRead(out var remainingRequest))
+                {
+                    scannedRequests.Add(remainingRequest);
+                }
+
+                var selectedRequest = await SelectDominantP2RequestAsync(scannedRequests);
+
+                var selectedModelId = DetermineModelId(selectedRequest.Request);
+                _logger.LogInformation(
+                    "No P2 requests for current model {CurrentModelId}; selected dominant P2 model {SelectedModelId}",
+                    _currentModelId, selectedModelId);
+
+                MarkRequestDequeued(selectedRequest);
+                return selectedRequest;
             }
         }
 
@@ -445,6 +452,7 @@ public class ModelQueue : IModelQueue
 
                     await _modelLifecycleManager.SwitchModelAsync(modelId, executionCts.Token);
                     _lastModelSwitch = (await _modelLifecycleManager.GetLastModelSwitchAsync()) ?? DateTimeOffset.UtcNow;
+                    Interlocked.Increment(ref _totalModelSwitches);
                 }
 
                 // Always update current model ID (even if no switch) for batching logic
@@ -566,9 +574,22 @@ public class ModelQueue : IModelQueue
 
     private async Task<QueuedRequest> SelectDominantP1RequestAsync(List<QueuedRequest> candidates)
     {
+        return await SelectDominantRequestAsync(candidates, _normalChannel.Writer, "P1");
+    }
+
+    private async Task<QueuedRequest> SelectDominantP2RequestAsync(List<QueuedRequest> candidates)
+    {
+        return await SelectDominantRequestAsync(candidates, _backgroundChannel.Writer, "P2");
+    }
+
+    private async Task<QueuedRequest> SelectDominantRequestAsync(
+        List<QueuedRequest> candidates,
+        ChannelWriter<QueuedRequest> writer,
+        string priorityLabel)
+    {
         if (candidates.Count == 0)
         {
-            throw new InvalidOperationException("Cannot select dominant P1 request from an empty candidate set.");
+            throw new InvalidOperationException($"Cannot select dominant {priorityLabel} request from an empty candidate set.");
         }
 
         var modelCounts = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -603,12 +624,12 @@ public class ModelQueue : IModelQueue
 
         foreach (var req in dominantModelRemainder)
         {
-            await _normalChannel.Writer.WriteAsync(req);
+            await writer.WriteAsync(req);
         }
 
         foreach (var req in otherRequests)
         {
-            await _normalChannel.Writer.WriteAsync(req);
+            await writer.WriteAsync(req);
         }
 
         return selectedRequest;

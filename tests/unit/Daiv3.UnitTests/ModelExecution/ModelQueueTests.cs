@@ -1171,6 +1171,55 @@ public class ModelQueueTests
         Assert.Equal(_options.CodeModelId, executedModels[0]);
     }
 
+    [Fact]
+    public async Task P2Requests_NoRequestsForCurrentModel_SelectsModelWithMostPendingP2Work()
+    {
+        // Arrange
+        _options.ChatModelId = "phi-3-mini";
+        _options.CodeModelId = "phi-4-mini";
+
+        var queue = CreateQueue();
+        var executedModels = new List<string>();
+
+        _mockModelLifecycleManager.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync("phi-vision"); // Current model has no pending requests
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExecutionRequest req, string model, CancellationToken ct) =>
+            {
+                executedModels.Add(model);
+                return new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "Response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                };
+            });
+
+        var chatRequest = new ExecutionRequest { TaskType = "chat", Content = "Chat" };
+        var codeRequest1 = new ExecutionRequest { TaskType = "code", Content = "Code 1" };
+        var codeRequest2 = new ExecutionRequest { TaskType = "code", Content = "Code 2" };
+        var codeRequest3 = new ExecutionRequest { TaskType = "code", Content = "Code 3" };
+
+        // Act
+        var chatId = await queue.EnqueueAsync(chatRequest, ExecutionPriority.Background);
+        var codeId1 = await queue.EnqueueAsync(codeRequest1, ExecutionPriority.Background);
+        var codeId2 = await queue.EnqueueAsync(codeRequest2, ExecutionPriority.Background);
+        var codeId3 = await queue.EnqueueAsync(codeRequest3, ExecutionPriority.Background);
+
+        await Task.WhenAll(
+            queue.ProcessAsync(chatId),
+            queue.ProcessAsync(codeId1),
+            queue.ProcessAsync(codeId2),
+            queue.ProcessAsync(codeId3)
+        ).WaitAsync(TimeSpan.FromSeconds(10));
+
+        // Assert
+        Assert.NotEmpty(executedModels);
+        Assert.Equal(_options.CodeModelId, executedModels[0]);
+    }
+
     // ==================== MQ-REQ-007 Tests: Explicit Model Switch Process ====================
 
     [Fact]
@@ -1346,6 +1395,53 @@ public class ModelQueueTests
         Assert.True(metrics.TotalDequeued >= 2);
         Assert.Equal(1, metrics.TotalPreempted);
         Assert.True(metrics.TotalCompleted >= 1);
+    }
+
+    [Fact]
+    public async Task GetMetricsAsync_LocalModelSwitches_AreTracked()
+    {
+        // Arrange
+        _options.ChatModelId = "phi-3-mini";
+        _options.CodeModelId = "phi-4-mini";
+
+        var queue = CreateQueue();
+        string? loadedModel = "phi-3-mini";
+
+        _mockModelLifecycleManager.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync(() => loadedModel);
+
+        _mockModelLifecycleManager.Setup(x => x.SwitchModelAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((newModel, _) =>
+            {
+                loadedModel = newModel;
+                return Task.CompletedTask;
+            });
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExecutionRequest req, string model, CancellationToken ct) =>
+                new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "Response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 5, OutputTokens = 5 }
+                });
+
+        // Act
+        var chatId = await queue.EnqueueAsync(new ExecutionRequest { TaskType = "chat", Content = "Chat" }, ExecutionPriority.Normal);
+        var codeId1 = await queue.EnqueueAsync(new ExecutionRequest { TaskType = "code", Content = "Code 1" }, ExecutionPriority.Normal);
+        var codeId2 = await queue.EnqueueAsync(new ExecutionRequest { TaskType = "code", Content = "Code 2" }, ExecutionPriority.Normal);
+
+        await Task.WhenAll(
+            queue.ProcessAsync(chatId),
+            queue.ProcessAsync(codeId1),
+            queue.ProcessAsync(codeId2)
+        ).WaitAsync(TimeSpan.FromSeconds(10));
+
+        var metrics = await queue.GetMetricsAsync();
+
+        // Assert
+        Assert.Equal(1, metrics.TotalModelSwitches);
     }
 
     private ModelQueue CreateQueue()

@@ -6,22 +6,21 @@ Source Spec: 5. Model Execution & Queue Management - Requirements
 Model switching SHOULD be minimized under steady workloads.
 
 ## Implementation Plan
-- Define measurable metrics and thresholds for this constraint.
-- Implement instrumentation to capture relevant metrics.
-- Apply guardrails or optimizations to meet thresholds.
-- Add configuration knobs if tuning is required.
-- Document expected performance ranges.
+- ✅ Extended queue scheduling to select the dominant model for P2 background workloads when the current model has no pending P2 matches.
+- ✅ Added short coalescing window knob `ModelQueueOptions.DominantP2SelectionWindowMs` (default `20ms`) before dominant P2 selection to better capture steady-state bursts.
+- ✅ Added switch telemetry counter `QueueMetrics.TotalModelSwitches` to make switch minimization measurable.
+- ✅ Preserved existing priority and preemption behavior while improving switch efficiency for sustained mixed-model background traffic.
 
 ## Testing Plan
-- Benchmark tests against defined thresholds.
-- Regression tests to prevent performance degradation.
-- Stress tests for worst-case inputs.
-- Telemetry validation to ensure metrics are recorded.
+- ✅ Added unit test `P2Requests_NoRequestsForCurrentModel_SelectsModelWithMostPendingP2Work`.
+- ✅ Added unit test `GetMetricsAsync_LocalModelSwitches_AreTracked`.
+- ✅ Re-ran full `ModelQueueTests` suite after changes.
+- ✅ Result: **66 passed, 0 failed** (targeted test file).
 
 ## Usage and Operational Notes
-- Describe how this capability is invoked or configured.
-- List user-visible effects and any UI surfaces involved.
-- Specify operational constraints (offline mode, budgets, permissions).
+- Configure `DominantP2SelectionWindowMs` in `ModelQueue` settings to tune switch minimization vs immediate dispatch latency.
+- Read `IModelQueue.GetMetricsAsync()` to monitor `TotalModelSwitches` and track switching behavior over time.
+- No UI changes are required; optimization is internal to queue scheduling.
 
 ## Dependencies
 - KLC-REQ-005
@@ -29,3 +28,8 @@ Model switching SHOULD be minimized under steady workloads.
 
 ## Related Requirements
 - None
+
+## Implementation Status
+✅ **COMPLETE** - Queue scheduling now minimizes model switches more aggressively for steady background workloads and exposes switch-count telemetry.
+
+See [MQ-NFR-002-Implementation.md](MQ-NFR-002-Implementation.md) for detailed notes.
