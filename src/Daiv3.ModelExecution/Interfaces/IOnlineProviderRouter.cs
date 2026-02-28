@@ -59,4 +59,14 @@ public interface IOnlineProviderRouter
     Task<bool> IsProviderAvailableAsync(
         string providerName,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Retries pending requests that were queued while offline.
+    /// </summary>
+    /// <remarks>
+    /// Implements MQ-REQ-013: Processes queued online tasks when system comes back online.
+    /// </remarks>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Number of requests successfully retried</returns>
+    Task<int> RetryPendingRequestsAsync(CancellationToken ct = default);
 }

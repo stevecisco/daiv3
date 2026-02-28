@@ -51,6 +51,13 @@ public static class ModelExecutionServiceExtensions
         services.AddSingleton<IFoundryBridge, FoundryBridge>();
         services.AddSingleton<IOnlineProviderRouter, OnlineProviderRouter>();
 
+        // Register MQ-REQ-013: Network connectivity service for offline queueing
+        services.AddHttpClient("ConnectivityCheck");
+        services.AddSingleton<INetworkConnectivityService, NetworkConnectivityService>();
+
+        // Note: IModelQueueRepository is registered by AddPersistenceServices()
+        // in Daiv3.Persistence.PersistenceServiceExtensions
+
         // Register intent resolution services (MQ-REQ-008, MQ-REQ-009, MQ-REQ-010)
         services.AddSingleton<ITaskTypeClassifier, TaskTypeClassifier>();
         services.AddSingleton<IModelSelector, ModelSelector>();
@@ -118,6 +125,13 @@ public static class ModelExecutionServiceExtensions
         services.AddSingleton<IModelQueue, ModelQueue>();
         services.AddSingleton<IFoundryBridge, FoundryBridge>();
         services.AddSingleton<IOnlineProviderRouter, OnlineProviderRouter>();
+
+        // Register MQ-REQ-013: Network connectivity service for offline queueing
+        services.AddHttpClient("ConnectivityCheck");
+        services.AddSingleton<INetworkConnectivityService, NetworkConnectivityService>();
+
+        // Note: IModelQueueRepository is registered by AddPersistenceServices()
+        // in Daiv3.Persistence.PersistenceServiceExtensions
 
         // Register intent resolution services (MQ-REQ-008, MQ-REQ-009, MQ-REQ-010)
         services.AddSingleton<ITaskTypeClassifier, TaskTypeClassifier>();

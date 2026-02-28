@@ -1,3 +1,5 @@
+using Daiv3.ModelExecution.Interfaces;
+using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -30,6 +32,14 @@ public static class PersistenceServiceExtensions
 
         // Register database context
         services.AddSingleton<IDatabaseContext, DatabaseContext>();
+
+        // Register repositories
+        // Note: Using Scoped for repositories to support transactional operations
+        services.AddScoped<DocumentRepository>();
+        services.AddScoped<ProjectRepository>();
+        
+        // MQ-REQ-013: Model queue repository for offline queueing
+        services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
 
         return services;
     }

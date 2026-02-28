@@ -64,3 +64,20 @@ public class ChunkIndex
     public string? TopicTags { get; set; }
     public long CreatedAt { get; set; }
 }
+
+/// <summary>
+/// Represents a model queue entry for persistent queue state.
+/// Used for offline queueing and request tracking.
+/// </summary>
+public class ModelQueueEntry
+{
+    public string RequestId { get; set; } = string.Empty;
+    public string ModelId { get; set; } = string.Empty;
+    public int Priority { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string PayloadJson { get; set; } = string.Empty;
+    public long CreatedAt { get; set; }
+    public long? StartedAt { get; set; }
+    public long? CompletedAt { get; set; }
+    public string? ErrorMessage { get; set; }
+}

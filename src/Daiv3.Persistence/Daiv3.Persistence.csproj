@@ -14,13 +14,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Daiv3.Core\Daiv3.Core.csproj" />
+    <ProjectReference Include="..\Daiv3.ModelExecution\Daiv3.ModelExecution.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
   </ItemGroup>
 
 </Project>
