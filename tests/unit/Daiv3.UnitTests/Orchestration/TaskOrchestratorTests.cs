@@ -13,6 +13,7 @@ namespace Daiv3.UnitTests.Orchestration;
 public class TaskOrchestratorTests
 {
     private readonly Mock<IIntentResolver> _mockIntentResolver;
+    private readonly Mock<IDependencyResolver> _mockDependencyResolver;
     private readonly Mock<ILogger<TaskOrchestrator>> _mockLogger;
     private readonly OrchestrationOptions _options;
     private readonly TaskOrchestrator _orchestrator;
@@ -20,6 +21,7 @@ public class TaskOrchestratorTests
     public TaskOrchestratorTests()
     {
         _mockIntentResolver = new Mock<IIntentResolver>();
+        _mockDependencyResolver = new Mock<IDependencyResolver>();
         _mockLogger = new Mock<ILogger<TaskOrchestrator>>();
         _options = new OrchestrationOptions
         {
@@ -30,6 +32,7 @@ public class TaskOrchestratorTests
 
         _orchestrator = new TaskOrchestrator(
             _mockIntentResolver.Object,
+            _mockDependencyResolver.Object,
             _mockLogger.Object,
             Options.Create(_options));
     }
@@ -170,5 +173,64 @@ public class TaskOrchestratorTests
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(
             () => _orchestrator.ResolveIntentAsync(""));
+    }
+
+    [Fact]
+    public async Task CanEnqueueTaskAsync_WithSatisfiedDependencies_ReturnsTrue()
+    {
+        // Arrange
+        const string taskId = "task-1";
+
+        _mockDependencyResolver
+            .Setup(r => r.AreDependenciesSatisfiedAsync(taskId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _orchestrator.CanEnqueueTaskAsync(taskId);
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task CanEnqueueTaskAsync_WithUnsatisfiedDependencies_ReturnsFalse()
+    {
+        // Arrange
+        const string taskId = "task-1";
+
+        _mockDependencyResolver
+            .Setup(r => r.AreDependenciesSatisfiedAsync(taskId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _orchestrator.CanEnqueueTaskAsync(taskId);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task CanEnqueueTaskAsync_WithDependencyResolverException_ReturnsFalse()
+    {
+        // Arrange
+        const string taskId = "task-1";
+
+        _mockDependencyResolver
+            .Setup(r => r.AreDependenciesSatisfiedAsync(taskId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Dependency resolution failed"));
+
+        // Act
+        var result = await _orchestrator.CanEnqueueTaskAsync(taskId);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task CanEnqueueTaskAsync_WithNullTaskId_ThrowsArgumentException()
+    {
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => _orchestrator.CanEnqueueTaskAsync(null!));
     }
 }

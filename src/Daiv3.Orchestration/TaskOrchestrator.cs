@@ -10,15 +10,18 @@ namespace Daiv3.Orchestration;
 public class TaskOrchestrator : ITaskOrchestrator
 {
     private readonly IIntentResolver _intentResolver;
+    private readonly IDependencyResolver _dependencyResolver;
     private readonly ILogger<TaskOrchestrator> _logger;
     private readonly OrchestrationOptions _options;
 
     public TaskOrchestrator(
         IIntentResolver intentResolver,
+        IDependencyResolver dependencyResolver,
         ILogger<TaskOrchestrator> logger,
         IOptions<OrchestrationOptions> options)
     {
         _intentResolver = intentResolver ?? throw new ArgumentNullException(nameof(intentResolver));
+        _dependencyResolver = dependencyResolver ?? throw new ArgumentNullException(nameof(dependencyResolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -238,6 +241,40 @@ public class TaskOrchestrator : ITaskOrchestrator
                 ErrorMessage = ex.Message,
                 CompletedAt = DateTimeOffset.UtcNow
             });
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CanEnqueueTaskAsync(string taskId, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+
+        _logger.LogInformation("Checking if task {TaskId} can be enqueued", taskId);
+
+        try
+        {
+            var dependenciesSatisfied = await _dependencyResolver.AreDependenciesSatisfiedAsync(taskId, ct);
+
+            if (!dependenciesSatisfied)
+            {
+                _logger.LogWarning(
+                    "Task {TaskId} cannot be enqueued because dependencies are not satisfied",
+                    taskId);
+                return false;
+            }
+
+            _logger.LogInformation(
+                "Task {TaskId} dependencies satisfied - ready for enqueueing",
+                taskId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error checking dependencies for task {TaskId}",
+                taskId);
+            return false;
         }
     }
 }

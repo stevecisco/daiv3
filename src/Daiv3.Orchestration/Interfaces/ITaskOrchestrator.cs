@@ -20,6 +20,17 @@ public interface ITaskOrchestrator
     /// <param name="ct">Cancellation token.</param>
     /// <returns>List of resolved tasks with dependencies.</returns>
     Task<List<ResolvedTask>> ResolveIntentAsync(string userInput, CancellationToken ct = default);
+
+    /// <summary>
+    /// Checks if task dependencies are satisfied before enqueueing model requests.
+    /// </summary>
+    /// <remarks>
+    /// Used to validate that all task dependencies are complete before execution.
+    /// </remarks>
+    /// <param name="taskId">The task ID to check dependencies for.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>True if all dependencies are satisfied, false otherwise.</returns>
+    Task<bool> CanEnqueueTaskAsync(string taskId, CancellationToken ct = default);
 }
 
 /// <summary>

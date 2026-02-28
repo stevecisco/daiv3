@@ -25,6 +25,7 @@ public static class OrchestrationServiceExtensions
         services.TryAddScoped<ITaskOrchestrator, TaskOrchestrator>();
         services.TryAddScoped<IIntentResolver, IntentResolver>();
         services.TryAddScoped<IAgentManager, AgentManager>();
+        services.TryAddScoped<IDependencyResolver, DependencyResolver>();
         
         // Register skill registry as singleton (shared across all scopes)
         services.TryAddSingleton<ISkillRegistry, SkillRegistry>();
