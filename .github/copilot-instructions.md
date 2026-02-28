@@ -65,6 +65,13 @@ A comprehensive distributed AI system with support for:
 ### Testing Strategy
 1. Implement code → 2. Create unit tests → 3. Create integration tests → 4. Verify all pass → 5. CLI validation → 6. **Document CLI commands** → 7. MAUI implementation
 
+### Git Commit Strategy (MANDATORY)
+1. When implementing multiple requirements, create **one commit per completed requirement**.
+2. Commit immediately after requirement completion (do not wait until end of session).
+3. Stage only requirement-related changed files (avoid `git add .` in multi-requirement work).
+4. Use commit message format: `<REQ-ID> - Brief description`.
+5. If two requirements must share inseparable file edits, include both IDs in the same commit and document overlap reason in both requirement docs.
+
 ### Debugging Best Practices
 - ⚠️ **NEVER use `[System.Reflection.Assembly]::LoadFrom()` in PowerShell** - locks DLLs and prevents compilation
 - ⚠️ **NEVER use `Add-Type -Path` in terminals** - same issue, requires VS Code restart
@@ -168,12 +175,13 @@ See [AI-Instructions.md - Sub-Agent section](../Docs/AI-Instructions.md#sub-agen
 
 ---
 
-**Version:** 1.2  
-**Last Updated:** February 25, 2026  
+**Version:** 1.3  
+**Last Updated:** February 27, 2026  
 **Status:** Active - Repository-wide GitHub Copilot instructions  
-**Detailed Instructions Version:** [AI-Instructions.md v1.7](../Docs/AI-Instructions.md)
+**Detailed Instructions Version:** [AI-Instructions.md v1.8](../Docs/AI-Instructions.md)
 
 **Recent Updates:**
+- Added explicit commit-per-requirement policy with requirement-scoped staging guidance
 - Added critical guidance on PowerShell command syntax (-Last parameter, not tail)
 - Added pattern for reading from existing log files instead of re-piping console output
 - Improved diagnostic efficiency guidelines

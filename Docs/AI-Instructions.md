@@ -1293,11 +1293,15 @@ If you do not update the tracker:
 
 ## 📦 Git Commits for Multi-Requirement Work
 
-**MANDATORY: When working on multiple requirements, create a git commit after completing EACH requirement.**
+**MANDATORY: When working on multiple requirements, create a git commit immediately after completing EACH requirement.**
+
+**This is not optional.** Do not batch multiple completed requirements into a single end-of-session commit.
 
 ### Commit Strategy for Multiple Requirements
 
-**When:** After completing a requirement and updating Master-Implementation-Tracker.md to "Complete" status
+**When:** After completing a requirement and updating Master-Implementation-Tracker.md to "Complete" status.
+
+**Scope:** Commit ONLY files that belong to that completed requirement (code, tests, requirement doc updates, tracker updates).
 
 **Commit Message Format:**
 ```
@@ -1323,11 +1327,13 @@ HW-REQ-012 - Add NPU acceleration detection and fallback mechanism
    - Update requirement document with completion status and test traceability
    - Update Master-Implementation-Tracker.md to "Complete" with all details
 
-2. **Create commit:**
+2. **Create requirement-scoped commit (changed files only):**
    ```bash
-   git add .
+   git add <file1> <file2> <file3>
    git commit -m "REQ-XXX - Brief description of requirement"
    ```
+   - Do **NOT** use `git add .` for multi-requirement sessions.
+   - Verify staged scope before commit: `git diff --staged --name-only`.
 
 3. **Proceed to next requirement:**
    - Start next requirement from the clean commit state
@@ -1352,6 +1358,13 @@ HW-REQ-012 - Add NPU acceleration detection and fallback mechanism
   - All integration tests pass
   - Requirement document is updated with test traceability
   - Master-Implementation-Tracker.md is updated to "Complete"
+
+### Shared File Overlap Rule (Important)
+
+If two requirements must modify the same file in an inseparable way during one implementation pass:
+- Prefer to complete and commit the first requirement before starting the second.
+- If separation is genuinely impossible, create the smallest combined commit and include **both** requirement IDs in the commit message.
+- Document the overlap reason in both requirement implementation docs.
 
 ### Handling Incomplete Requirements
 
@@ -1548,11 +1561,12 @@ If any requirement is genuinely ambiguous or contradictory:
 
 ---
 
-**Last Updated:** February 25, 2026
-**Version:** 1.7
+**Last Updated:** February 27, 2026
+**Version:** 1.8
 **Status:** Active - Shared instructions referenced by all AI tools
 
 **Changelog:**
+- **v1.8 (Feb 27, 2026):** Clarified mandatory commit-per-requirement workflow for multi-requirement sessions; require requirement-scoped staging (no `git add .`), immediate commit after each completed requirement, and explicit handling for shared-file overlap
 - **v1.7 (Feb 25, 2026):** Added critical guidance on PowerShell command syntax (-Last parameter, not tail); added pattern for reading from existing log files instead of re-piping console output; improved diagnostic efficiency
 - **v1.6 (Feb 23, 2026):** Added critical guidance on avoiding DLL locking in PowerShell/terminals; debugging best practices to prevent file lock issues requiring IDE restart
 - **v1.5 (Feb 22, 2026):** Extracted from .vscode/copilot-instructions.md as shared instructions for all AI tools
