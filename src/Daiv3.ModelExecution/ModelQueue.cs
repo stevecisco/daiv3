@@ -255,10 +255,63 @@ public class ModelQueue : IModelQueue
             return normalRequest;
         }
 
-        // P2 (Background): Only process when no P0/P1, and batch by model
+        // P2 (Background): Implement model affinity batching (MQ-REQ-005)
+        // If current model is loaded and P2 requests exist, scan for matching requests
+        if (_currentModelId != null && _backgroundChannel.Reader.Count > 0)
+        {
+            var scannedRequests = new List<QueuedRequest>();
+            const int maxLookahead = 10; // Limit scanning to prevent delays
+
+            // Scan up to 10 P2 requests for current model match
+            for (int i = 0; i < maxLookahead && _backgroundChannel.Reader.TryRead(out var req); i++)
+            {
+                var reqModelId = DetermineModelId(req.Request);
+                
+                if (reqModelId == _currentModelId)
+                {
+                    // Found match! Requeue others and return this one
+                    _logger.LogDebug(
+                        "Found P2 request {RequestId} for current model {ModelId} after scanning {Count} requests (batching)",
+                        req.Request.Id, _currentModelId, i + 1);
+
+                    foreach (var other in scannedRequests)
+                    {
+                        await _backgroundChannel.Writer.WriteAsync(other);
+                    }
+
+                    return req;
+                }
+
+                scannedRequests.Add(req);
+            }
+
+            // No match found in lookahead - take first request (will cause model switch)
+            if (scannedRequests.Count > 0)
+            {
+                var firstRequest = scannedRequests[0];
+                var newModelId = DetermineModelId(firstRequest.Request);
+
+                _logger.LogInformation(
+                    "No P2 requests for current model {CurrentModelId} in lookahead, switching to {NewModelId}",
+                    _currentModelId, newModelId);
+
+                // Requeue the rest
+                foreach (var req in scannedRequests.Skip(1))
+                {
+                    await _backgroundChannel.Writer.WriteAsync(req);
+                }
+
+                return firstRequest;
+            }
+        }
+
+        // Fallback: Simple FIFO if no current model or empty queue
         if (_backgroundChannel.Reader.TryRead(out var backgroundRequest))
         {
-            _logger.LogDebug("Selected P2 (Background) request {RequestId}", backgroundRequest.Request.Id);
+            var modelId = DetermineModelId(backgroundRequest.Request);
+            _logger.LogDebug(
+                "Selected P2 (Background) request {RequestId} for model {ModelId}",
+                backgroundRequest.Request.Id, modelId);
             return backgroundRequest;
         }
 
