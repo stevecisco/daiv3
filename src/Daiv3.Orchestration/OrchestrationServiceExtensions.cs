@@ -31,6 +31,12 @@ public static class OrchestrationServiceExtensions
         // Register skill registry as singleton (shared across all scopes)
         services.TryAddSingleton<ISkillRegistry, SkillRegistry>();
 
+        // Register tool registry as singleton (shared across all scopes)
+        services.TryAddSingleton<IToolRegistry, ToolRegistry>();
+
+        // Register tool invoker as scoped (per-request tool routing)
+        services.TryAddScoped<IToolInvoker, ToolRoutingService>();
+
         return services;
     }
 
