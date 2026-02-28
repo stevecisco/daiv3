@@ -13,9 +13,33 @@
 ## Critical Development Principles
 
 ### 1. Code Quality & Compilation
-- **All code MUST compile without errors or warnings** before any feature is considered complete
+- **All code MUST compile without errors** before any feature is considered complete
+- Warnings are tracked and managed through a baseline/delta process in `./Docs/Build-Warnings-Errors-Tracker.md`
 - Code MUST adhere to C# naming conventions and .NET best practices
 - Each code change must be validated to ensure it does not break existing functionality
+
+### 1.1 Warning & Error Governance (MANDATORY)
+
+1. **Do not fail normal builds on warnings**
+   - Repository default is `TreatWarningsAsErrors=false` via `Directory.Build.props`.
+   - `dotnet build` and `dotnet test` are the default validation commands.
+
+2. **Track baseline and deltas per requirement**
+   - Use `./Docs/Build-Warnings-Errors-Tracker.md` as the canonical log.
+   - Before starting a requirement, record current warning/error baseline.
+   - After completing the requirement, rerun build/test and compare deltas.
+
+3. **No net-new diagnostics policy**
+   - New errors are blocking and must be fixed before completion.
+   - New warnings introduced by the requirement should be fixed before completion.
+
+4. **Escalation rule for unresolved warnings/errors**
+   - If unresolved after **up to 3 focused remediation attempts**, the assistant MUST ask the user to choose:
+     - Add to tracker as accepted temporary debt and continue, or
+     - Continue remediation before proceeding.
+
+5. **Learning loop requirement**
+   - When a warning/error pattern is resolved, add a concise prevention note in `AI-Instructions.md` (or linked guidance) so the same issue is not repeated.
 
 ### 2. Target Framework & Platform Configuration
 
@@ -228,6 +252,12 @@ Use conditional compilation for platform-specific implementations:
 - If tests are not discovered, first check TFM compatibility between test projects and referenced libraries.
 - Ensure test projects include `IsTestProject=true` and a current `Microsoft.NET.Test.Sdk` + xUnit adapter.
 - If discovery still fails, run `dotnet test <solution> --verbosity minimal` to surface build errors.
+- **When user asks for FULL suite execution/counts, do NOT rely on editor test tooling alone** (it may under-discover in this repo).
+- For full-suite runs, always execute from workspace root:
+   - `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`
+- Parse the final per-assembly summaries and aggregate totals.
+- Validate that totals are in expected range (current baseline on 2026-02-28: ~1411 total across both `Daiv3.UnitTests` target runs).
+- If observed totals are far lower than baseline, treat as discovery failure and re-run via solution-level `dotnet test` before reporting results.
 
 #### Testing Best Practices
 
@@ -1141,7 +1171,8 @@ Before beginning ANY implementation work:
 
 1. **Code Development**
    - Follow code structure in `./src/` and `./tests/`
-   - Ensure code compiles without errors/warnings
+   - Ensure code compiles without errors
+   - Ensure warning/error delta is tracked in `./Docs/Build-Warnings-Errors-Tracker.md`
    - Use existing patterns and abstractions
    - Write testable code with dependency injection and interfaces
    - **Implement comprehensive logging** using `ILogger<T>` throughout
@@ -1194,7 +1225,8 @@ Before beginning ANY implementation work:
 ### Phase 3: Completion
 
 1. **Final Verification**
-   - All code compiles without errors/warnings
+   - All code compiles without errors
+   - Warning/error delta validated against baseline in `./Docs/Build-Warnings-Errors-Tracker.md`
    - All unit tests pass
    - Integration tests pass (if applicable)
    - Code review completed
@@ -1219,7 +1251,9 @@ Before beginning ANY implementation work:
 ### DO Requirements
 
 - ✅ **DO** ask clarifying questions if requirements are unclear
-- ✅ **DO** ensure all code compiles without errors/warnings
+- ✅ **DO** ensure all code compiles without errors
+- ✅ **DO** track warning/error baseline and deltas in `./Docs/Build-Warnings-Errors-Tracker.md`
+- ✅ **DO** attempt to fix net-new warnings/errors; after 3 unsuccessful attempts, ask user whether to track as debt or continue remediation
 - ✅ **DO** write testable code (loose coupling, dependency injection)
 - ✅ **DO** run and verify all unit tests pass
 - ✅ **DO** document test traceability in requirement "Testing Summary" sections
@@ -1363,10 +1397,12 @@ HW-REQ-012 - Add NPU acceleration detection and fallback mechanism
 ### Commit Process
 
 1. **After completing a requirement:**
-   - Verify all code compiles without errors/warnings
+   - Verify all code compiles without errors
+   - Verify warning/error deltas vs baseline (no unapproved net-new warnings/errors)
    - Verify all unit tests pass
    - Verify all integration tests pass
    - Update requirement document with completion status and test traceability
+   - Update `./Docs/Build-Warnings-Errors-Tracker.md` with post-requirement delta and disposition
    - Update Master-Implementation-Tracker.md to "Complete" with all details
 
 2. **Create requirement-scoped commit (changed files only):**
@@ -1494,7 +1530,7 @@ You MUST:
 4. Check approved-dependencies.md before adding or upgrading dependencies
 5. Implement comprehensive logging using ILogger<T> with structured logging
 6. Implement proper error handling at all API boundaries
-7. Ensure code compiles without errors/warnings
+7. Ensure code compiles without errors and warning/error deltas are tracked
 8. Ensure all unit tests pass
 9. Ensure all integration tests pass
 10. Implement and test in CLI before implementing in MAUI
@@ -1547,7 +1583,7 @@ c:\_prj\stevecisco\private\daiv3/
 # Build entire solution (from root directory)
 dotnet build Daiv3.FoundryLocal.slnx
 
-# Build with no warnings tolerance (from root directory)
+# Optional strict audit build (do not use as default gating)
 dotnet build Daiv3.FoundryLocal.slnx /p:TreatWarningsAsErrors=true
 
 # Build specific project (from root directory with full path)
@@ -1603,11 +1639,12 @@ If any requirement is genuinely ambiguous or contradictory:
 
 ---
 
-**Last Updated:** February 27, 2026
-**Version:** 1.9
+**Last Updated:** February 28, 2026
+**Version:** 2.0
 **Status:** Active - Shared instructions referenced by all AI tools
 
 **Changelog:**
+- **v2.0 (Feb 28, 2026):** Added mandatory warning/error governance workflow with baseline+delta tracking in `Docs/Build-Warnings-Errors-Tracker.md`; default builds compile with errors-only gating (`TreatWarningsAsErrors=false`), net-new diagnostics remediation requirements, 3-attempt escalation rule with user decision, and prevention-note learning loop
 - **v1.9 (Feb 27, 2026):** **CRITICAL CLARIFICATION:** Added explicit sequential implementation workflow requirement - when working on multiple requirements, MUST implement them ONE AT A TIME in order with git commit after EACH requirement completion (not batched at end); added prominent workflow sections in Development Workflow and Git Commits sections
 - **v1.8 (Feb 27, 2026):** Clarified mandatory commit-per-requirement workflow for multi-requirement sessions; require requirement-scoped staging (no `git add .`), immediate commit after each completed requirement, and explicit handling for shared-file overlap
 - **v1.7 (Feb 25, 2026):** Added critical guidance on PowerShell command syntax (-Last parameter, not tail); added pattern for reading from existing log files instead of re-piping console output; improved diagnostic efficiency

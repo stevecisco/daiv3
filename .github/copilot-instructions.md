@@ -45,7 +45,8 @@ A comprehensive distributed AI system with support for:
 4. **Ask clarifying questions** if 98%+ certainty not achieved
 
 ### Code Quality Gates
-- ✅ All code **must compile** without errors/warnings
+- ✅ All code **must compile** without errors
+- ✅ Warnings are tracked via `Docs/Build-Warnings-Errors-Tracker.md` (baseline + per-requirement deltas)
 - ✅ All **unit tests must pass** (100% passing before completion)
 - ✅ All **integration tests must pass** (for DB, file I/O, network operations)
 - ✅ **Tests MUST be created** during implementation (not after)
@@ -64,6 +65,19 @@ A comprehensive distributed AI system with support for:
 
 ### Testing Strategy
 1. Implement code → 2. Create unit tests → 3. Create integration tests → 4. Verify all pass → 5. CLI validation → 6. **Document CLI commands** → 7. MAUI implementation
+
+### Full Suite Test Execution Rule
+- For "run full suite" requests, always run:
+   - `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`
+- Do not rely only on IDE/editor test tooling counts for this repository; it can under-discover tests.
+- If totals are suspiciously low versus known baseline, rerun via solution-level command before reporting.
+
+### Warning/Error Delta Workflow (MANDATORY)
+1. Capture/confirm baseline from `Docs/Build-Warnings-Errors-Tracker.md`
+2. After each requirement, rerun build/tests and compare warning/error deltas
+3. Fix any net-new errors and warnings introduced by the requirement
+4. If unresolved after up to 3 attempts, ask user whether to track as temporary debt or continue remediation
+5. When a warning pattern is resolved, add a prevention note to shared AI instructions/tracker to avoid repeating it
 
 ### Git Commit Strategy (MANDATORY)
 **When asked to work on multiple requirements, implement them ONE AT A TIME in sequential order:**
@@ -101,6 +115,7 @@ A comprehensive distributed AI system with support for:
 | Document | Purpose |
 |----------|---------|
 | [AI-Instructions.md](../Docs/AI-Instructions.md) | Complete development guidelines (READ THIS FIRST) |
+| [Build-Warnings-Errors-Tracker.md](../Docs/Build-Warnings-Errors-Tracker.md) | Warning/error baseline and per-requirement delta log |
 | [Master-Implementation-Tracker.md](../Docs/Requirements/Master-Implementation-Tracker.md) | Primary tracking document |
 | [CLI-Command-Examples.md](../Docs/CLI-Command-Examples.md) | CLI command reference (UPDATE when adding CLI commands) |
 | [approved-dependencies.md](../Docs/Requirements/Architecture/approved-dependencies.md) | Dependency approval registry |
@@ -116,7 +131,7 @@ A comprehensive distributed AI system with support for:
 # Build solution (from root directory)
 dotnet build Daiv3.FoundryLocal.slnx
 
-# Build with strict warnings (from root directory)
+# Optional strict audit build (do not use as default gate)
 dotnet build Daiv3.FoundryLocal.slnx /p:TreatWarningsAsErrors=true
 
 # Build specific project (from root directory with full path)
@@ -158,7 +173,7 @@ Master Tracker: ./Docs/Requirements/Master-Implementation-Tracker.md
 Dependency Registry: ./Docs/Requirements/Architecture/approved-dependencies.md
 ```
 
-See [AI-Instructions.md - Sub-Agent section](../Docs/AI-Instructions.md#sub-agent--contextualized-task-instructions) for complete handoff template.
+See [AI-Instructions.md](../Docs/AI-Instructions.md) for the complete sub-agent handoff template.
 
 ---
 
@@ -166,7 +181,8 @@ See [AI-Instructions.md - Sub-Agent section](../Docs/AI-Instructions.md#sub-agen
 
 ### ✅ DO
 - Reference shared instructions for complete guidance
-- Compile without errors/warnings
+- Compile without errors
+- Track warning/error deltas in `Docs/Build-Warnings-Errors-Tracker.md`
 - Pass all tests before completion
 - Check approved-dependencies.md before adding packages
 - Use structured logging with ILogger<T>
@@ -183,12 +199,14 @@ See [AI-Instructions.md - Sub-Agent section](../Docs/AI-Instructions.md#sub-agen
 
 ---
 
-**Version:** 1.4  
-**Last Updated:** February 27, 2026  
+**Version:** 1.5  
+**Last Updated:** February 28, 2026  
 **Status:** Active - Repository-wide GitHub Copilot instructions  
-**Detailed Instructions Version:** [AI-Instructions.md v1.9](../Docs/AI-Instructions.md)
+**Detailed Instructions Version:** [AI-Instructions.md v2.0](../Docs/AI-Instructions.md)
 
 **Recent Updates:**
+- Added mandatory warning/error baseline + delta workflow and tracker reference (`Docs/Build-Warnings-Errors-Tracker.md`)
+- Clarified default build gate: errors block completion, warnings are tracked and remediated via delta process
 - **CRITICAL:** Added explicit sequential multi-requirement workflow - implement ONE AT A TIME, commit after EACH requirement
 - Added explicit commit-per-requirement policy with requirement-scoped staging guidance
 - Added critical guidance on PowerShell command syntax (-Last parameter, not tail)

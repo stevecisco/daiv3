@@ -60,14 +60,26 @@ For complete details, see **[AI-Instructions.md](../Docs/AI-Instructions.md)**.
 4. **Ask clarifying questions** if 98%+ certainty not achieved
 
 ### Code Quality Gates
-- ✅ All code **must compile** without errors/warnings
+- ✅ All code **must compile** without errors
+- ✅ Warnings are tracked through `Docs/Build-Warnings-Errors-Tracker.md`
 - ✅ All **unit tests must pass**
 - ✅ Use **dependency injection** and testable patterns
 - ✅ Implement **comprehensive logging** with `ILogger<T>`
 - ✅ Implement **proper error handling** at all boundaries
 
+### Warning/Error Delta Workflow
+1. Use baseline from `Docs/Build-Warnings-Errors-Tracker.md`
+2. After each requirement, compare post-build diagnostics to baseline
+3. Fix net-new warnings/errors introduced by the requirement
+4. After up to 3 failed attempts to resolve, ask user whether to track as temporary debt or keep remediating
+
 ### Testing Strategy
 1. Unit tests → 2. Integration tests → 3. CLI validation → 4. MAUI implementation
+
+### Full Suite Test Execution Rule
+- For "run full suite" requests, always run:
+	- `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`
+- Do not trust editor-only discovered test counts for this repository when reporting full-suite totals.
 
 ### Dependency Management
 - ⚠️ **Check `approved-dependencies.md` BEFORE adding or upgrading ANY dependency**
@@ -83,6 +95,7 @@ For complete details, see **[AI-Instructions.md](../Docs/AI-Instructions.md)**.
 | Document | Purpose |
 |----------|---------|
 | [AI-Instructions.md](../Docs/AI-Instructions.md) | Complete development guidelines (READ THIS FIRST) |
+| [Build-Warnings-Errors-Tracker.md](../Docs/Build-Warnings-Errors-Tracker.md) | Warning/error baseline and delta log |
 | [Master-Implementation-Tracker.md](../Docs/Requirements/Master-Implementation-Tracker.md) | Primary tracking document |
 | [approved-dependencies.md](../Docs/Requirements/Architecture/approved-dependencies.md) | Dependency approval registry |
 | [architecture-overview.md](../Docs/Requirements/Architecture/architecture-overview.md) | System architecture |
@@ -95,19 +108,19 @@ For complete details, see **[AI-Instructions.md](../Docs/AI-Instructions.md)**.
 
 ```bash
 # Build solution (from root directory)
-dotnet build FoundryLocal.IntegrationTests.slnx
+dotnet build Daiv3.FoundryLocal.slnx
 
-# Build with strict warnings (from root directory)
-dotnet build FoundryLocal.IntegrationTests.slnx /p:TreatWarningsAsErrors=true
+# Optional strict audit build (do not use as default gate)
+dotnet build Daiv3.FoundryLocal.slnx /p:TreatWarningsAsErrors=true
 
 # Build specific project (from root directory with full path)
-dotnet build src/FoundryLocal.Management/FoundryLocal.Management.csproj
+dotnet build src/Daiv3.FoundryLocal.Management/Daiv3.FoundryLocal.Management.csproj
 
 # Run all tests (from root directory)
-dotnet test FoundryLocal.IntegrationTests.slnx
+dotnet test Daiv3.FoundryLocal.slnx
 
 # Run with verbose output (from root directory)
-dotnet test FoundryLocal.IntegrationTests.slnx --verbosity detailed
+dotnet test Daiv3.FoundryLocal.slnx --verbosity detailed
 ```
 
 **Note:** Always use full relative paths from workspace root. Never change directories before running dotnet commands.
@@ -118,7 +131,8 @@ dotnet test FoundryLocal.IntegrationTests.slnx --verbosity detailed
 
 ### ✅ DO
 - Reference shared instructions for complete guidance
-- Compile without errors/warnings
+- Compile without errors
+- Track warning/error deltas in `Docs/Build-Warnings-Errors-Tracker.md`
 - Pass all tests before completion
 - Check approved-dependencies.md before adding packages
 - Use structured logging with ILogger<T>
@@ -134,8 +148,8 @@ dotnet test FoundryLocal.IntegrationTests.slnx --verbosity detailed
 
 ---
 
-**Version:** 2.0  
-**Last Updated:** February 22, 2026  
+**Version:** 2.1  
+**Last Updated:** February 28, 2026  
 **Status:** Active - VS Code-specific instructions (references shared guidelines)  
 
 **📖 For complete details, see [AI-Instructions.md](../Docs/AI-Instructions.md)**
