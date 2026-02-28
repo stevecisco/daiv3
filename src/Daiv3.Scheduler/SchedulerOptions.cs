@@ -46,4 +46,34 @@ public class SchedulerOptions
     /// Default: true.
     /// </summary>
     public bool EnableStartupRecovery { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to enable performance instrumentation.
+    /// If true, all scheduler operations will be timed and logged.
+    /// Default: true.
+    /// </summary>
+    public bool EnablePerformanceInstrumentation { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the performance warning threshold for schedule operations in milliseconds.
+    /// If a schedule operation takes longer than this threshold, a warning will be logged.
+    /// This helps ensure scheduling does not block foreground UI interactions.
+    /// Default: 10 milliseconds (P95 target).
+    /// </summary>
+    public uint ScheduleOperationWarningThresholdMs { get; set; } = 10;
+
+    /// <summary>
+    /// Gets or sets the performance warning threshold for query operations in milliseconds.
+    /// If a query operation (GetJobMetadata, GetAllJobs, etc.) takes longer than this threshold, 
+    /// a warning will be logged.
+    /// Default: 5 milliseconds (P95 target).
+    /// </summary>
+    public uint QueryOperationWarningThresholdMs { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the performance warning threshold for event raise operations in milliseconds.
+    /// If an event raise operation takes longer than this threshold, a warning will be logged.
+    /// Default: 15 milliseconds (P95 target).
+    /// </summary>
+    public uint EventRaiseWarningThresholdMs { get; set; } = 15;
 }

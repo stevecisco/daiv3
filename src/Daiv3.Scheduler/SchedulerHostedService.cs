@@ -119,33 +119,43 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         TimeSpan? delay = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(job);
-
-        var jobId = GenerateJobId();
-        var scheduledTime = delay.HasValue ? DateTime.UtcNow.Add(delay.Value) : DateTime.UtcNow;
-
-        var entry = new ScheduledJobEntry
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            JobId = jobId,
-            Job = job,
-            Status = ScheduledJobStatus.Pending,
-            ScheduleType = ScheduleType.Immediate,
-            CreatedAtUtc = DateTime.UtcNow,
-            ScheduledAtUtc = scheduledTime,
-            CancellationTokenSource = new CancellationTokenSource()
-        };
+            ArgumentNullException.ThrowIfNull(job);
 
-        if (!_jobs.TryAdd(jobId, entry))
-        {
-            _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
-            throw new InvalidOperationException($"Failed to schedule job {jobId}");
+            var jobId = GenerateJobId();
+            var scheduledTime = delay.HasValue ? DateTime.UtcNow.Add(delay.Value) : DateTime.UtcNow;
+
+            var entry = new ScheduledJobEntry
+            {
+                JobId = jobId,
+                Job = job,
+                Status = ScheduledJobStatus.Pending,
+                ScheduleType = ScheduleType.Immediate,
+                CreatedAtUtc = DateTime.UtcNow,
+                ScheduledAtUtc = scheduledTime,
+                CancellationTokenSource = new CancellationTokenSource()
+            };
+
+            if (!_jobs.TryAdd(jobId, entry))
+            {
+                _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
+                throw new InvalidOperationException($"Failed to schedule job {jobId}");
+            }
+
+            _logger.LogInformation(
+                "Job scheduled immediately: {JobId} ({JobName}), scheduled for {ScheduledTime:O}",
+                jobId, job.Name, scheduledTime);
+
+            return Task.FromResult(jobId);
         }
-
-        _logger.LogInformation(
-            "Job scheduled immediately: {JobId} ({JobName}), scheduled for {ScheduledTime:O}",
-            jobId, job.Name, scheduledTime);
-
-        return Task.FromResult(jobId);
+        finally
+        {
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(ScheduleImmediateAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
+        }
     }
 
     public Task<string> ScheduleAtTimeAsync(
@@ -153,36 +163,46 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         DateTime scheduledTime,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(job);
-
-        if (scheduledTime.Kind != DateTimeKind.Utc)
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            throw new ArgumentException("Scheduled time must be in UTC", nameof(scheduledTime));
+            ArgumentNullException.ThrowIfNull(job);
+
+            if (scheduledTime.Kind != DateTimeKind.Utc)
+            {
+                throw new ArgumentException("Scheduled time must be in UTC", nameof(scheduledTime));
+            }
+
+            var jobId = GenerateJobId();
+            var entry = new ScheduledJobEntry
+            {
+                JobId = jobId,
+                Job = job,
+                Status = ScheduledJobStatus.Scheduled,
+                ScheduleType = ScheduleType.OneTime,
+                CreatedAtUtc = DateTime.UtcNow,
+                ScheduledAtUtc = scheduledTime,
+                CancellationTokenSource = new CancellationTokenSource()
+            };
+
+            if (!_jobs.TryAdd(jobId, entry))
+            {
+                _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
+                throw new InvalidOperationException($"Failed to schedule job {jobId}");
+            }
+
+            _logger.LogInformation(
+                "Job scheduled at specific time: {JobId} ({JobName}), scheduled for {ScheduledTime:O}",
+                jobId, job.Name, scheduledTime);
+
+            return Task.FromResult(jobId);
         }
-
-        var jobId = GenerateJobId();
-        var entry = new ScheduledJobEntry
+        finally
         {
-            JobId = jobId,
-            Job = job,
-            Status = ScheduledJobStatus.Scheduled,
-            ScheduleType = ScheduleType.OneTime,
-            CreatedAtUtc = DateTime.UtcNow,
-            ScheduledAtUtc = scheduledTime,
-            CancellationTokenSource = new CancellationTokenSource()
-        };
-
-        if (!_jobs.TryAdd(jobId, entry))
-        {
-            _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
-            throw new InvalidOperationException($"Failed to schedule job {jobId}");
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(ScheduleAtTimeAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
         }
-
-        _logger.LogInformation(
-            "Job scheduled at specific time: {JobId} ({JobName}), scheduled for {ScheduledTime:O}",
-            jobId, job.Name, scheduledTime);
-
-        return Task.FromResult(jobId);
     }
 
     public Task<string> ScheduleRecurringAsync(
@@ -191,40 +211,50 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         uint? delaySeconds = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(job);
-
-        if (intervalSeconds == 0)
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            throw new ArgumentException("Interval must be greater than 0", nameof(intervalSeconds));
+            ArgumentNullException.ThrowIfNull(job);
+
+            if (intervalSeconds == 0)
+            {
+                throw new ArgumentException("Interval must be greater than 0", nameof(intervalSeconds));
+            }
+
+            var jobId = GenerateJobId();
+            var delayTimespan = delaySeconds.HasValue ? TimeSpan.FromSeconds(delaySeconds.Value) : TimeSpan.Zero;
+            var scheduledTime = DateTime.UtcNow.Add(delayTimespan);
+
+            var entry = new ScheduledJobEntry
+            {
+                JobId = jobId,
+                Job = job,
+                Status = ScheduledJobStatus.Pending,
+                ScheduleType = ScheduleType.Recurring,
+                CreatedAtUtc = DateTime.UtcNow,
+                ScheduledAtUtc = scheduledTime,
+                IntervalSeconds = intervalSeconds,
+                CancellationTokenSource = new CancellationTokenSource()
+            };
+
+            if (!_jobs.TryAdd(jobId, entry))
+            {
+                _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
+                throw new InvalidOperationException($"Failed to schedule job {jobId}");
+            }
+
+            _logger.LogInformation(
+                "Job scheduled recurring: {JobId} ({JobName}), interval={Interval}s, first run at {ScheduledTime:O}",
+                jobId, job.Name, intervalSeconds, scheduledTime);
+
+            return Task.FromResult(jobId);
         }
-
-        var jobId = GenerateJobId();
-        var delayTimespan = delaySeconds.HasValue ? TimeSpan.FromSeconds(delaySeconds.Value) : TimeSpan.Zero;
-        var scheduledTime = DateTime.UtcNow.Add(delayTimespan);
-
-        var entry = new ScheduledJobEntry
+        finally
         {
-            JobId = jobId,
-            Job = job,
-            Status = ScheduledJobStatus.Pending,
-            ScheduleType = ScheduleType.Recurring,
-            CreatedAtUtc = DateTime.UtcNow,
-            ScheduledAtUtc = scheduledTime,
-            IntervalSeconds = intervalSeconds,
-            CancellationTokenSource = new CancellationTokenSource()
-        };
-
-        if (!_jobs.TryAdd(jobId, entry))
-        {
-            _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
-            throw new InvalidOperationException($"Failed to schedule job {jobId}");
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(ScheduleRecurringAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
         }
-
-        _logger.LogInformation(
-            "Job scheduled recurring: {JobId} ({JobName}), interval={Interval}s, first run at {ScheduledTime:O}",
-            jobId, job.Name, intervalSeconds, scheduledTime);
-
-        return Task.FromResult(jobId);
     }
 
     public Task<string> ScheduleCronAsync(
@@ -232,55 +262,65 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         string cronExpression,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(job);
-        if (string.IsNullOrWhiteSpace(cronExpression))
-        {
-            throw new ArgumentException("Cron expression cannot be null or whitespace", nameof(cronExpression));
-        }
-
-        // Validate and parse the cron expression
-        CronExpression cron;
+        var stopwatch = Stopwatch.StartNew();
         try
         {
-            cron = new CronExpression(cronExpression);
+            ArgumentNullException.ThrowIfNull(job);
+            if (string.IsNullOrWhiteSpace(cronExpression))
+            {
+                throw new ArgumentException("Cron expression cannot be null or whitespace", nameof(cronExpression));
+            }
+
+            // Validate and parse the cron expression
+            CronExpression cron;
+            try
+            {
+                cron = new CronExpression(cronExpression);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Invalid cron expression: {CronExpression}", cronExpression);
+                throw new ArgumentException($"Invalid cron expression: {cronExpression}", nameof(cronExpression), ex);
+            }
+
+            var jobId = GenerateJobId();
+            var nextRun = cron.GetNextOccurrence(DateTime.UtcNow);
+
+            if (nextRun == null)
+            {
+                throw new ArgumentException($"Cron expression '{cronExpression}' has no future occurrences", nameof(cronExpression));
+            }
+
+            var entry = new ScheduledJobEntry
+            {
+                JobId = jobId,
+                Job = job,
+                Status = ScheduledJobStatus.Scheduled,
+                ScheduleType = ScheduleType.Cron,
+                CreatedAtUtc = DateTime.UtcNow,
+                ScheduledAtUtc = nextRun,
+                CronExpression = cronExpression,
+                CancellationTokenSource = new CancellationTokenSource()
+            };
+
+            if (!_jobs.TryAdd(jobId, entry))
+            {
+                _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
+                throw new InvalidOperationException($"Failed to schedule job {jobId}");
+            }
+
+            _logger.LogInformation(
+                "Job scheduled with cron expression: {JobId} ({JobName}), expression={CronExpression}, next run at {NextRun:O}",
+                jobId, job.Name, cronExpression, nextRun);
+
+            return Task.FromResult(jobId);
         }
-        catch (Exception ex)
+        finally
         {
-            _logger.LogError(ex, "Invalid cron expression: {CronExpression}", cronExpression);
-            throw new ArgumentException($"Invalid cron expression: {cronExpression}", nameof(cronExpression), ex);
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(ScheduleCronAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
         }
-
-        var jobId = GenerateJobId();
-        var nextRun = cron.GetNextOccurrence(DateTime.UtcNow);
-
-        if (nextRun == null)
-        {
-            throw new ArgumentException($"Cron expression '{cronExpression}' has no future occurrences", nameof(cronExpression));
-        }
-
-        var entry = new ScheduledJobEntry
-        {
-            JobId = jobId,
-            Job = job,
-            Status = ScheduledJobStatus.Scheduled,
-            ScheduleType = ScheduleType.Cron,
-            CreatedAtUtc = DateTime.UtcNow,
-            ScheduledAtUtc = nextRun,
-            CronExpression = cronExpression,
-            CancellationTokenSource = new CancellationTokenSource()
-        };
-
-        if (!_jobs.TryAdd(jobId, entry))
-        {
-            _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
-            throw new InvalidOperationException($"Failed to schedule job {jobId}");
-        }
-
-        _logger.LogInformation(
-            "Job scheduled with cron expression: {JobId} ({JobName}), expression={CronExpression}, next run at {NextRun:O}",
-            jobId, job.Name, cronExpression, nextRun);
-
-        return Task.FromResult(jobId);
     }
 
     public Task<string> ScheduleOnEventAsync(
@@ -288,73 +328,86 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         string eventType,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(job);
-        if (string.IsNullOrWhiteSpace(eventType))
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            throw new ArgumentException("Event type cannot be null or whitespace", nameof(eventType));
-        }
-
-        var jobId = GenerateJobId();
-        var entry = new ScheduledJobEntry
-        {
-            JobId = jobId,
-            Job = job,
-            Status = ScheduledJobStatus.Pending,
-            ScheduleType = ScheduleType.EventTriggered,
-            CreatedAtUtc = DateTime.UtcNow,
-            EventType = eventType,
-            CancellationTokenSource = new CancellationTokenSource()
-        };
-
-        if (!_jobs.TryAdd(jobId, entry))
-        {
-            _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
-            throw new InvalidOperationException($"Failed to schedule job {jobId}");
-        }
-
-        // Register the job in the event-triggered jobs dictionary
-        _eventTriggeredJobs.AddOrUpdate(
-            eventType,
-            _ => new List<string> { jobId },
-            (_, list) =>
+            ArgumentNullException.ThrowIfNull(job);
+            if (string.IsNullOrWhiteSpace(eventType))
             {
-                lock (list)
+                throw new ArgumentException("Event type cannot be null or whitespace", nameof(eventType));
+            }
+
+            var jobId = GenerateJobId();
+            var entry = new ScheduledJobEntry
+            {
+                JobId = jobId,
+                Job = job,
+                Status = ScheduledJobStatus.Pending,
+                ScheduleType = ScheduleType.EventTriggered,
+                CreatedAtUtc = DateTime.UtcNow,
+                EventType = eventType,
+                CancellationTokenSource = new CancellationTokenSource()
+            };
+
+            if (!_jobs.TryAdd(jobId, entry))
+            {
+                _logger.LogError("Failed to add job {JobId} to scheduler", jobId);
+                throw new InvalidOperationException($"Failed to schedule job {jobId}");
+            }
+
+            // Register the job in the event-triggered jobs dictionary
+            _eventTriggeredJobs.AddOrUpdate(
+                eventType,
+                _ => new List<string> { jobId },
+                (_, list) =>
                 {
-                    list.Add(jobId);
-                }
-                return list;
-            });
+                    lock (list)
+                    {
+                        list.Add(jobId);
+                    }
+                    return list;
+                });
 
-        _logger.LogInformation(
-            "Job scheduled on event: {JobId} ({JobName}), eventType={EventType}",
-            jobId, job.Name, eventType);
+            _logger.LogInformation(
+                "Job scheduled on event: {JobId} ({JobName}), eventType={EventType}",
+                jobId, job.Name, eventType);
 
-        return Task.FromResult(jobId);
+            return Task.FromResult(jobId);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(ScheduleOnEventAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
+        }
     }
 
     public async Task RaiseEventAsync(ISchedulerEvent schedulerEvent, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(schedulerEvent);
-
-        _logger.LogInformation(
-            "Event raised: {EventType} at {OccurredAt:O}",
-            schedulerEvent.EventType,
-            schedulerEvent.OccurredAtUtc);
-
-        // Find all jobs listening for this event type
-        if (!_eventTriggeredJobs.TryGetValue(schedulerEvent.EventType, out var jobIds))
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            _logger.LogDebug("No jobs registered for event type: {EventType}", schedulerEvent.EventType);
-            return;
-        }
+            ArgumentNullException.ThrowIfNull(schedulerEvent);
 
-        List<string> jobIdsCopy;
-        lock (jobIds)
-        {
-            jobIdsCopy = new List<string>(jobIds);
-        }
+            _logger.LogInformation(
+                "Event raised: {EventType} at {OccurredAt:O}",
+                schedulerEvent.EventType,
+                schedulerEvent.OccurredAtUtc);
 
-        _logger.LogDebug("Found {Count} jobs registered for event type: {EventType}", jobIdsCopy.Count, schedulerEvent.EventType);
+            // Find all jobs listening for this event type
+            if (!_eventTriggeredJobs.TryGetValue(schedulerEvent.EventType, out var jobIds))
+            {
+                _logger.LogDebug("No jobs registered for event type: {EventType}", schedulerEvent.EventType);
+                return;
+            }
+
+            List<string> jobIdsCopy;
+            lock (jobIds)
+            {
+                jobIdsCopy = new List<string>(jobIds);
+            }
+
+            _logger.LogDebug("Found {Count} jobs registered for event type: {EventType}", jobIdsCopy.Count, schedulerEvent.EventType);
 
         // Trigger each job
         foreach (var jobId in jobIdsCopy)
@@ -397,165 +450,232 @@ public class SchedulerHostedService : BackgroundService, IScheduler
             _ = ExecuteJobAsync(entry, cancellationToken)
                 .ContinueWith(_ => _concurrencySemaphore.Release());
         }
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(RaiseEventAsync), stopwatch.ElapsedMilliseconds, 
+                _options.EventRaiseWarningThresholdMs, $"EventType={schedulerEvent.EventType}");
+        }
     }
 
     public Task<bool> CancelJobAsync(string jobId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(jobId))
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            throw new ArgumentNullException(nameof(jobId));
-        }
-
-        if (!_jobs.TryGetValue(jobId, out var entry))
-        {
-            _logger.LogWarning("Job not found: {JobId}", jobId);
-            return Task.FromResult(false);
-        }
-
-        if (entry.Status == ScheduledJobStatus.Cancelled)
-        {
-            _logger.LogInformation("Job already cancelled: {JobId}", jobId);
-            return Task.FromResult(true);
-        }
-
-        var oldStatus = entry.Status;
-        entry.Status = ScheduledJobStatus.Cancelled;
-        entry.CancellationTokenSource.Cancel();
-
-        // Remove from event-triggered jobs if applicable
-        if (entry.ScheduleType == ScheduleType.EventTriggered && entry.EventType != null)
-        {
-            if (_eventTriggeredJobs.TryGetValue(entry.EventType, out var jobIds))
+            if (string.IsNullOrWhiteSpace(jobId))
             {
-                lock (jobIds)
+                throw new ArgumentNullException(nameof(jobId));
+            }
+
+            if (!_jobs.TryGetValue(jobId, out var entry))
+            {
+                _logger.LogWarning("Job not found: {JobId}", jobId);
+                return Task.FromResult(false);
+            }
+
+            if (entry.Status == ScheduledJobStatus.Cancelled)
+            {
+                _logger.LogInformation("Job already cancelled: {JobId}", jobId);
+                return Task.FromResult(true);
+            }
+
+            var oldStatus = entry.Status;
+            entry.Status = ScheduledJobStatus.Cancelled;
+            entry.CancellationTokenSource.Cancel();
+
+            // Remove from event-triggered jobs if applicable
+            if (entry.ScheduleType == ScheduleType.EventTriggered && entry.EventType != null)
+            {
+                if (_eventTriggeredJobs.TryGetValue(entry.EventType, out var jobIds))
                 {
-                    jobIds.Remove(jobId);
+                    lock (jobIds)
+                    {
+                        jobIds.Remove(jobId);
+                    }
                 }
             }
+
+            _logger.LogInformation(
+                "Job cancelled: {JobId} ({JobName}), previous status={PreviousStatus}",
+                jobId, entry.Job.Name, oldStatus);
+
+            return Task.FromResult(true);
         }
-
-        _logger.LogInformation(
-            "Job cancelled: {JobId} ({JobName}), previous status={PreviousStatus}",
-            jobId, entry.Job.Name, oldStatus);
-
-        return Task.FromResult(true);
+        finally
+        {
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(CancelJobAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
+        }
     }
 
     public Task<ScheduledJobMetadata?> GetJobMetadataAsync(string jobId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(jobId))
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            throw new ArgumentNullException(nameof(jobId));
-        }
+            if (string.IsNullOrWhiteSpace(jobId))
+            {
+                throw new ArgumentNullException(nameof(jobId));
+            }
 
-        if (!_jobs.TryGetValue(jobId, out var entry))
+            if (!_jobs.TryGetValue(jobId, out var entry))
+            {
+                return Task.FromResult<ScheduledJobMetadata?>(null);
+            }
+
+            var metadata = CreateMetadata(entry);
+            return Task.FromResult<ScheduledJobMetadata?>(metadata);
+        }
+        finally
         {
-            return Task.FromResult<ScheduledJobMetadata?>(null);
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(GetJobMetadataAsync), stopwatch.ElapsedMilliseconds, 
+                _options.QueryOperationWarningThresholdMs);
         }
-
-        var metadata = CreateMetadata(entry);
-        return Task.FromResult<ScheduledJobMetadata?>(metadata);
     }
 
     public Task<IReadOnlyList<ScheduledJobMetadata>> GetAllJobsAsync(CancellationToken cancellationToken = default)
     {
-        var metadata = _jobs.Values.Select(CreateMetadata).ToList();
-        return Task.FromResult<IReadOnlyList<ScheduledJobMetadata>>(metadata);
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var metadata = _jobs.Values.Select(CreateMetadata).ToList();
+            return Task.FromResult<IReadOnlyList<ScheduledJobMetadata>>(metadata);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(GetAllJobsAsync), stopwatch.ElapsedMilliseconds, 
+                _options.QueryOperationWarningThresholdMs, $"JobCount={_jobs.Count}");
+        }
     }
 
     public Task<IReadOnlyList<ScheduledJobMetadata>> GetJobsByStatusAsync(
         ScheduledJobStatus status,
         CancellationToken cancellationToken = default)
     {
-        var metadata = _jobs.Values
-            .Where(j => j.Status == status)
-            .Select(CreateMetadata)
-            .ToList();
-        return Task.FromResult<IReadOnlyList<ScheduledJobMetadata>>(metadata);
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var metadata = _jobs.Values
+                .Where(j => j.Status == status)
+                .Select(CreateMetadata)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<ScheduledJobMetadata>>(metadata);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(GetJobsByStatusAsync), stopwatch.ElapsedMilliseconds, 
+                _options.QueryOperationWarningThresholdMs, $"Status={status}");
+        }
     }
 
     public Task<bool> PauseJobAsync(string jobId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(jobId))
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            throw new ArgumentNullException(nameof(jobId));
-        }
+            if (string.IsNullOrWhiteSpace(jobId))
+            {
+                throw new ArgumentNullException(nameof(jobId));
+            }
 
-        if (!_jobs.TryGetValue(jobId, out var entry))
-        {
-            _logger.LogWarning("Job not found: {JobId}", jobId);
-            return Task.FromResult(false);
-        }
+            if (!_jobs.TryGetValue(jobId, out var entry))
+            {
+                _logger.LogWarning("Job not found: {JobId}", jobId);
+                return Task.FromResult(false);
+            }
 
-        if (entry.Status == ScheduledJobStatus.Paused)
-        {
-            _logger.LogInformation("Job already paused: {JobId}", jobId);
+            if (entry.Status == ScheduledJobStatus.Paused)
+            {
+                _logger.LogInformation("Job already paused: {JobId}", jobId);
+                return Task.FromResult(true);
+            }
+
+            if (entry.Status == ScheduledJobStatus.Running)
+            {
+                _logger.LogWarning("Cannot pause running job: {JobId}", jobId);
+                return Task.FromResult(false);
+            }
+
+            if (entry.Status == ScheduledJobStatus.Completed || entry.Status == ScheduledJobStatus.Cancelled)
+            {
+                _logger.LogWarning("Cannot pause job in terminal state: {JobId} (status={Status})", jobId, entry.Status);
+                return Task.FromResult(false);
+            }
+
+            var oldStatus = entry.Status;
+            entry.Status = ScheduledJobStatus.Paused;
+
+            _logger.LogInformation(
+                "Job paused: {JobId} ({JobName}), previous status={PreviousStatus}",
+                jobId, entry.Job.Name, oldStatus);
+
             return Task.FromResult(true);
         }
-
-        if (entry.Status == ScheduledJobStatus.Running)
+        finally
         {
-            _logger.LogWarning("Cannot pause running job: {JobId}", jobId);
-            return Task.FromResult(false);
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(PauseJobAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
         }
-
-        if (entry.Status == ScheduledJobStatus.Completed || entry.Status == ScheduledJobStatus.Cancelled)
-        {
-            _logger.LogWarning("Cannot pause job in terminal state: {JobId} (status={Status})", jobId, entry.Status);
-            return Task.FromResult(false);
-        }
-
-        var oldStatus = entry.Status;
-        entry.Status = ScheduledJobStatus.Paused;
-
-        _logger.LogInformation(
-            "Job paused: {JobId} ({JobName}), previous status={PreviousStatus}",
-            jobId, entry.Job.Name, oldStatus);
-
-        return Task.FromResult(true);
     }
 
     public Task<bool> ResumeJobAsync(string jobId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(jobId))
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            throw new ArgumentNullException(nameof(jobId));
-        }
+            if (string.IsNullOrWhiteSpace(jobId))
+            {
+                throw new ArgumentNullException(nameof(jobId));
+            }
 
-        if (!_jobs.TryGetValue(jobId, out var entry))
+            if (!_jobs.TryGetValue(jobId, out var entry))
+            {
+                _logger.LogWarning("Job not found: {JobId}", jobId);
+                return Task.FromResult(false);
+            }
+
+            if (entry.Status != ScheduledJobStatus.Paused)
+            {
+                _logger.LogWarning("Job is not paused: {JobId} (status={Status})", jobId, entry.Status);
+                return Task.FromResult(false);
+            }
+
+            // Determine the appropriate status to resume to
+            ScheduledJobStatus newStatus;
+            if (entry.ScheduleType == ScheduleType.EventTriggered)
+            {
+                newStatus = ScheduledJobStatus.Pending;
+            }
+            else if (entry.ScheduledAtUtc.HasValue && entry.ScheduledAtUtc.Value > DateTime.UtcNow)
+            {
+                newStatus = ScheduledJobStatus.Scheduled;
+            }
+            else
+            {
+                newStatus = ScheduledJobStatus.Pending;
+            }
+
+            entry.Status = newStatus;
+
+            _logger.LogInformation(
+                "Job resumed: {JobId} ({JobName}), new status={NewStatus}",
+                jobId, entry.Job.Name, newStatus);
+
+            return Task.FromResult(true);
+        }
+        finally
         {
-            _logger.LogWarning("Job not found: {JobId}", jobId);
-            return Task.FromResult(false);
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(ResumeJobAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
         }
-
-        if (entry.Status != ScheduledJobStatus.Paused)
-        {
-            _logger.LogWarning("Job is not paused: {JobId} (status={Status})", jobId, entry.Status);
-            return Task.FromResult(false);
-        }
-
-        // Determine the appropriate status to resume to
-        ScheduledJobStatus newStatus;
-        if (entry.ScheduleType == ScheduleType.EventTriggered)
-        {
-            newStatus = ScheduledJobStatus.Pending;
-        }
-        else if (entry.ScheduledAtUtc.HasValue && entry.ScheduledAtUtc.Value > DateTime.UtcNow)
-        {
-            newStatus = ScheduledJobStatus.Scheduled;
-        }
-        else
-        {
-            newStatus = ScheduledJobStatus.Pending;
-        }
-
-        entry.Status = newStatus;
-
-        _logger.LogInformation(
-            "Job resumed: {JobId} ({JobName}), new status={NewStatus}",
-            jobId, entry.Job.Name, newStatus);
-
-        return Task.FromResult(true);
     }
 
     public Task<bool> ModifyJobScheduleAsync(
@@ -563,30 +683,33 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         ScheduleModificationRequest modificationRequest,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(jobId))
+        var stopwatch = Stopwatch.StartNew();
+        try
         {
-            throw new ArgumentNullException(nameof(jobId));
-        }
+            if (string.IsNullOrWhiteSpace(jobId))
+            {
+                throw new ArgumentNullException(nameof(jobId));
+            }
 
-        ArgumentNullException.ThrowIfNull(modificationRequest);
+            ArgumentNullException.ThrowIfNull(modificationRequest);
 
-        if (!_jobs.TryGetValue(jobId, out var entry))
-        {
-            _logger.LogWarning("Job not found: {JobId}", jobId);
-            return Task.FromResult(false);
-        }
+            if (!_jobs.TryGetValue(jobId, out var entry))
+            {
+                _logger.LogWarning("Job not found: {JobId}", jobId);
+                return Task.FromResult(false);
+            }
 
-        if (entry.Status == ScheduledJobStatus.Running)
-        {
-            _logger.LogWarning("Cannot modify running job: {JobId}", jobId);
-            return Task.FromResult(false);
-        }
+            if (entry.Status == ScheduledJobStatus.Running)
+            {
+                _logger.LogWarning("Cannot modify running job: {JobId}", jobId);
+                return Task.FromResult(false);
+            }
 
-        if (entry.Status == ScheduledJobStatus.Completed || entry.Status == ScheduledJobStatus.Cancelled)
-        {
-            _logger.LogWarning("Cannot modify job in terminal state: {JobId} (status={Status})", jobId, entry.Status);
-            return Task.FromResult(false);
-        }
+            if (entry.Status == ScheduledJobStatus.Completed || entry.Status == ScheduledJobStatus.Cancelled)
+            {
+                _logger.LogWarning("Cannot modify job in terminal state: {JobId} (status={Status})", jobId, entry.Status);
+                return Task.FromResult(false);
+            }
 
         // Validate and apply modifications based on schedule type
         switch (entry.ScheduleType)
@@ -718,6 +841,13 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         }
 
         return Task.FromResult(true);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LogPerformanceMetrics(nameof(ModifyJobScheduleAsync), stopwatch.ElapsedMilliseconds, 
+                _options.ScheduleOperationWarningThresholdMs);
+        }
     }
 
     /// <summary>
@@ -879,6 +1009,57 @@ public class SchedulerHostedService : BackgroundService, IScheduler
     {
         var counter = Interlocked.Increment(ref _jobIdCounter);
         return $"job_{DateTime.UtcNow:yyyyMMddHHmmss}_{counter:D6}";
+    }
+
+    /// <summary>
+    /// Logs performance metrics for an operation if instrumentation is enabled.
+    /// Logs a warning if the operation exceeds the specified threshold.
+    /// </summary>
+    /// <param name="operationName">The name of the operation.</param>
+    /// <param name="durationMs">The duration of the operation in milliseconds.</param>
+    /// <param name="thresholdMs">The warning threshold in milliseconds.</param>
+    /// <param name="additionalContext">Optional additional context to include in logs.</param>
+    private void LogPerformanceMetrics(
+        string operationName, 
+        long durationMs, 
+        uint thresholdMs, 
+        string? additionalContext = null)
+    {
+        if (!_options.EnablePerformanceInstrumentation)
+        {
+            return;
+        }
+
+        if (durationMs > thresholdMs)
+        {
+            if (string.IsNullOrEmpty(additionalContext))
+            {
+                _logger.LogWarning(
+                    "Scheduler operation '{OperationName}' took {DurationMs}ms (threshold: {ThresholdMs}ms)",
+                    operationName, durationMs, thresholdMs);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Scheduler operation '{OperationName}' took {DurationMs}ms (threshold: {ThresholdMs}ms) - {Context}",
+                    operationName, durationMs, thresholdMs, additionalContext);
+            }
+        }
+        else
+        {
+            if (string.IsNullOrEmpty(additionalContext))
+            {
+                _logger.LogDebug(
+                    "Scheduler operation '{OperationName}' completed in {DurationMs}ms",
+                    operationName, durationMs);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "Scheduler operation '{OperationName}' completed in {DurationMs}ms - {Context}",
+                    operationName, durationMs, additionalContext);
+            }
+        }
     }
 
     /// <summary>
