@@ -19,6 +19,7 @@ namespace Daiv3.ModelExecution;
 public class ModelQueue : IModelQueue
 {
     private readonly IFoundryBridge _foundryBridge;
+    private readonly IModelLifecycleManager _modelLifecycleManager;
     private readonly IOnlineProviderRouter _onlineRouter;
     private readonly ILogger<ModelQueue> _logger;
     private readonly ModelQueueOptions _options;
@@ -39,11 +40,13 @@ public class ModelQueue : IModelQueue
 
     public ModelQueue(
         IFoundryBridge foundryBridge,
+        IModelLifecycleManager modelLifecycleManager,
         IOnlineProviderRouter onlineRouter,
         IOptions<ModelQueueOptions> options,
         ILogger<ModelQueue> logger)
     {
         _foundryBridge = foundryBridge;
+        _modelLifecycleManager = modelLifecycleManager;
         _onlineRouter = onlineRouter;
         _options = options.Value;
         _logger = logger;
@@ -188,6 +191,11 @@ public class ModelQueue : IModelQueue
 
     private async Task<QueuedRequest?> SelectNextRequestAsync()
     {
+        if (_currentModelId == null)
+        {
+            _currentModelId = await _modelLifecycleManager.GetLoadedModelAsync();
+        }
+
         // P0 (Immediate): Always process first, regardless of model
         if (_immediateChannel.Reader.TryRead(out var immediateRequest))
         {
@@ -225,23 +233,23 @@ public class ModelQueue : IModelQueue
                 scannedRequests.Add(req);
             }
 
-            // No match found in lookahead - take first request (will cause model switch)
+            // No match found in lookahead. Drain remaining P1 queue and choose the model
+            // with the most pending P1 work (MQ-REQ-006).
             if (scannedRequests.Count > 0)
             {
-                var firstRequest = scannedRequests[0];
-                var newModelId = DetermineModelId(firstRequest.Request);
-
-                _logger.LogInformation(
-                    "No P1 requests for current model {CurrentModelId} in lookahead, switching to {NewModelId}",
-                    _currentModelId, newModelId);
-
-                // Requeue the rest
-                foreach (var req in scannedRequests.Skip(1))
+                while (_normalChannel.Reader.TryRead(out var remainingRequest))
                 {
-                    await _normalChannel.Writer.WriteAsync(req);
+                    scannedRequests.Add(remainingRequest);
                 }
 
-                return firstRequest;
+                var selectedRequest = await SelectDominantP1RequestAsync(scannedRequests);
+
+                var selectedModelId = DetermineModelId(selectedRequest.Request);
+                _logger.LogInformation(
+                    "No P1 requests for current model {CurrentModelId}; selected dominant P1 model {SelectedModelId}",
+                    _currentModelId, selectedModelId);
+
+                return selectedRequest;
             }
         }
 
@@ -355,15 +363,17 @@ public class ModelQueue : IModelQueue
                 // Route to Foundry Local
                 var modelId = DetermineModelId(request);
 
-                // Check if model switch needed
-                var currentModel = await _foundryBridge.GetLoadedModelAsync();
+                // MQ-REQ-007: Explicitly switch model by unloading current and loading target
+                // before local execution.
+                var currentModel = await _modelLifecycleManager.GetLoadedModelAsync();
                 if (currentModel != modelId)
                 {
                     _logger.LogInformation(
                         "Model switch: {OldModel} → {NewModel}",
                         currentModel ?? "(none)", modelId);
 
-                    _lastModelSwitch = DateTimeOffset.UtcNow;
+                    await _modelLifecycleManager.SwitchModelAsync(modelId, executionCts.Token);
+                    _lastModelSwitch = (await _modelLifecycleManager.GetLastModelSwitchAsync()) ?? DateTimeOffset.UtcNow;
                 }
 
                 // Always update current model ID (even if no switch) for batching logic
@@ -460,6 +470,56 @@ public class ModelQueue : IModelQueue
         };
 
         return Math.Max(0, position);
+    }
+
+    private async Task<QueuedRequest> SelectDominantP1RequestAsync(List<QueuedRequest> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            throw new InvalidOperationException("Cannot select dominant P1 request from an empty candidate set.");
+        }
+
+        var modelCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var firstSeenIndexByModel = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            var modelId = DetermineModelId(candidates[index].Request);
+            modelCounts[modelId] = modelCounts.TryGetValue(modelId, out var count) ? count + 1 : 1;
+
+            if (!firstSeenIndexByModel.ContainsKey(modelId))
+            {
+                firstSeenIndexByModel[modelId] = index;
+            }
+        }
+
+        var dominantModelId = modelCounts
+            .OrderByDescending(pair => pair.Value)
+            .ThenBy(pair => firstSeenIndexByModel[pair.Key])
+            .First()
+            .Key;
+
+        var selectedRequest = candidates.First(req => DetermineModelId(req.Request) == dominantModelId);
+
+        var dominantModelRemainder = candidates
+            .Where(req => req != selectedRequest && DetermineModelId(req.Request) == dominantModelId)
+            .ToList();
+
+        var otherRequests = candidates
+            .Where(req => DetermineModelId(req.Request) != dominantModelId)
+            .ToList();
+
+        foreach (var req in dominantModelRemainder)
+        {
+            await _normalChannel.Writer.WriteAsync(req);
+        }
+
+        foreach (var req in otherRequests)
+        {
+            await _normalChannel.Writer.WriteAsync(req);
+        }
+
+        return selectedRequest;
     }
 
     private class QueuedRequest

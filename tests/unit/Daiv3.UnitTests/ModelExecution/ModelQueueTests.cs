@@ -11,6 +11,7 @@ namespace Daiv3.UnitTests.ModelExecution;
 public class ModelQueueTests
 {
     private readonly Mock<IFoundryBridge> _mockFoundryBridge;
+    private readonly Mock<IModelLifecycleManager> _mockModelLifecycleManager;
     private readonly Mock<IOnlineProviderRouter> _mockOnlineRouter;
     private readonly Mock<ILogger<ModelQueue>> _mockLogger;
     private readonly ModelQueueOptions _options;
@@ -18,6 +19,7 @@ public class ModelQueueTests
     public ModelQueueTests()
     {
         _mockFoundryBridge = new Mock<IFoundryBridge>();
+        _mockModelLifecycleManager = new Mock<IModelLifecycleManager>();
         _mockOnlineRouter = new Mock<IOnlineProviderRouter>();
         _mockLogger = new Mock<ILogger<ModelQueue>>();
         _options = new ModelQueueOptions
@@ -27,6 +29,15 @@ public class ModelQueueTests
             CodeModelId = "phi-3-mini",
             SummarizeModelId = "phi-3-mini"
         };
+
+        _mockModelLifecycleManager.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync((string?)null);
+
+        _mockModelLifecycleManager.Setup(x => x.GetLastModelSwitchAsync())
+            .ReturnsAsync((DateTimeOffset?)DateTimeOffset.UtcNow);
+
+        _mockModelLifecycleManager.Setup(x => x.SwitchModelAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
     }
 
     [Fact]
@@ -1109,10 +1120,132 @@ public class ModelQueueTests
             $"Expected ≤ 4 model switches with batching, got {modelSwitchLog.Count}. Switches: {string.Join(", ", modelSwitchLog)}");
     }
 
+    // ==================== MQ-REQ-006 Tests: Dominant P1 Model Selection ====================
+
+    [Fact]
+    public async Task P1Requests_NoRequestsForCurrentModel_SelectsModelWithMostPendingP1Work()
+    {
+        // Arrange
+        _options.ChatModelId = "phi-3-mini";
+        _options.CodeModelId = "phi-4-mini";
+
+        var queue = CreateQueue();
+        var executedModels = new List<string>();
+
+        _mockModelLifecycleManager.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync("phi-vision"); // Current model has no pending requests
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExecutionRequest req, string model, CancellationToken ct) =>
+            {
+                executedModels.Add(model);
+                return new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "Response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                };
+            });
+
+        var chatRequest = new ExecutionRequest { TaskType = "chat", Content = "Chat" };
+        var codeRequest1 = new ExecutionRequest { TaskType = "code", Content = "Code 1" };
+        var codeRequest2 = new ExecutionRequest { TaskType = "code", Content = "Code 2" };
+        var codeRequest3 = new ExecutionRequest { TaskType = "code", Content = "Code 3" };
+
+        // Act
+        var chatId = await queue.EnqueueAsync(chatRequest, ExecutionPriority.Normal);
+        var codeId1 = await queue.EnqueueAsync(codeRequest1, ExecutionPriority.Normal);
+        var codeId2 = await queue.EnqueueAsync(codeRequest2, ExecutionPriority.Normal);
+        var codeId3 = await queue.EnqueueAsync(codeRequest3, ExecutionPriority.Normal);
+
+        await Task.WhenAll(
+            queue.ProcessAsync(chatId),
+            queue.ProcessAsync(codeId1),
+            queue.ProcessAsync(codeId2),
+            queue.ProcessAsync(codeId3)
+        ).WaitAsync(TimeSpan.FromSeconds(10));
+
+        // Assert
+        Assert.NotEmpty(executedModels);
+        Assert.Equal(_options.CodeModelId, executedModels[0]);
+    }
+
+    // ==================== MQ-REQ-007 Tests: Explicit Model Switch Process ====================
+
+    [Fact]
+    public async Task ExecuteRequestAsync_LocalRequest_SwitchesModelBeforeExecution()
+    {
+        // Arrange
+        _options.ChatModelId = "phi-3-mini";
+        _options.CodeModelId = "phi-4-mini";
+
+        var queue = CreateQueue();
+
+        _mockModelLifecycleManager.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync("phi-3-mini");
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExecutionRequest req, string model, CancellationToken ct) =>
+                new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "Response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                });
+
+        var codeRequest = new ExecutionRequest { TaskType = "code", Content = "Generate code" };
+
+        // Act
+        var requestId = await queue.EnqueueAsync(codeRequest, ExecutionPriority.Normal);
+        var result = await queue.ProcessAsync(requestId).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        Assert.Equal(ExecutionStatus.Completed, result.Status);
+        _mockModelLifecycleManager.Verify(
+            x => x.SwitchModelAsync(_options.CodeModelId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteRequestAsync_LocalRequest_SameModel_DoesNotSwitch()
+    {
+        // Arrange
+        _options.ChatModelId = "phi-3-mini";
+        var queue = CreateQueue();
+
+        _mockModelLifecycleManager.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync("phi-3-mini");
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExecutionRequest req, string model, CancellationToken ct) =>
+                new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "Response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                });
+
+        var chatRequest = new ExecutionRequest { TaskType = "chat", Content = "Hello" };
+
+        // Act
+        var requestId = await queue.EnqueueAsync(chatRequest, ExecutionPriority.Normal);
+        var result = await queue.ProcessAsync(requestId).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        Assert.Equal(ExecutionStatus.Completed, result.Status);
+        _mockModelLifecycleManager.Verify(
+            x => x.SwitchModelAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     private ModelQueue CreateQueue()
     {
         return new ModelQueue(
             _mockFoundryBridge.Object,
+            _mockModelLifecycleManager.Object,
             _mockOnlineRouter.Object,
             Options.Create(_options),
             _mockLogger.Object);
