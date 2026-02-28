@@ -1,5 +1,10 @@
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Persistence;
+using Daiv3.Persistence.Repositories;
+using Daiv3.Persistence.Entities;
+using DBAgent = Daiv3.Persistence.Entities.Agent;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -11,13 +16,31 @@ namespace Daiv3.UnitTests.Orchestration;
 /// </summary>
 public class AgentManagerTests
 {
-    private readonly Mock<ILogger<AgentManager>> _mockLogger;
     private readonly AgentManager _manager;
+    private readonly AgentRepository _repository;
+    private readonly Mock<ILogger<AgentManager>> _mockLogger;
+    private readonly string _dbPath;
 
     public AgentManagerTests()
     {
         _mockLogger = new Mock<ILogger<AgentManager>>();
-        _manager = new AgentManager(_mockLogger.Object);
+        _dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-test-{Guid.NewGuid()}.db");
+        
+        // Setup a test service provider with persistence
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddPersistence(options =>
+        {
+            options.DatabasePath = _dbPath;
+        });
+
+        var serviceProvider = services.BuildServiceProvider();
+        
+        // Initialize database and get repository
+        serviceProvider.InitializeDatabaseAsync().GetAwaiter().GetResult();
+        _repository = serviceProvider.GetRequiredService<AgentRepository>();
+        
+        _manager = new AgentManager(_mockLogger.Object, _repository);
     }
 
     [Fact]
@@ -204,5 +227,4 @@ public class AgentManagerTests
         Assert.Equal(2, agent.Config.Count);
         Assert.Equal("value1", agent.Config["setting1"]);
         Assert.Equal("value2", agent.Config["setting2"]);
-    }
-}
+    }}
