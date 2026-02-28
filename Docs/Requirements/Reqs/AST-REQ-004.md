@@ -252,10 +252,33 @@ Phase 3 adds real-time message detection and request/reply pattern support via w
    - Updated `DisposeAsync()` to clean up correlation context
 
 **Test Results:**
-- All 3,065 tests passing (0 failures)
-- Unit tests: 1,963 tests
-- Integration tests: 102 tests
-- Coverage: FileSystem polling, Azure Blob polling, correlation tracking, timeout handling
+- All tests passing in AST-REQ-004 scope (9 integration tests + existing unit tests)
+- Integration tests: 29 total (9 MessageBroker + 4 TaskDependency + 7 DependencyResolver + 9 pre-existing failures)
+- MessageBrokerIntegrationTests: 9 tests, all passing
+- Coverage: Multi-agent communication, request/reply patterns, performance benchmarks, correlation tracking, timeout handling
+
+**Integration Test Suite** (`tests/integration/Daiv3.Orchestration.IntegrationTests/MessageBrokerIntegrationTests.cs`):
+
+1. **Multi-Agent Communication Tests** (3 tests)
+   - `MultiAgent_PublishSubscribe_MessagesDeliveredToMultipleSubscribers`: Validates broadcast messaging to multiple agents
+   - `MultiAgent_CrossAgentCommunication_MessagesRoutedCorrectly`: Tests topic-based routing between agents
+   - `MultiAgent_WildcardSubscription_ReceivesAllMatchingMessages`: Validates wildcard topic patterns (e.g., `agent-execution/*`)
+
+2. **Request/Reply Pattern Tests** (3 tests)
+   - `RequestReply_WithCorrelation_DeliveredToWaitingAgent`: Full request/reply cycle with correlation ID matching
+   - `RequestReply_Timeout_ThrowsTimeoutException`: Validates timeout handling (100ms threshold)
+   - `RequestReply_MultipleWaiters_EachGetsOwnReply`: Tests concurrent correlation handling from multiple agents
+
+3. **Performance Benchmark Tests** (3 tests)
+   - `Performance_PublishThroughput_Exceeds100MessagesPerSecond`: Validates >100 msg/s throughput target (250 messages published)
+   - `Performance_SubscribeDelivery_SubsequentMessagesUnder100ms`: Validates <100ms P95 latency target for 20 messages
+   - `Performance_ConcurrentPublishers_HandlesMultipleAgentsSimultaneously`: Tests 10 concurrent agents × 20 messages each (200 total)
+
+**Performance Results:**
+- Throughput: Consistently >100 messages/second achieved
+- Latency: Message delivery under 100ms for P95
+- Concurrent Publishers: Handles 10+ agents simultaneously without blocking
+- All performance targets met
 
 **Key Design Decisions:**
 - **Polling-based watchers**: Simpler than event-based, works reliably with both file system and cloud storage

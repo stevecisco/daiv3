@@ -1,5 +1,7 @@
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Orchestration.Messaging;
+using Daiv3.Orchestration.Messaging.Storage;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
@@ -24,12 +26,37 @@ public class TaskDependencyAcceptanceTests : IAsyncLifetime
     private readonly ITaskOrchestrator _orchestrator;
     private readonly ILogger<TaskOrchestrator> _orchestratorLogger;
     private readonly ILogger<DependencyResolver> _resolverLogger;
+    private readonly IMessageBroker _messageBroker;
+    private readonly string _testStorageDir;
 
     public TaskDependencyAcceptanceTests()
     {
         var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
         _orchestratorLogger = loggerFactory.CreateLogger<TaskOrchestrator>();
         _resolverLogger = loggerFactory.CreateLogger<DependencyResolver>();
+
+        // Setup message broker for tests
+        _testStorageDir = Path.Combine(Path.GetTempPath(), $"daiv3-dep-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_testStorageDir);
+        
+        var brokerOptions = new MessageBrokerOptions
+        {
+            StorageBackend = "FileSystem",
+            FileSystemOptions = new FileSystemMessageStoreOptions
+            {
+                StorageDirectory = _testStorageDir,
+                CleanupIntervalSeconds = 3600
+            }
+        };
+        
+        var messageStore = new FileSystemMessageStore(
+            loggerFactory.CreateLogger<FileSystemMessageStore>(),
+            Options.Create(brokerOptions.FileSystemOptions));
+        
+        _messageBroker = new MessageBroker(
+            loggerFactory.CreateLogger<MessageBroker>(),
+            messageStore,
+            Options.Create(brokerOptions));
 
         var dbPath = Path.Combine(
             Path.GetTempPath(),
@@ -58,12 +85,14 @@ public class TaskDependencyAcceptanceTests : IAsyncLifetime
         _agentManager = new AgentManager(
             loggerFactory.CreateLogger<AgentManager>(),
             _agentRepository,
+            _messageBroker,
             orchestrationOptions);
 
         _orchestrator = new TaskOrchestrator(
             intentResolver,
             _dependencyResolver,
             _agentManager,
+            _messageBroker,
             _orchestratorLogger,
             orchestrationOptions);
     }
@@ -90,6 +119,19 @@ public class TaskDependencyAcceptanceTests : IAsyncLifetime
             {
                 // Ignore cleanup errors
             }
+        }
+
+        // Clean up message broker test storage
+        try
+        {
+            if (Directory.Exists(_testStorageDir))
+            {
+                Directory.Delete(_testStorageDir, recursive: true);
+            }
+        }
+        catch
+        {
+            // Ignore cleanup errors
         }
     }
 
