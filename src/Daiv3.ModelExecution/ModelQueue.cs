@@ -32,6 +32,11 @@ public class ModelQueue : IModelQueue
     private DateTimeOffset _lastModelSwitch = DateTimeOffset.UtcNow;
     private readonly SemaphoreSlim _executionLock = new(1, 1);
 
+    // Preemption support for P0 requests
+    private QueuedRequest? _currentlyExecuting;
+    private CancellationTokenSource? _currentExecutionCts;
+    private readonly object _executionStateLock = new();
+
     public ModelQueue(
         IFoundryBridge foundryBridge,
         IOnlineProviderRouter onlineRouter,
@@ -83,6 +88,24 @@ public class ModelQueue : IModelQueue
         _logger.LogInformation(
             "Enqueued request {RequestId} with priority {Priority}, task type: {TaskType}",
             request.Id, priority, request.TaskType);
+
+        // P0 (Immediate) preemption: cancel any in-progress P1/P2 request
+        if (priority == ExecutionPriority.Immediate)
+        {
+            lock (_executionStateLock)
+            {
+                if (_currentlyExecuting != null && 
+                    _currentlyExecuting.Priority != ExecutionPriority.Immediate &&
+                    _currentExecutionCts != null && !_currentExecutionCts.IsCancellationRequested)
+                {
+                    _logger.LogWarning(
+                        "P0 request {P0RequestId} preempting in-progress {Priority} request {PreemptedRequestId}",
+                        request.Id, _currentlyExecuting.Priority, _currentlyExecuting.Request.Id);
+
+                    _currentExecutionCts.Cancel();
+                }
+            }
+        }
 
         return request.Id;
     }
@@ -192,8 +215,18 @@ public class ModelQueue : IModelQueue
     private async Task ExecuteRequestAsync(QueuedRequest queuedRequest)
     {
         await _executionLock.WaitAsync();
+        CancellationTokenSource? executionCts = null;
+
         try
         {
+            // Set up cancellation for preemption
+            executionCts = new CancellationTokenSource();
+            lock (_executionStateLock)
+            {
+                _currentlyExecuting = queuedRequest;
+                _currentExecutionCts = executionCts;
+            }
+
             queuedRequest.Status = ExecutionStatus.Processing;
             var request = queuedRequest.Request;
 
@@ -209,7 +242,7 @@ public class ModelQueue : IModelQueue
             if (isOnlineRequest)
             {
                 // Route to online provider
-                result = await _onlineRouter.ExecuteAsync(request);
+                result = await _onlineRouter.ExecuteAsync(request, null, executionCts.Token);
             }
             else
             {
@@ -228,7 +261,7 @@ public class ModelQueue : IModelQueue
                     _lastModelSwitch = DateTimeOffset.UtcNow;
                 }
 
-                result = await _foundryBridge.ExecuteAsync(request, modelId);
+                result = await _foundryBridge.ExecuteAsync(request, modelId, executionCts.Token);
             }
 
             result.Status = ExecutionStatus.Completed;
@@ -238,6 +271,26 @@ public class ModelQueue : IModelQueue
             _logger.LogInformation(
                 "Completed request {RequestId}: {TokenCount} tokens",
                 request.Id, result.TokenUsage.TotalTokens);
+        }
+        catch (OperationCanceledException) when (executionCts?.IsCancellationRequested == true)
+        {
+            // Request was preempted by P0 - requeue it
+            _logger.LogInformation(
+                "Request {RequestId} (priority {Priority}) was preempted, requeuing",
+                queuedRequest.Request.Id, queuedRequest.Priority);
+
+            queuedRequest.Status = ExecutionStatus.Queued;
+
+            // Requeue to appropriate channel based on priority
+            var channel = queuedRequest.Priority switch
+            {
+                ExecutionPriority.Immediate => _immediateChannel,
+                ExecutionPriority.Normal => _normalChannel,
+                ExecutionPriority.Background => _backgroundChannel,
+                _ => _normalChannel
+            };
+
+            await channel.Writer.WriteAsync(queuedRequest);
         }
         catch (Exception ex)
         {
@@ -256,6 +309,13 @@ public class ModelQueue : IModelQueue
         }
         finally
         {
+            lock (_executionStateLock)
+            {
+                _currentlyExecuting = null;
+                _currentExecutionCts = null;
+            }
+
+            executionCts?.Dispose();
             _executionLock.Release();
         }
     }

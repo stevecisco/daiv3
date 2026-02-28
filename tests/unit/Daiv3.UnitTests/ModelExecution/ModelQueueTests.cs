@@ -260,6 +260,282 @@ public class ModelQueueTests
         Assert.NotNull(result.ErrorMessage);
     }
 
+    [Fact]
+    public async Task EnqueueAsync_P0PreemptsP1_P1IsRequeued()
+    {
+        // Arrange
+        var queue = CreateQueue();
+        var p1Cancelled = new TaskCompletionSource<bool>();
+        var p1ExecutionCount = 0;
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ExecutionRequest req, string model, CancellationToken ct) =>
+            {
+                // P1 request behavior
+                if (req.TaskType == "normal")
+                {
+                    p1ExecutionCount++;
+                    
+                    // First execution - wait to be cancelled
+                    if (p1ExecutionCount == 1)
+                    {
+                        try
+                        {
+                            await Task.Delay(10000, ct);
+                            return new ExecutionResult { RequestId = req.Id, Content = "Should not reach", Status = ExecutionStatus.Completed, TokenUsage = new TokenUsage() };
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            p1Cancelled.TrySetResult(true);
+                            throw;
+                        }
+                    }
+                    
+                    // Retry execution - complete quickly
+                    await Task.Delay(10, ct);
+                    return new ExecutionResult
+                    {
+                        RequestId = req.Id,
+                        Content = "P1 completed on retry",
+                        Status = ExecutionStatus.Completed,
+                        TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                    };
+                }
+                
+                // P0 request - complete immediately
+                await Task.Delay(10, ct);
+                return new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "P0 response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                };
+            });
+
+        _mockFoundryBridge.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync("phi-3-mini");
+
+        var p1Request = new ExecutionRequest { TaskType = "normal", Content = "P1 request" };
+        var p0Request = new ExecutionRequest { TaskType = "immediate", Content = "P0 request" };
+
+        // Act
+        var p1Id = await queue.EnqueueAsync(p1Request, ExecutionPriority.Normal);
+        await Task.Delay(100); // Let P1 start executing
+        
+        var p0Id = await queue.EnqueueAsync(p0Request, ExecutionPriority.Immediate);
+
+        // Wait for P1 to be cancelled
+        var wasCancelled = await p1Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        
+        // Wait for both to complete
+        var p0Result = await queue.ProcessAsync(p0Id).WaitAsync(TimeSpan.FromSeconds(5));
+        var p1Result = await queue.ProcessAsync(p1Id).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        Assert.True(wasCancelled, "P1 request should have been cancelled");
+        Assert.Equal(ExecutionStatus.Completed, p0Result.Status);
+        Assert.Equal(ExecutionStatus.Completed, p1Result.Status);
+        Assert.Equal(2, p1ExecutionCount); // P1 executed twice (initial + retry)
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_P0PreemptsP2_P2IsRequeued()
+    {
+        // Arrange
+        var queue = CreateQueue();
+        var p2Cancelled = new TaskCompletionSource<bool>();
+        var p2ExecutionCount = 0;
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ExecutionRequest req, string model, CancellationToken ct) =>
+            {
+                // P2 request behavior
+                if (req.TaskType == "background")
+                {
+                    p2ExecutionCount++;
+                    
+                    // First execution - wait to be cancelled
+                    if (p2ExecutionCount == 1)
+                    {
+                        try
+                        {
+                            await Task.Delay(10000, ct);
+                            return new ExecutionResult { RequestId = req.Id, Content = "Should not reach", Status = ExecutionStatus.Completed, TokenUsage = new TokenUsage() };
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            p2Cancelled.TrySetResult(true);
+                            throw;
+                        }
+                    }
+                    
+                    // Retry execution - complete quickly
+                    await Task.Delay(10, ct);
+                    return new ExecutionResult
+                    {
+                        RequestId = req.Id,
+                        Content = "P2 completed on retry",
+                        Status = ExecutionStatus.Completed,
+                        TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                    };
+                }
+                
+                // P0 request - complete immediately
+                await Task.Delay(10, ct);
+                return new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "P0 response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                };
+            });
+
+        _mockFoundryBridge.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync("phi-3-mini");
+
+        var p2Request = new ExecutionRequest { TaskType = "background", Content = "P2 request" };
+        var p0Request = new ExecutionRequest { TaskType = "immediate", Content = "P0 request" };
+
+        // Act
+        var p2Id = await queue.EnqueueAsync(p2Request, ExecutionPriority.Background);
+        await Task.Delay(100); // Let P2 start executing
+        
+        var p0Id = await queue.EnqueueAsync(p0Request, ExecutionPriority.Immediate);
+
+        // Wait for P2 to be cancelled
+        var wasCancelled = await p2Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        
+        // Wait for both to complete
+        var p0Result = await queue.ProcessAsync(p0Id).WaitAsync(TimeSpan.FromSeconds(5));
+        var p2Result = await queue.ProcessAsync(p2Id).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        Assert.True(wasCancelled, "P2 request should have been cancelled");
+        Assert.Equal(ExecutionStatus.Completed, p0Result.Status);
+        Assert.Equal(ExecutionStatus.Completed, p2Result.Status);
+        Assert.Equal(2, p2ExecutionCount); // P2 executed twice (initial + retry)
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_P0DoesNotPreemptP0_BothComplete()
+    {
+        // Arrange
+        var queue = CreateQueue();
+        var executionOrder = new List<Guid>();
+        var firstP0Started = new TaskCompletionSource<bool>();
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ExecutionRequest req, string model, CancellationToken ct) =>
+            {
+                executionOrder.Add(req.Id);
+                
+                if (executionOrder.Count == 1)
+                {
+                    firstP0Started.SetResult(true);
+                    await Task.Delay(200, ct); // Simulate work
+                }
+                else
+                {
+                    await Task.Delay(10, ct);
+                }
+
+                return new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "Response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                };
+            });
+
+        _mockFoundryBridge.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync("phi-3-mini");
+
+        var p0Request1 = new ExecutionRequest { TaskType = "immediate1", Content = "First P0" };
+        var p0Request2 = new ExecutionRequest { TaskType = "immediate2", Content = "Second P0" };
+
+        // Act
+        var p0Id1 = await queue.EnqueueAsync(p0Request1, ExecutionPriority.Immediate);
+        await firstP0Started.Task; // Wait for first P0 to start
+        
+        var p0Id2 = await queue.EnqueueAsync(p0Request2, ExecutionPriority.Immediate);
+
+        // Wait for both to complete
+        var result1 = await queue.ProcessAsync(p0Id1).WaitAsync(TimeSpan.FromSeconds(5));
+        var result2 = await queue.ProcessAsync(p0Id2).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        Assert.Equal(ExecutionStatus.Completed, result1.Status);
+        Assert.Equal(ExecutionStatus.Completed, result2.Status);
+        Assert.Equal(2, executionOrder.Count);
+        Assert.Equal(p0Request1.Id, executionOrder[0]);
+        Assert.Equal(p0Request2.Id, executionOrder[1]);
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_P0WithModelSwitch_SwitchesImmediately()
+    {
+        // Arrange
+        var queue = CreateQueue();
+        var modelSwitches = new List<string>();
+        var p1Cancelled = new TaskCompletionSource<bool>();
+
+        _mockFoundryBridge.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync(() => modelSwitches.LastOrDefault() ?? "phi-3-mini");
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ExecutionRequest req, string model, CancellationToken ct) =>
+            {
+                modelSwitches.Add(model);
+                
+                if (req.TaskType == "code")
+                {
+                    try
+                    {
+                        await Task.Delay(10000, ct);
+                        return new ExecutionResult { RequestId = req.Id, Content = "Should not reach", Status = ExecutionStatus.Completed, TokenUsage = new TokenUsage() };
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        p1Cancelled.TrySetResult(true);
+                        throw;
+                    }
+                }
+                
+                await Task.Delay(10, ct);
+                return new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "Response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
+                };
+            });
+
+        var p1Request = new ExecutionRequest { TaskType = "code", Content = "P1 code request" };
+        var p0Request = new ExecutionRequest { TaskType = "chat", Content = "P0 chat request" };
+
+        // Act
+        var p1Id = await queue.EnqueueAsync(p1Request, ExecutionPriority.Normal);
+        await Task.Delay(100); // Let P1 start
+        
+        var p0Id = await queue.EnqueueAsync(p0Request, ExecutionPriority.Immediate);
+
+        // Wait for cancellation
+        var wasCancelled = await p1Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        // Wait for P0 to complete
+        var p0Result = await queue.ProcessAsync(p0Id).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        Assert.True(wasCancelled, "P1 should have been cancelled");
+        Assert.Equal(ExecutionStatus.Completed, p0Result.Status);
+        Assert.Contains(_options.CodeModelId, modelSwitches); // P1 started with code model
+        Assert.Contains(_options.ChatModelId, modelSwitches); // P0 switched to chat model
+    }
+
     private ModelQueue CreateQueue()
     {
         return new ModelQueue(
