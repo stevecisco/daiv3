@@ -120,6 +120,82 @@ public class Program
         projectsCommand.AddCommand(projectsCreateCommand);
         rootCommand.AddCommand(projectsCommand);
 
+        // Tasks command
+        var tasksCommand = new Command("tasks", "Task management commands");
+        
+        var tasksListCommand = new Command("list", "List all tasks");
+        var taskProjectIdOption = new Option<string?>(
+            aliases: new[] { "--project-id", "-p" },
+            description: "Filter by project ID");
+        var taskStatusOption = new Option<string?>(
+            aliases: new[] { "--status", "-s" },
+            description: "Filter by status (pending, queued, in-progress, complete, failed, blocked)");
+        tasksListCommand.AddOption(taskProjectIdOption);
+        tasksListCommand.AddOption(taskStatusOption);
+        tasksListCommand.SetHandler(async (string? projectId, string? status) =>
+        {
+            var host = CreateHost();
+            var exitCode = await TasksListCommand(host, projectId, status);
+            Environment.Exit(exitCode);
+        }, taskProjectIdOption, taskStatusOption);
+
+        var tasksCreateCommand = new Command("create", "Create a new task");
+        var taskTitleOption = new Option<string>(
+            aliases: new[] { "--title", "-t" },
+            description: "Task title") { IsRequired = true };
+        var taskDescriptionOption = new Option<string?>(
+            aliases: new[] { "--description", "-d" },
+            description: "Task description");
+        var taskProjectOption = new Option<string?>(
+            aliases: new[] { "--project-id", "-p" },
+            description: "Project ID");
+        var taskPriorityOption = new Option<int>(
+            aliases: new[] { "--priority" },
+            description: "Priority (0-9, default: 5)",
+            getDefaultValue: () => 5);
+        var taskDependenciesOption = new Option<string[]>(
+            aliases: new[] { "--dependency", "--dep" },
+            description: "Task dependency (repeat option for multiple)") 
+        { 
+            Arity = ArgumentArity.ZeroOrMore 
+        };
+        tasksCreateCommand.AddOption(taskTitleOption);
+        tasksCreateCommand.AddOption(taskDescriptionOption);
+        tasksCreateCommand.AddOption(taskProjectOption);
+        tasksCreateCommand.AddOption(taskPriorityOption);
+        tasksCreateCommand.AddOption(taskDependenciesOption);
+        tasksCreateCommand.SetHandler(async (string title, string? description, string? projectId, int priority, string[] dependencies) =>
+        {
+            var host = CreateHost();
+            var exitCode = await TasksCreateCommand(host, title, description, projectId, priority, dependencies);
+            Environment.Exit(exitCode);
+        }, taskTitleOption, taskDescriptionOption, taskProjectOption, taskPriorityOption, taskDependenciesOption);
+
+        var tasksUpdateCommand = new Command("update", "Update a task");
+        var taskIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Task ID") { IsRequired = true };
+        var taskUpdateStatusOption = new Option<string?>(
+            aliases: new[] { "--status", "-s" },
+            description: "Update status");
+        var taskUpdatePriorityOption = new Option<int?>(
+            aliases: new[] { "--priority" },
+            description: "Update priority (0-9)");
+        tasksUpdateCommand.AddOption(taskIdOption);
+        tasksUpdateCommand.AddOption(taskUpdateStatusOption);
+        tasksUpdateCommand.AddOption(taskUpdatePriorityOption);
+        tasksUpdateCommand.SetHandler(async (string id, string? status, int? priority) =>
+        {
+            var host = CreateHost();
+            var exitCode = await TasksUpdateCommand(host, id, status, priority);
+            Environment.Exit(exitCode);
+        }, taskIdOption, taskUpdateStatusOption, taskUpdatePriorityOption);
+
+        tasksCommand.AddCommand(tasksListCommand);
+        tasksCommand.AddCommand(tasksCreateCommand);
+        tasksCommand.AddCommand(tasksUpdateCommand);
+        rootCommand.AddCommand(tasksCommand);
+
         // Settings command
         var settingsCommand = new Command("settings", "Configuration management");
         
@@ -563,6 +639,240 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to show settings: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> TasksListCommand(
+        IHost host,
+        string? projectId,
+        string? status)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var taskRepository = host.Services.GetRequiredService<TaskRepository>();
+            logger.LogInformation("Listing tasks");
+
+            IReadOnlyList<ProjectTask> tasks;
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                tasks = await taskRepository.GetByStatusAsync(status, CancellationToken.None).ConfigureAwait(false);
+            }
+            else if (!string.IsNullOrWhiteSpace(projectId))
+            {
+                tasks = await taskRepository.GetByProjectIdAsync(projectId, CancellationToken.None).ConfigureAwait(false);
+            }
+            else
+            {
+                tasks = await taskRepository.GetAllAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+
+            Console.WriteLine("TASKS:");
+            if (tasks.Count == 0)
+            {
+                Console.WriteLine("  (No tasks found)");
+                Console.WriteLine();
+                Console.WriteLine("Use 'tasks create --title \"My Task\"' to create a task.");
+                return 0;
+            }
+
+            foreach (var task in tasks)
+            {
+                Console.WriteLine($"  ID: {task.TaskId}");
+                Console.WriteLine($"  Title: {task.Title}");
+                Console.WriteLine($"  Description: {task.Description ?? string.Empty}");
+                Console.WriteLine($"  Project: {task.ProjectId ?? "(none)"}");
+                Console.WriteLine($"  Status: {task.Status}");
+                Console.WriteLine($"  Priority: {task.Priority}");
+                
+                if (!string.IsNullOrEmpty(task.DependenciesJson))
+                {
+                    Console.WriteLine($"  Dependencies: {task.DependenciesJson}");
+                }
+
+                if (task.NextRunAt.HasValue)
+                {
+                    Console.WriteLine($"  Next Run: {FromUnixSeconds(task.NextRunAt.Value):yyyy-MM-dd HH:mm:ss} UTC");
+                }
+
+                if (task.LastRunAt.HasValue)
+                {
+                    Console.WriteLine($"  Last Run: {FromUnixSeconds(task.LastRunAt.Value):yyyy-MM-dd HH:mm:ss} UTC");
+                }
+
+                if (task.CompletedAt.HasValue)
+                {
+                    Console.WriteLine($"  Completed: {FromUnixSeconds(task.CompletedAt.Value):yyyy-MM-dd HH:mm:ss} UTC");
+                }
+
+                Console.WriteLine($"  Created: {FromUnixSeconds(task.CreatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"  Updated: {FromUnixSeconds(task.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list tasks: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> TasksCreateCommand(
+        IHost host,
+        string title,
+        string? description,
+        string? projectId,
+        int priority,
+        IReadOnlyList<string> dependencies)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var taskRepository = host.Services.GetRequiredService<TaskRepository>();
+            logger.LogInformation("Creating task: {Title}", title);
+
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                Console.WriteLine("✗ Task title is required.");
+                return 1;
+            }
+
+            if (priority < 0 || priority > 9)
+            {
+                Console.WriteLine("✗ Priority must be between 0 and 9.");
+                return 1;
+            }
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var taskId = Guid.NewGuid().ToString();
+            var normalizedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+            string? dependenciesJson = null;
+
+            if (dependencies.Count > 0)
+            {
+                var depList = new System.Collections.Generic.List<string>();
+                foreach (var dep in dependencies)
+                {
+                    if (!string.IsNullOrWhiteSpace(dep))
+                    {
+                        depList.Add(dep.Trim());
+                    }
+                }
+
+                if (depList.Count > 0)
+                {
+                    dependenciesJson = System.Text.Json.JsonSerializer.Serialize(depList);
+                }
+            }
+
+            await taskRepository.AddAsync(new ProjectTask
+            {
+                TaskId = taskId,
+                ProjectId = string.IsNullOrWhiteSpace(projectId) ? null : projectId.Trim(),
+                Title = title.Trim(),
+                Description = normalizedDescription,
+                Status = "pending",
+                Priority = priority,
+                DependenciesJson = dependenciesJson,
+                CreatedAt = now,
+                UpdatedAt = now
+            }).ConfigureAwait(false);
+
+            Console.WriteLine("✓ Task created successfully");
+            Console.WriteLine($"  ID: {taskId}");
+            Console.WriteLine($"  Title: {title.Trim()}");
+            Console.WriteLine($"  Description: {normalizedDescription ?? string.Empty}");
+            Console.WriteLine($"  Project: {(string.IsNullOrWhiteSpace(projectId) ? "(none)" : projectId.Trim())}");
+            Console.WriteLine("  Status: pending");
+            Console.WriteLine($"  Priority: {priority}");
+            if (!string.IsNullOrEmpty(dependenciesJson))
+            {
+                Console.WriteLine($"  Dependencies: {dependenciesJson}");
+            }
+            Console.WriteLine($"  Created: {FromUnixSeconds(now):yyyy-MM-dd HH:mm:ss} UTC");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to create task: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> TasksUpdateCommand(
+        IHost host,
+        string taskId,
+        string? status,
+        int? priority)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var taskRepository = host.Services.GetRequiredService<TaskRepository>();
+            logger.LogInformation("Updating task: {TaskId}", taskId);
+
+            if (string.IsNullOrWhiteSpace(taskId))
+            {
+                Console.WriteLine("✗ Task ID is required.");
+                return 1;
+            }
+
+            if (priority.HasValue && (priority < 0 || priority > 9))
+            {
+                Console.WriteLine("✗ Priority must be between 0 and 9.");
+                return 1;
+            }
+
+            var task = await taskRepository.GetByIdAsync(taskId, CancellationToken.None).ConfigureAwait(false);
+            if (task == null)
+            {
+                Console.WriteLine($"✗ Task {taskId} not found.");
+                return 1;
+            }
+
+            var updated = false;
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                task.Status = status.Trim();
+                if (status.Equals("complete", StringComparison.OrdinalIgnoreCase) ||
+                    status.Equals("completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    task.CompletedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                }
+                updated = true;
+            }
+
+            if (priority.HasValue)
+            {
+                task.Priority = priority.Value;
+                updated = true;
+            }
+
+            if (!updated)
+            {
+                Console.WriteLine("✗ No updates specified. Use --status or --priority.");
+                return 1;
+            }
+
+            task.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            await taskRepository.UpdateAsync(task, CancellationToken.None).ConfigureAwait(false);
+
+            Console.WriteLine("✓ Task updated successfully");
+            Console.WriteLine($"  ID: {task.TaskId}");
+            Console.WriteLine($"  Title: {task.Title}");
+            Console.WriteLine($"  Status: {task.Status}");
+            Console.WriteLine($"  Priority: {task.Priority}");
+            Console.WriteLine($"  Updated: {FromUnixSeconds(task.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to update task: {ex.Message}");
             return 1;
         }
     }
