@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Daiv3.Scheduler;
 
@@ -28,6 +29,9 @@ public static class SchedulerServiceExtensions
         this IServiceCollection services,
         Action<SchedulerOptions>? configureOptions = null)
     {
+        // Ensure logging services are available for SchedulerHostedService activation
+        services.AddLogging();
+
         // Register options (before registering the hosted service)
         services.Configure<SchedulerOptions>(options =>
         {

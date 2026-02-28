@@ -42,14 +42,13 @@ Purpose: Track warning/error baselines and requirement-by-requirement deltas so 
 | Date | Requirement | Build/Test Commands | New Errors | New Warnings | Resolution | User Decision |
 |---|---|---|---:|---:|---|---|
 | 2026-02-28 | PTS-DATA-002 | `dotnet build Daiv3.FoundryLocal.slnx`; targeted `dotnet test` runs | 0 | 0 | No diagnostic delta introduced | N/A |
+| 2026-02-28 | Scheduler test remediation | targeted `runTests` (scheduler files); `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal` | 0 | 0 | Fixed scheduler DI activation and timeout test setup; full suite green on rerun | N/A |
 
 ## Full Suite Test Baseline
 - Date: 2026-02-28
 - Command: `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`
 - Observed totals:
-  - `Daiv3.UnitTests.dll (net10.0)`: Failed 4, Passed 722, Total 726
-  - `Daiv3.UnitTests.dll (net10.0-windows10.0.26100)`: Failed 4, Passed 681, Total 685
-  - Aggregate observed total: **1411 tests** (8 failed, 1403 passed)
+  - Aggregate observed total: **1515 tests** (0 failed, 1505 passed, 10 skipped)
 - Use this baseline to detect test under-discovery from tool-only runs.
 
 ## Resolved Warning/Error Patterns (Prevention Notes)

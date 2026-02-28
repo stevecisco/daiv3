@@ -135,25 +135,30 @@ public class SchedulerConcurrencyTests : IAsyncLifetime
     public async Task JobTimeout_CancelJobsExceedingDuration()
     {
         // Arrange
-        var shortTimeoutScheduler = new ServiceCollection()
+        await using var shortTimeoutProvider = new ServiceCollection()
             .AddLogging()
             .AddScheduler(options =>
             {
                 options.JobTimeoutSeconds = 1; // 1 second timeout
                 options.CheckIntervalMilliseconds = 100;
             })
-            .BuildServiceProvider()
-            .GetRequiredService<IScheduler>();
+            .BuildServiceProvider();
+
+        var shortTimeoutScheduler = shortTimeoutProvider.GetRequiredService<IScheduler>();
+        var shortTimeoutHostedService = shortTimeoutProvider.GetRequiredService<SchedulerHostedService>();
 
         var longJob = new ConcurrencyTestJob { Name = "long-job", DelayMs = 2000 }; // 2 seconds
 
         // Act
+        await shortTimeoutHostedService.StartAsync(CancellationToken.None);
         var jobId = await shortTimeoutScheduler.ScheduleImmediateAsync(longJob);
 
         // Wait for timeout to occur
         await Task.Delay(2500);
 
         var metadata = await shortTimeoutScheduler.GetJobMetadataAsync(jobId);
+
+        await shortTimeoutHostedService.StopAsync(CancellationToken.None);
 
         // Assert
         Assert.NotNull(metadata);
