@@ -91,6 +91,8 @@ public class TaskRepositoryIntegrationTests : IAsyncLifetime
             Status = "pending",
             Priority = 2,
             ScheduledAt = now + 300,
+            NextRunAt = now + 600,
+            LastRunAt = now - 120,
             DependenciesJson = dependenciesJson,
             ResultJson = "{\"state\":\"not-started\"}",
             CreatedAt = now,
@@ -105,6 +107,8 @@ public class TaskRepositoryIntegrationTests : IAsyncLifetime
         Assert.Equal(projectId, task.ProjectId);
         Assert.Equal("pending", task.Status);
         Assert.Equal(2, task.Priority);
+        Assert.Equal(now + 600, task.NextRunAt);
+        Assert.Equal(now - 120, task.LastRunAt);
         Assert.Equal(dependenciesJson, task.DependenciesJson);
         Assert.Single(projectTasks);
         Assert.Equal(taskId, projectTasks[0].TaskId);
@@ -137,14 +141,20 @@ public class TaskRepositoryIntegrationTests : IAsyncLifetime
         var task = await taskRepository.GetByIdAsync(taskId);
         Assert.NotNull(task);
         Assert.Null(task!.DependenciesJson);
+        Assert.Null(task.NextRunAt);
+        Assert.Null(task.LastRunAt);
 
         task.DependenciesJson = "[\"legacy-dep\"]";
+        task.NextRunAt = now + 600;
+        task.LastRunAt = now + 10;
         task.UpdatedAt = now + 5;
         await taskRepository.UpdateAsync(task);
 
         var updatedTask = await taskRepository.GetByIdAsync(taskId);
         Assert.NotNull(updatedTask);
         Assert.Equal("[\"legacy-dep\"]", updatedTask!.DependenciesJson);
+        Assert.Equal(now + 600, updatedTask.NextRunAt);
+        Assert.Equal(now + 10, updatedTask.LastRunAt);
     }
 
     [Fact]

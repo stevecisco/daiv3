@@ -17,7 +17,7 @@ public class TaskRepository : RepositoryBase<ProjectTask>
     public override async Task<ProjectTask?> GetByIdAsync(string id, CancellationToken ct = default)
     {
         const string sql = @"
-            SELECT task_id, project_id, title, description, status, priority, scheduled_at, completed_at, dependencies_json, result_json, created_at, updated_at
+            SELECT task_id, project_id, title, description, status, priority, scheduled_at, next_run_at, last_run_at, completed_at, dependencies_json, result_json, created_at, updated_at
             FROM tasks
             WHERE task_id = $id";
 
@@ -32,7 +32,7 @@ public class TaskRepository : RepositoryBase<ProjectTask>
     public override async Task<IReadOnlyList<ProjectTask>> GetAllAsync(CancellationToken ct = default)
     {
         const string sql = @"
-            SELECT task_id, project_id, title, description, status, priority, scheduled_at, completed_at, dependencies_json, result_json, created_at, updated_at
+            SELECT task_id, project_id, title, description, status, priority, scheduled_at, next_run_at, last_run_at, completed_at, dependencies_json, result_json, created_at, updated_at
             FROM tasks
             ORDER BY priority DESC, created_at ASC";
 
@@ -44,8 +44,8 @@ public class TaskRepository : RepositoryBase<ProjectTask>
         ArgumentNullException.ThrowIfNull(entity);
 
         const string sql = @"
-            INSERT INTO tasks (task_id, project_id, title, description, status, priority, scheduled_at, completed_at, dependencies_json, result_json, created_at, updated_at)
-            VALUES ($task_id, $project_id, $title, $description, $status, $priority, $scheduled_at, $completed_at, $dependencies_json, $result_json, $created_at, $updated_at)";
+            INSERT INTO tasks (task_id, project_id, title, description, status, priority, scheduled_at, next_run_at, last_run_at, completed_at, dependencies_json, result_json, created_at, updated_at)
+            VALUES ($task_id, $project_id, $title, $description, $status, $priority, $scheduled_at, $next_run_at, $last_run_at, $completed_at, $dependencies_json, $result_json, $created_at, $updated_at)";
 
         await ExecuteNonQueryAsync(sql, parameters =>
         {
@@ -56,6 +56,8 @@ public class TaskRepository : RepositoryBase<ProjectTask>
             parameters.Add(new SqliteParameter("$status", entity.Status));
             parameters.Add(new SqliteParameter("$priority", entity.Priority));
             parameters.Add(new SqliteParameter("$scheduled_at", (object?)entity.ScheduledAt ?? DBNull.Value));
+            parameters.Add(new SqliteParameter("$next_run_at", (object?)entity.NextRunAt ?? DBNull.Value));
+            parameters.Add(new SqliteParameter("$last_run_at", (object?)entity.LastRunAt ?? DBNull.Value));
             parameters.Add(new SqliteParameter("$completed_at", (object?)entity.CompletedAt ?? DBNull.Value));
             parameters.Add(new SqliteParameter("$dependencies_json", (object?)entity.DependenciesJson ?? DBNull.Value));
             parameters.Add(new SqliteParameter("$result_json", (object?)entity.ResultJson ?? DBNull.Value));
@@ -79,6 +81,8 @@ public class TaskRepository : RepositoryBase<ProjectTask>
                 status = $status,
                 priority = $priority,
                 scheduled_at = $scheduled_at,
+                next_run_at = $next_run_at,
+                last_run_at = $last_run_at,
                 completed_at = $completed_at,
                 dependencies_json = $dependencies_json,
                 result_json = $result_json,
@@ -94,6 +98,8 @@ public class TaskRepository : RepositoryBase<ProjectTask>
             parameters.Add(new SqliteParameter("$status", entity.Status));
             parameters.Add(new SqliteParameter("$priority", entity.Priority));
             parameters.Add(new SqliteParameter("$scheduled_at", (object?)entity.ScheduledAt ?? DBNull.Value));
+            parameters.Add(new SqliteParameter("$next_run_at", (object?)entity.NextRunAt ?? DBNull.Value));
+            parameters.Add(new SqliteParameter("$last_run_at", (object?)entity.LastRunAt ?? DBNull.Value));
             parameters.Add(new SqliteParameter("$completed_at", (object?)entity.CompletedAt ?? DBNull.Value));
             parameters.Add(new SqliteParameter("$dependencies_json", (object?)entity.DependenciesJson ?? DBNull.Value));
             parameters.Add(new SqliteParameter("$result_json", (object?)entity.ResultJson ?? DBNull.Value));
@@ -135,7 +141,7 @@ public class TaskRepository : RepositoryBase<ProjectTask>
     public async Task<IReadOnlyList<ProjectTask>> GetByProjectIdAsync(string projectId, CancellationToken ct = default)
     {
         const string sql = @"
-            SELECT task_id, project_id, title, description, status, priority, scheduled_at, completed_at, dependencies_json, result_json, created_at, updated_at
+            SELECT task_id, project_id, title, description, status, priority, scheduled_at, next_run_at, last_run_at, completed_at, dependencies_json, result_json, created_at, updated_at
             FROM tasks
             WHERE project_id = $project_id
             ORDER BY priority DESC, created_at ASC";
@@ -152,7 +158,7 @@ public class TaskRepository : RepositoryBase<ProjectTask>
     public async Task<IReadOnlyList<ProjectTask>> GetByStatusAsync(string status, CancellationToken ct = default)
     {
         const string sql = @"
-            SELECT task_id, project_id, title, description, status, priority, scheduled_at, completed_at, dependencies_json, result_json, created_at, updated_at
+            SELECT task_id, project_id, title, description, status, priority, scheduled_at, next_run_at, last_run_at, completed_at, dependencies_json, result_json, created_at, updated_at
             FROM tasks
             WHERE status = $status
             ORDER BY priority DESC, created_at ASC";
@@ -174,11 +180,13 @@ public class TaskRepository : RepositoryBase<ProjectTask>
             Status = reader.GetString(4),
             Priority = reader.GetInt32(5),
             ScheduledAt = reader.IsDBNull(6) ? null : reader.GetInt64(6),
-            CompletedAt = reader.IsDBNull(7) ? null : reader.GetInt64(7),
-            DependenciesJson = reader.IsDBNull(8) ? null : reader.GetString(8),
-            ResultJson = reader.IsDBNull(9) ? null : reader.GetString(9),
-            CreatedAt = reader.GetInt64(10),
-            UpdatedAt = reader.GetInt64(11)
+            NextRunAt = reader.IsDBNull(7) ? null : reader.GetInt64(7),
+            LastRunAt = reader.IsDBNull(8) ? null : reader.GetInt64(8),
+            CompletedAt = reader.IsDBNull(9) ? null : reader.GetInt64(9),
+            DependenciesJson = reader.IsDBNull(10) ? null : reader.GetString(10),
+            ResultJson = reader.IsDBNull(11) ? null : reader.GetString(11),
+            CreatedAt = reader.GetInt64(12),
+            UpdatedAt = reader.GetInt64(13)
         };
     }
 }

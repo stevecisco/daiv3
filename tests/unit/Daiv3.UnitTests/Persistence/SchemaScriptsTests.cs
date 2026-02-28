@@ -119,6 +119,33 @@ public class SchemaScriptsTests
     }
 
     [Fact]
+    public void Migration002_IsNotNullOrEmpty()
+    {
+        var sql = GetMigration002Sql();
+
+        Assert.False(string.IsNullOrWhiteSpace(sql));
+        Assert.True(sql.Length > 50, "Migration SQL should include task timestamp column updates");
+    }
+
+    [Fact]
+    public void Migration002_AddsTaskNextRunAndLastRunColumns()
+    {
+        var sql = GetMigration002Sql();
+
+        Assert.Contains("ALTER TABLE tasks ADD COLUMN next_run_at INTEGER", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ALTER TABLE tasks ADD COLUMN last_run_at INTEGER", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Migration002_ContainsTaskTimestampIndexes()
+    {
+        var sql = GetMigration002Sql();
+
+        Assert.Contains("CREATE INDEX IF NOT EXISTS idx_tasks_next_run_at ON tasks(next_run_at)", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CREATE INDEX IF NOT EXISTS idx_tasks_last_run_at ON tasks(last_run_at)", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Migration001_ContainsSessionsTable()
     {
         // Arrange
@@ -237,6 +264,13 @@ public class SchemaScriptsTests
         var field = typeof(SchemaScripts).GetField("Migration001_InitialSchema", 
             BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
         return field?.GetValue(null) as string ?? throw new InvalidOperationException("Could not access Migration001_InitialSchema");
+    }
+
+    private static string GetMigration002Sql()
+    {
+        var field = typeof(SchemaScripts).GetField("Migration002_TaskSchedulingTimestamps",
+            BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
+        return field?.GetValue(null) as string ?? throw new InvalidOperationException("Could not access Migration002_TaskSchedulingTimestamps");
     }
 
     private static int CountOccurrences(string text, string pattern)

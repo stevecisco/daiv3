@@ -256,6 +256,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 1,
                 Description = "Initial schema: documents, topic_index, chunk_index, projects, tasks, sessions, model_queue",
                 Sql = SchemaScripts.Migration001_InitialSchema
+            },
+            new Migration
+            {
+                Version = 2,
+                Description = "Add task scheduling timestamps: next_run_at, last_run_at",
+                Sql = SchemaScripts.Migration002_TaskSchedulingTimestamps
             }
         };
     }

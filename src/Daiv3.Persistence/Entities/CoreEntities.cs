@@ -46,6 +46,8 @@ public class ProjectTask
     public string Status { get; set; } = string.Empty;
     public int Priority { get; set; }
     public long? ScheduledAt { get; set; }
+    public long? NextRunAt { get; set; }
+    public long? LastRunAt { get; set; }
     public long? CompletedAt { get; set; }
     public string? DependenciesJson { get; set; }
     public string? ResultJson { get; set; }

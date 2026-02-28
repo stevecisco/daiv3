@@ -136,4 +136,16 @@ CREATE INDEX IF NOT EXISTS idx_model_queue_priority ON model_queue(priority DESC
 CREATE INDEX IF NOT EXISTS idx_model_queue_model_id ON model_queue(model_id, status);
 CREATE INDEX IF NOT EXISTS idx_model_queue_created_at ON model_queue(created_at);
 ";
+
+    /// <summary>
+    /// Migration 002: Scheduled task execution timestamps
+    /// Adds columns for tracking next-run and last-run times on tasks.
+    /// </summary>
+    public const string Migration002_TaskSchedulingTimestamps = @"
+ALTER TABLE tasks ADD COLUMN next_run_at INTEGER;
+ALTER TABLE tasks ADD COLUMN last_run_at INTEGER;
+
+CREATE INDEX IF NOT EXISTS idx_tasks_next_run_at ON tasks(next_run_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_last_run_at ON tasks(last_run_at);
+";
 }
