@@ -7,6 +7,7 @@ using Daiv3.Persistence;
 using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
 using Daiv3.Knowledge.Embedding;
+using Daiv3.Scheduler;
 
 namespace Daiv3.App.Cli;
 
@@ -196,6 +197,101 @@ public class Program
         tasksCommand.AddCommand(tasksUpdateCommand);
         rootCommand.AddCommand(tasksCommand);
 
+        // Schedule command
+        var scheduleCommand = new Command("schedule", "Job scheduling commands");
+        
+        var scheduleListCommand = new Command("list", "List all scheduled jobs");
+        var scheduleStatusFilter = new Option<string?>(
+            aliases: new[] { "--status", "-s" },
+            description: "Filter by status (pending, scheduled, running, completed, failed, cancelled)");
+        scheduleListCommand.AddOption(scheduleStatusFilter);
+        scheduleListCommand.SetHandler(async (string? status) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ScheduleListCommand(host, status);
+            Environment.Exit(exitCode);
+        }, scheduleStatusFilter);
+
+        var scheduleCronCommand = new Command("cron", "Schedule a job using cron expression");
+        var cronJobNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Job name") { IsRequired = true };
+        var cronExpressionOption = new Option<string>(
+            aliases: new[] { "--expression", "-e" },
+            description: "Cron expression (e.g., '0 0 * * *' for daily at midnight)") { IsRequired = true };
+        scheduleCronCommand.AddOption(cronJobNameOption);
+        scheduleCronCommand.AddOption(cronExpressionOption);
+        scheduleCronCommand.SetHandler(async (string jobName, string cronExpression) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ScheduleCronCommand(host, jobName, cronExpression);
+            Environment.Exit(exitCode);
+        }, cronJobNameOption, cronExpressionOption);
+
+        var scheduleOnceCommand = new Command("once", "Schedule a one-time job");
+        var onceJobNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Job name") { IsRequired = true };
+        var onceTimeOption = new Option<DateTime>(
+            aliases: new[] { "--time", "-t" },
+            description: "UTC time to run (ISO 8601 format, e.g., '2026-03-01T10:30:00Z')") { IsRequired = true };
+        scheduleOnceCommand.AddOption(onceJobNameOption);
+        scheduleOnceCommand.AddOption(onceTimeOption);
+        scheduleOnceCommand.SetHandler(async (string jobName, DateTime time) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ScheduleOnceCommand(host, jobName, time);
+            Environment.Exit(exitCode);
+        }, onceJobNameOption, onceTimeOption);
+
+        var scheduleEventCommand = new Command("on-event", "Schedule a job to run on event");
+        var eventJobNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Job name") { IsRequired = true };
+        var eventTypeOption = new Option<string>(
+            aliases: new[] { "--event-type", "-e" },
+            description: "Event type to listen for") { IsRequired = true };
+        scheduleEventCommand.AddOption(eventJobNameOption);
+        scheduleEventCommand.AddOption(eventTypeOption);
+        scheduleEventCommand.SetHandler(async (string jobName, string eventType) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ScheduleEventCommand(host, jobName, eventType);
+            Environment.Exit(exitCode);
+        }, eventJobNameOption, eventTypeOption);
+
+        var scheduleCancelCommand = new Command("cancel", "Cancel a scheduled job");
+        var cancelJobIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Job ID") { IsRequired = true };
+        scheduleCancelCommand.AddOption(cancelJobIdOption);
+        scheduleCancelCommand.SetHandler(async (string jobId) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ScheduleCancelCommand(host, jobId);
+            Environment.Exit(exitCode);
+        }, cancelJobIdOption);
+
+        var scheduleInfoCommand = new Command("info", "Show detailed information about a scheduled job");
+        var infoJobIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Job ID") { IsRequired = true };
+        scheduleInfoCommand.AddOption(infoJobIdOption);
+        scheduleInfoCommand.SetHandler(async (string jobId) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ScheduleInfoCommand(host, jobId);
+            Environment.Exit(exitCode);
+        }, infoJobIdOption);
+
+        scheduleCommand.AddCommand(scheduleListCommand);
+        scheduleCommand.AddCommand(scheduleCronCommand);
+        scheduleCommand.AddCommand(scheduleOnceCommand);
+        scheduleCommand.AddCommand(scheduleEventCommand);
+        scheduleCommand.AddCommand(scheduleCancelCommand);
+        scheduleCommand.AddCommand(scheduleInfoCommand);
+        rootCommand.AddCommand(scheduleCommand);
+
         // Settings command
         var settingsCommand = new Command("settings", "Configuration management");
         
@@ -288,6 +384,14 @@ public class Program
                 services.AddEmbeddingServices(options =>
                 {
                     options.ModelPath = modelPath;
+                });
+
+                // Add scheduler
+                services.AddScheduler(options =>
+                {
+                    options.CheckIntervalMilliseconds = 1000; // Check every second
+                    options.JobTimeoutSeconds = 300; // 5 minute timeout
+                    options.MaxConcurrentJobs = 5;
                 });
             })
             .Build();
@@ -873,6 +977,289 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to update task: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ScheduleListCommand(IHost host, string? status)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Listing scheduled jobs");
+
+            IReadOnlyList<ScheduledJobMetadata> jobs;
+            if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<ScheduledJobStatus>(status, true, out var statusEnum))
+            {
+                jobs = await scheduler.GetJobsByStatusAsync(statusEnum);
+            }
+            else
+            {
+                jobs = await scheduler.GetAllJobsAsync();
+            }
+
+            Console.WriteLine("SCHEDULED JOBS:");
+            if (jobs.Count == 0)
+            {
+                Console.WriteLine("  (No scheduled jobs found)");
+                Console.WriteLine();
+                Console.WriteLine("Use 'schedule cron' or 'schedule once' to create a scheduled job.");
+                return 0;
+            }
+
+            foreach (var job in jobs)
+            {
+                Console.WriteLine($"  Job ID: {job.JobId}");
+                Console.WriteLine($"  Name: {job.JobName}");
+                Console.WriteLine($"  Type: {job.ScheduleType}");
+                Console.WriteLine($"  Status: {job.Status}");
+
+                if (job.ScheduledAtUtc.HasValue)
+                {
+                    Console.WriteLine($"  Scheduled At: {job.ScheduledAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC");
+                }
+
+                if (!string.IsNullOrEmpty(job.CronExpression))
+                {
+                    Console.WriteLine($"  Cron Expression: {job.CronExpression}");
+                }
+
+                if (!string.IsNullOrEmpty(job.EventType))
+                {
+                    Console.WriteLine($"  Event Type: {job.EventType}");
+                }
+
+                if (job.IntervalSeconds.HasValue)
+                {
+                    Console.WriteLine($"  Interval: {job.IntervalSeconds.Value} seconds");
+                }
+
+                Console.WriteLine($"  Execution Count: {job.ExecutionCount}");
+
+                if (job.LastStartedAtUtc.HasValue)
+                {
+                    Console.WriteLine($"  Last Started: {job.LastStartedAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC");
+                }
+
+                if (job.LastCompletedAtUtc.HasValue)
+                {
+                    Console.WriteLine($"  Last Completed: {job.LastCompletedAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC");
+                }
+
+                if (job.LastExecutionDuration.HasValue)
+                {
+                    Console.WriteLine($"  Last Duration: {job.LastExecutionDuration.Value.TotalMilliseconds:F0} ms");
+                }
+
+                if (!string.IsNullOrEmpty(job.LastErrorMessage))
+                {
+                    Console.WriteLine($"  Last Error: {job.LastErrorMessage}");
+                }
+
+                Console.WriteLine($"  Created: {job.CreatedAtUtc:yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list scheduled jobs: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ScheduleCronCommand(IHost host, string jobName, string cronExpression)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Scheduling cron job: {JobName} with expression {CronExpression}", jobName, cronExpression);
+
+            // Create a demo job (in production, this would be a real job implementation)
+            var job = new DemoScheduledJob(jobName);
+            var jobId = await scheduler.ScheduleCronAsync(job, cronExpression);
+
+            Console.WriteLine("✓ Cron job scheduled successfully");
+            Console.WriteLine($"  Job ID: {jobId}");
+            Console.WriteLine($"  Name: {jobName}");
+            Console.WriteLine($"  Cron Expression: {cronExpression}");
+            Console.WriteLine();
+            Console.WriteLine("Note: This is a demo job. In production, integrate with actual task execution.");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to schedule cron job: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ScheduleOnceCommand(IHost host, string jobName, DateTime time)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Scheduling one-time job: {JobName} at {Time}", jobName, time);
+
+            if (time.Kind != DateTimeKind.Utc)
+            {
+                time = time.ToUniversalTime();
+            }
+
+            // Create a demo job (in production, this would be a real job implementation)
+            var job = new DemoScheduledJob(jobName);
+            var jobId = await scheduler.ScheduleAtTimeAsync(job, time);
+
+            Console.WriteLine("✓ One-time job scheduled successfully");
+            Console.WriteLine($"  Job ID: {jobId}");
+            Console.WriteLine($"  Name: {jobName}");
+            Console.WriteLine($"  Scheduled Time: {time:yyyy-MM-dd HH:mm:ss} UTC");
+            Console.WriteLine();
+            Console.WriteLine("Note: This is a demo job. In production, integrate with actual task execution.");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to schedule one-time job: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ScheduleEventCommand(IHost host, string jobName, string eventType)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Scheduling event-triggered job: {JobName} for event {EventType}", jobName, eventType);
+
+            // Create a demo job (in production, this would be a real job implementation)
+            var job = new DemoScheduledJob(jobName);
+            var jobId = await scheduler.ScheduleOnEventAsync(job, eventType);
+
+            Console.WriteLine("✓ Event-triggered job scheduled successfully");
+            Console.WriteLine($"  Job ID: {jobId}");
+            Console.WriteLine($"  Name: {jobName}");
+            Console.WriteLine($"  Event Type: {eventType}");
+            Console.WriteLine();
+            Console.WriteLine("Note: This job will execute when an event of the specified type is raised.");
+            Console.WriteLine("      Use your application's event system to trigger execution.");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to schedule event-triggered job: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ScheduleCancelCommand(IHost host, string jobId)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Cancelling job: {JobId}", jobId);
+
+            var cancelled = await scheduler.CancelJobAsync(jobId);
+
+            if (cancelled)
+            {
+                Console.WriteLine("✓ Job cancelled successfully");
+                Console.WriteLine($"  Job ID: {jobId}");
+                return 0;
+            }
+            else
+            {
+                Console.WriteLine($"✗ Job {jobId} not found.");
+                return 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to cancel job: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ScheduleInfoCommand(IHost host, string jobId)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Getting job info: {JobId}", jobId);
+
+            var metadata = await scheduler.GetJobMetadataAsync(jobId);
+
+            if (metadata == null)
+            {
+                Console.WriteLine($"✗ Job {jobId} not found.");
+                return 1;
+            }
+
+            Console.WriteLine("JOB DETAILS:");
+            Console.WriteLine($"  Job ID: {metadata.JobId}");
+            Console.WriteLine($"  Name: {metadata.JobName}");
+            Console.WriteLine($"  Type: {metadata.ScheduleType}");
+            Console.WriteLine($"  Status: {metadata.Status}");
+
+            if (metadata.ScheduledAtUtc.HasValue)
+            {
+                Console.WriteLine($"  Scheduled At: {metadata.ScheduledAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC");
+            }
+
+            if (!string.IsNullOrEmpty(metadata.CronExpression))
+            {
+                Console.WriteLine($"  Cron Expression: {metadata.CronExpression}");
+            }
+
+            if (!string.IsNullOrEmpty(metadata.EventType))
+            {
+                Console.WriteLine($"  Event Type: {metadata.EventType}");
+            }
+
+            if (metadata.IntervalSeconds.HasValue)
+            {
+                Console.WriteLine($"  Interval: {metadata.IntervalSeconds.Value} seconds");
+            }
+
+            Console.WriteLine($"  Execution Count: {metadata.ExecutionCount}");
+
+            if (metadata.LastStartedAtUtc.HasValue)
+            {
+                Console.WriteLine($"  Last Started: {metadata.LastStartedAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC");
+            }
+
+            if (metadata.LastCompletedAtUtc.HasValue)
+            {
+                Console.WriteLine($"  Last Completed: {metadata.LastCompletedAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC");
+            }
+
+            if (metadata.LastExecutionDuration.HasValue)
+            {
+                Console.WriteLine($"  Last Duration: {metadata.LastExecutionDuration.Value.TotalMilliseconds:F0} ms");
+            }
+
+            if (!string.IsNullOrEmpty(metadata.LastErrorMessage))
+            {
+                Console.WriteLine($"  Last Error: {metadata.LastErrorMessage}");
+            }
+
+            Console.WriteLine($"  Created: {metadata.CreatedAtUtc:yyyy-MM-dd HH:mm:ss} UTC");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to get job info: {ex.Message}");
             return 1;
         }
     }
@@ -1550,6 +1937,29 @@ public class Program
         {
             Console.WriteLine($"✗ Error bootstrapping models: {ex.Message}");
             Console.WriteLine();
+        }
+    }
+
+    /// <summary>
+    /// Demo scheduled job for testing scheduler functionality.
+    /// In production, replace this with actual business logic jobs.
+    /// </summary>
+    private class DemoScheduledJob : IScheduledJob
+    {
+        public string Name { get; }
+        public IDictionary<string, object>? Metadata { get; set; }
+
+        public DemoScheduledJob(string name)
+        {
+            Name = name;
+        }
+
+        public async Task ExecuteAsync(CancellationToken cancellationToken = default)
+        {
+            // Simulate some work
+            Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Executing scheduled job: {Name}");
+            await Task.Delay(100, cancellationToken);
+            Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Completed scheduled job: {Name}");
         }
     }
 }

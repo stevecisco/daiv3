@@ -53,6 +53,38 @@ public interface IScheduler
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Schedules a job to run based on a cron expression.
+    /// </summary>
+    /// <param name="job">The job to schedule.</param>
+    /// <param name="cronExpression">The cron expression (5 fields: minute hour day month dayOfWeek).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The ID of the scheduled job.</returns>
+    /// <exception cref="ArgumentException">If the cron expression is invalid.</exception>
+    Task<string> ScheduleCronAsync(
+        IScheduledJob job,
+        string cronExpression,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Schedules a job to run when a specific event type occurs.
+    /// </summary>
+    /// <param name="job">The job to schedule.</param>
+    /// <param name="eventType">The event type that will trigger this job.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The ID of the scheduled job.</returns>
+    Task<string> ScheduleOnEventAsync(
+        IScheduledJob job,
+        string eventType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Raises an event that may trigger event-based scheduled jobs.
+    /// </summary>
+    /// <param name="schedulerEvent">The event to raise.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task RaiseEventAsync(ISchedulerEvent schedulerEvent, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Cancels a scheduled job by ID.
     /// </summary>
     /// <param name="jobId">The ID of the job to cancel.</param>

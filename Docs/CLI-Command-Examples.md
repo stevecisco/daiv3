@@ -268,6 +268,170 @@ Updates an existing task's status and/or priority. Setting status to "complete" 
 
 ---
 
+## Schedule Management Commands
+
+### List Scheduled Jobs
+```bash
+.\run-cli.bat schedule list
+# Filter by status
+.\run-cli.bat schedule list --status pending
+.\run-cli.bat schedule list --status running
+.\run-cli.bat schedule list -s completed
+```
+Lists all scheduled jobs with their current status, schedule type, and execution details.
+
+**Output Example:**
+```
+SCHEDULED JOBS:
+  Job ID: job_20260228120000_000001
+  Name: daily-backup
+  Type: Cron
+  Status: Scheduled
+  Scheduled At: 2026-03-01 00:00:00 UTC
+  Cron Expression: 0 0 * * *
+  Execution Count: 5
+  Last Started: 2026-02-28 00:00:00 UTC
+  Last Completed: 2026-02-28 00:00:15 UTC
+  Last Duration: 15234 ms
+  Created: 2026-02-23 14:30:00 UTC
+
+  Job ID: job_20260228120030_000002
+  Name: file-processor
+  Type: EventTriggered
+  Status: Pending
+  Event Type: filesystem.file_created
+  Execution Count: 12
+  Last Completed: 2026-02-28 18:45:33 UTC
+  Created: 2026-02-25 09:15:22 UTC
+```
+
+### Schedule Cron Job
+```bash
+# Schedule a daily job at midnight
+.\run-cli.bat schedule cron --name "daily-backup" --expression "0 0 * * *"
+# or short form
+.\run-cli.bat schedule cron -n "daily-backup" -e "0 0 * * *"
+
+# Every 15 minutes
+.\run-cli.bat schedule cron --name "frequent-check" --expression "*/15 * * * *"
+
+# Weekdays at noon
+.\run-cli.bat schedule cron --name "weekday-report" --expression "0 12 * * 1-5"
+
+# Multiple times per day
+.\run-cli.bat schedule cron --name "twice-daily" --expression "0 9,17 * * *"
+```
+Schedules a job using a standard 5-field cron expression. The job will execute automatically at each matching time.
+
+**Cron Format:** `minute hour day month dayOfWeek`
+- minute: 0-59
+- hour: 0-23  
+- day: 1-31
+- month: 1-12
+- dayOfWeek: 0-6 (0=Sunday)
+
+**Special Characters:**
+- `*` - any value
+- `,` - value list (e.g., `1,3,5`)
+- `-` - range (e.g., `1-5`)
+- `/` - step (e.g., `*/15` or `0-30/5`)
+
+**Output Example:**
+```
+✓ Cron job scheduled successfully
+  Job ID: job_20260228142530_000003
+  Name: daily-backup
+  Cron Expression: 0 0 * * *
+
+Note: This is a demo job. In production, integrate with actual task execution.
+```
+
+### Schedule One-Time Job
+```bash
+# Schedule for specific UTC time
+.\run-cli.bat schedule once --name "one-time-task" --time "2026-03-01T10:30:00Z"
+# or short form
+.\run-cli.bat schedule once -n "one-time-task" -t "2026-03-01T10:30:00Z"
+```
+Schedules a job to run once at a specific UTC time. Time must be in ISO 8601 format.
+
+**Output Example:**
+```
+✓ One-time job scheduled successfully
+  Job ID: job_20260228142545_000004
+  Name: one-time-task
+  Scheduled Time: 2026-03-01 10:30:00 UTC
+
+Note: This is a demo job. In production, integrate with actual task execution.
+```
+
+### Schedule Event-Triggered Job
+```bash
+# Register job to run on file system events
+.\run-cli.bat schedule on-event --name "file-processor" --event-type "filesystem.file_created"
+# or short form
+.\run-cli.bat schedule on-event -n "file-processor" -e "filesystem.file_created"
+
+# Other event types
+.\run-cli.bat schedule on-event --name "db-sync" --event-type "database.record_updated"
+.\run-cli.bat schedule on-event --name "notification-handler" --event-type "user.message_received"
+```
+Registers a job to execute whenever the specified event type is raised. The job will remain pending and can execute multiple times.
+
+**Common Event Types:**
+- `filesystem.file_created`
+- `filesystem.file_modified`
+- `database.record_inserted`
+- `database.record_updated`
+- Custom application events
+
+**Output Example:**
+```
+✓ Event-triggered job scheduled successfully
+  Job ID: job_20260228142600_000005
+  Name: file-processor
+  Event Type: filesystem.file_created
+
+Note: This job will execute when an event of the specified type is raised.
+      Use your application's event system to trigger execution.
+```
+
+### Cancel Scheduled Job
+```bash
+.\run-cli.bat schedule cancel --id "job_20260228120000_000001"
+```
+Cancels a scheduled job, preventing any future executions. Running jobs will be signaled to cancel gracefully.
+
+**Output Example:**
+```
+✓ Job cancelled successfully
+  Job ID: job_20260228120000_000001
+```
+
+### Show Job Details
+```bash
+.\run-cli.bat schedule info --id "job_20260228120000_000001"
+```
+Displays detailed information about a specific scheduled job including execution history.
+
+**Output Example:**
+```
+JOB DETAILS:
+  Job ID: job_20260228120000_000001
+  Name: daily-backup
+  Type: Cron
+  Status: Scheduled
+  Scheduled At: 2026-03-01 00:00:00 UTC
+  Cron Expression: 0 0 * * *
+  Execution Count: 5
+  Last Started: 2026-02-28 00:00:00 UTC
+  Last Completed: 2026-02-28 00:00:15 UTC
+  Last Duration: 15234 ms
+  Created: 2026-02-23 14:30:00 UTC
+```
+
+---
+
 ## Settings Commands
 
 ### Show Current Settings

@@ -66,6 +66,16 @@ public class ScheduledJobMetadata
     public uint? IntervalSeconds { get; init; }
 
     /// <summary>
+    /// Gets the cron expression for cron-based jobs, or null for non-cron jobs.
+    /// </summary>
+    public string? CronExpression { get; init; }
+
+    /// <summary>
+    /// Gets the event type for event-triggered jobs, or null for non-event jobs.
+    /// </summary>
+    public string? EventType { get; init; }
+
+    /// <summary>
     /// Gets additional metadata about the job as a read-only dictionary.
     /// </summary>
     public IReadOnlyDictionary<string, object>? Metadata { get; init; }

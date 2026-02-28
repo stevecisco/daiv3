@@ -18,5 +18,15 @@ public enum ScheduleType
     /// <summary>
     /// The job runs repeatedly at regular intervals.
     /// </summary>
-    Recurring = 2
+    Recurring = 2,
+
+    /// <summary>
+    /// The job runs based on a cron expression.
+    /// </summary>
+    Cron = 3,
+
+    /// <summary>
+    /// The job runs when triggered by an event.
+    /// </summary>
+    EventTriggered = 4
 }
