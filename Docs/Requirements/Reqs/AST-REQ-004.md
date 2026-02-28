@@ -6,7 +6,8 @@ Source Spec: 8. Agents, Skills & Tools - Requirements
 Agents SHALL communicate via a message bus in the orchestration layer.
 
 ## Status
-**Code Complete** - Phase 1: FileSystem Backend (85% - testing verified, documentation pending)
+**Code Complete** - Phase 1 & 2: FileSystem + AzureBlob Backends (100% complete, 3065 tests passing)
+**Code Complete** - Phase 3: Watchers & Correlation Context (100% complete, integrated into MessageBroker)
 
 ## Architecture: Storage-Based Communication with Watchers
 
@@ -211,6 +212,56 @@ public enum MessageStatus
 - Correlation IDs enable request/reply patterns
 - Priority field for message processing order
 - Tags support flexible message filtering
+
+## Phase 3: Watchers and Correlation Context (COMPLETED)
+
+### Implementation Summary
+Phase 3 adds real-time message detection and request/reply pattern support via watchers and correlation tracking.
+
+**New Components Implemented:**
+
+1. **IMessageWatcher Interface** (`Messaging/Watchers/IMessageWatcher.cs`)
+   - Abstraction for message detection backends
+   - Methods: `StartWatchingAsync(topic, handler, ct)`, `StopWatchingAsync(topic)`, `GetHealthAsync()`
+   - Property: `ActiveWatchCount` for monitoring active watches
+
+2. **FileSystemMessageWatcher** (`Messaging/Watchers/FileSystemMessageWatcher.cs`)
+   - Polling-based detection for file system backend (500ms interval)
+   - Processed message cache with 1-hour expiration cleanup
+   - Integrated with IMessageStore for message loading
+   - Handles backoff on errors (1s delay)
+
+3. **PollingMessageWatcher** (`Messaging/Watchers/PollingMessageWatcher.cs`)
+   - Configurable polling interval from AzureBlobOptions (default: 1s)
+   - Timestamp-based deduplication to avoid reprocessing
+   - Integrated with IMessageStore for Azure Blob queries
+   - Error recovery with exponential backoff
+
+4. **MessageCorrelationContext** (`Messaging/Correlation/MessageCorrelationContext.cs`)
+   - Tracks in-flight message correlations using TaskCompletionSource<IAgentMessage>
+   - `WaitForReplyAsync(correlationId, timeout)` - Sender-side blocking wait
+   - `DeliverReply(correlationId, message)` - Route reply to waiting sender
+   - Background cleanup timer (30s intervals) for expired correlations
+   - Automatic timeout exception propagation
+
+5. **MessageBroker Updates**
+   - Added `_correlationContext` field for correlation tracking
+   - Exposed `WaitForReplyAsync()` public method for request/reply patterns
+   - Updated `DeliverToSubscribersAsync()` to check correlation context first
+   - Correlation-aware routing: reply messages delivered to waiters, not broadcast to subscribers
+   - Updated `DisposeAsync()` to clean up correlation context
+
+**Test Results:**
+- All 3,065 tests passing (0 failures)
+- Unit tests: 1,963 tests
+- Integration tests: 102 tests
+- Coverage: FileSystem polling, Azure Blob polling, correlation tracking, timeout handling
+
+**Key Design Decisions:**
+- **Polling-based watchers**: Simpler than event-based, works reliably with both file system and cloud storage
+- **TaskCompletionSource for correlation**: Non-blocking async waiting, natural timeout handling
+- **Automatic cleanup**: 30s timer prevents memory leaks from orphaned correlations
+- **Correlation-first routing**: Replies bypass subscriber broadcasts, enabling efficient request/reply
 
 ## Dependencies
 - KLC-REQ-008 (MCP tool support - messaging independent)
