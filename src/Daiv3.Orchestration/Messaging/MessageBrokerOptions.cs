@@ -129,13 +129,64 @@ public class AzureBlobMessageStoreOptions
     /// <exception cref="ArgumentException">Thrown if configuration is invalid.</exception>
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(ConnectionString))
-            throw new ArgumentException("ConnectionString must not be empty", nameof(ConnectionString));
-
+        // ConnectionString is optional if using DefaultAzureCredential (managed identity)
         if (string.IsNullOrWhiteSpace(ContainerName))
             throw new ArgumentException("ContainerName must not be empty", nameof(ContainerName));
 
         if (PollingIntervalMs < 100) // At least 100ms
             throw new ArgumentException("PollingIntervalMs must be >= 100", nameof(PollingIntervalMs));
+    }
+
+    /// <summary>
+    /// Extracts the Azure Storage account name from the connection string.
+    /// </summary>
+    /// <returns>The account name (e.g., "myaccount" from "DefaultEndpointsProtocol=https;AccountName=myaccount;...").</returns>
+    public string ExtractAccountName()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionString))
+            throw new InvalidOperationException("ConnectionString is required to extract account name");
+
+        foreach (var part in ConnectionString.Split(';'))
+        {
+            if (part.StartsWith("AccountName=", StringComparison.OrdinalIgnoreCase))
+            {
+                return part.Substring(12);
+            }
+        }
+
+        throw new InvalidOperationException("AccountName not found in ConnectionString");
+    }
+
+    /// <summary>
+    /// Extracts the Azure Storage account key from the connection string.
+    /// </summary>
+    /// <returns>The account key.</returns>
+    public string ExtractAccountKey()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionString))
+            throw new InvalidOperationException("ConnectionString is required to extract account key");
+
+        foreach (var part in ConnectionString.Split(';'))
+        {
+            if (part.StartsWith("AccountKey=", StringComparison.OrdinalIgnoreCase))
+            {
+                return part.Substring(11);
+            }
+        }
+
+        throw new InvalidOperationException("AccountKey not found in ConnectionString");
+    }
+
+    /// <summary>
+    /// Gets the blob service URI (e.g., https://myaccount.blob.core.windows.net).
+    /// </summary>
+    /// <returns>The blob service URI.</returns>
+    public string GetStorageUri()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionString))
+            throw new InvalidOperationException("ConnectionString is required to get storage URI");
+
+        var accountName = ExtractAccountName();
+        return $"https://{accountName}.blob.core.windows.net";
     }
 }

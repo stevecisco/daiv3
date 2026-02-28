@@ -1,5 +1,6 @@
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Orchestration.Messaging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -15,6 +16,7 @@ public class TaskOrchestratorTests
     private readonly Mock<IIntentResolver> _mockIntentResolver;
     private readonly Mock<IDependencyResolver> _mockDependencyResolver;
     private readonly Mock<IAgentManager> _mockAgentManager;
+    private readonly Mock<IMessageBroker> _mockMessageBroker;
     private readonly Mock<ILogger<TaskOrchestrator>> _mockLogger;
     private readonly OrchestrationOptions _options;
     private readonly TaskOrchestrator _orchestrator;
@@ -24,6 +26,7 @@ public class TaskOrchestratorTests
         _mockIntentResolver = new Mock<IIntentResolver>();
         _mockDependencyResolver = new Mock<IDependencyResolver>();
         _mockAgentManager = new Mock<IAgentManager>();
+        _mockMessageBroker = new Mock<IMessageBroker>();
         _mockLogger = new Mock<ILogger<TaskOrchestrator>>();
         _options = new OrchestrationOptions
         {
@@ -37,8 +40,7 @@ public class TaskOrchestratorTests
                 It.IsAny<string>(),
                 It.IsAny<DynamicAgentCreationOptions?>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string taskType, DynamicAgentCreationOptions? _, CancellationToken _) => new Agent
-            {
+            .ReturnsAsync((string taskType, DynamicAgentCreationOptions? _, CancellationToken _) => new Agent            {
                 Id = Guid.NewGuid(),
                 Name = $"task-{taskType}-agent",
                 Purpose = $"Dynamic agent for {taskType}",
@@ -49,6 +51,7 @@ public class TaskOrchestratorTests
             _mockIntentResolver.Object,
             _mockDependencyResolver.Object,
             _mockAgentManager.Object,
+            _mockMessageBroker.Object,
             _mockLogger.Object,
             Options.Create(_options));
     }

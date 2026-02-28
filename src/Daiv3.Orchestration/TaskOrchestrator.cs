@@ -1,4 +1,5 @@
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Orchestration.Messaging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -12,6 +13,7 @@ public class TaskOrchestrator : ITaskOrchestrator
     private readonly IIntentResolver _intentResolver;
     private readonly IDependencyResolver _dependencyResolver;
     private readonly IAgentManager _agentManager;
+    private readonly IMessageBroker _messageBroker;
     private readonly ILogger<TaskOrchestrator> _logger;
     private readonly OrchestrationOptions _options;
 
@@ -19,12 +21,14 @@ public class TaskOrchestrator : ITaskOrchestrator
         IIntentResolver intentResolver,
         IDependencyResolver dependencyResolver,
         IAgentManager agentManager,
+        IMessageBroker messageBroker,
         ILogger<TaskOrchestrator> logger,
         IOptions<OrchestrationOptions> options)
     {
         _intentResolver = intentResolver ?? throw new ArgumentNullException(nameof(intentResolver));
         _dependencyResolver = dependencyResolver ?? throw new ArgumentNullException(nameof(dependencyResolver));
         _agentManager = agentManager ?? throw new ArgumentNullException(nameof(agentManager));
+        _messageBroker = messageBroker ?? throw new ArgumentNullException(nameof(messageBroker));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -220,6 +224,29 @@ public class TaskOrchestrator : ITaskOrchestrator
             _logger.LogInformation(
                 "Task {TaskId} completed successfully",
                 result.TaskId);
+
+            // Publish task completion message if message broker is available
+            try
+            {
+                var completionMessage = new AgentMessage<TaskExecutionResult>(
+                    $"task-execution/{executionAgent.Id}",
+                    executionAgent.Id.ToString(),
+                    result,
+                    new MessageMetadata
+                    {
+                        Tags = new Dictionary<string, string>
+                        {
+                            { "task-type", task.TaskType },
+                            { "status", result.Success ? "completed" : "failed" }
+                        }
+                    });
+                await _messageBroker.PublishAsync(completionMessage, linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to publish task completion message for task {TaskId}", result.TaskId);
+                // Don't fail the task if message publishing fails
+            }
 
             return result;
         }

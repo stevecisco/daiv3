@@ -1,5 +1,6 @@
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Orchestration.Messaging;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
 using Daiv3.Persistence.Entities;
@@ -20,12 +21,14 @@ public class AgentManagerTests
     private readonly AgentManager _manager;
     private readonly AgentRepository _repository;
     private readonly Mock<ILogger<AgentManager>> _mockLogger;
+    private readonly Mock<IMessageBroker> _mockMessageBroker;
     private readonly OrchestrationOptions _options;
     private readonly string _dbPath;
 
     public AgentManagerTests()
     {
         _mockLogger = new Mock<ILogger<AgentManager>>();
+        _mockMessageBroker = new Mock<IMessageBroker>();
         _options = new OrchestrationOptions();
         _dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-test-{Guid.NewGuid()}.db");
         
@@ -46,6 +49,7 @@ public class AgentManagerTests
         _manager = new AgentManager(
             _mockLogger.Object,
             _repository,
+            _mockMessageBroker.Object,
             Options.Create(_options));
     }
 

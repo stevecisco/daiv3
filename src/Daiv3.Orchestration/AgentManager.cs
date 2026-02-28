@@ -1,4 +1,5 @@
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Orchestration.Messaging;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ public class AgentManager : IAgentManager
 {
     private readonly ILogger<AgentManager> _logger;
     private readonly AgentRepository _agentRepository;
+    private readonly IMessageBroker _messageBroker;
     private readonly OrchestrationOptions _options;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
     private readonly ConcurrentDictionary<string, Guid> _taskTypeAgentIds = new(StringComparer.OrdinalIgnoreCase);
@@ -25,10 +27,12 @@ public class AgentManager : IAgentManager
     public AgentManager(
         ILogger<AgentManager> logger,
         AgentRepository agentRepository,
+        IMessageBroker messageBroker,
         IOptions<OrchestrationOptions> options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _agentRepository = agentRepository ?? throw new ArgumentNullException(nameof(agentRepository));
+        _messageBroker = messageBroker ?? throw new ArgumentNullException(nameof(messageBroker));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -433,6 +437,38 @@ public class AgentManager : IAgentManager
                 "Agent {AgentId} execution completed. ExecutionId: {ExecutionId}, Success: {Success}, Reason: {Reason}, Iterations: {Iterations}, Tokens: {Tokens}, Duration: {Duration}ms",
                 agent.Id, result.ExecutionId, result.Success, result.TerminationReason,
                 result.IterationsExecuted, result.TokensConsumed, stopwatch.ElapsedMilliseconds);
+
+            // Publish execution completion message
+            try
+            {
+                var executionMessage = new AgentMessage<AgentExecutionResult>(
+                    $"agent-execution/{agent.Id}",
+                    agent.Id.ToString(),
+                    result,
+                    new MessageMetadata
+                    {
+                        Tags = new Dictionary<string, string>
+                        {
+                            { "agent-name", agent.Name },
+                            { "status", result.Success ? "completed" : "failed" },
+                            { "termination-reason", result.TerminationReason },
+                            { "iterations", result.IterationsExecuted.ToString() }
+                        }
+                    });
+                
+                // Don't await this, fire and forget with logging
+                _ = _messageBroker.PublishAsync(executionMessage, CancellationToken.None).ContinueWith(
+                    t =>
+                    {
+                        if (t.IsFaulted)
+                            _logger.LogWarning(t.Exception, "Failed to publish agent execution message for agent {AgentId}", agent.Id);
+                    },
+                    TaskScheduler.Default);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to create agent execution message for agent {AgentId}", agent.Id);
+            }
         }
 
         return result;

@@ -1,3 +1,5 @@
+using Azure.Identity;
+using Azure.Storage.Blobs;
 using Daiv3.Orchestration.Messaging.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,8 +42,7 @@ public static class MessagingServiceExtensions
                     logger.CreateLogger<FileSystemMessageStore>(),
                     Options.Create(options.Value.FileSystemOptions)),
 
-                "azureblob" => throw new NotImplementedException(
-                    "Azure Blob message store not yet implemented. Use 'FileSystem' backend."),
+                "azureblob" => CreateAzureBlobMessageStore(sp, options.Value.AzureBlobOptions, logger),
 
                 _ => throw new ArgumentException(
                     $"Unknown storage backend: {options.Value.StorageBackend}")
@@ -96,5 +97,33 @@ public static class MessagingServiceExtensions
         });
 
         return services;
+    }
+
+    // === Private Helpers ===
+
+    /// <summary>
+    /// Creates an Azure Blob message store with configured authentication.
+    /// </summary>
+    private static IMessageStore CreateAzureBlobMessageStore(
+        IServiceProvider sp,
+        AzureBlobMessageStoreOptions blobOptions,
+        ILoggerFactory loggerFactory)
+    {
+        ArgumentNullException.ThrowIfNull(blobOptions);
+
+        // Create blob container client from connection string or identity
+        BlobContainerClient containerClient = !string.IsNullOrWhiteSpace(blobOptions.ConnectionString)
+            ? new BlobContainerClient(new Uri($"{blobOptions.GetStorageUri()}/{blobOptions.ContainerName}"),
+                new Azure.Storage.StorageSharedKeyCredential(
+                    blobOptions.ExtractAccountName(),
+                    blobOptions.ExtractAccountKey()))
+            : new BlobContainerClient(
+                new Uri($"{blobOptions.GetStorageUri()}/{blobOptions.ContainerName}"),
+                new Azure.Identity.DefaultAzureCredential());
+
+        return new AzureBlobMessageStore(
+            loggerFactory.CreateLogger<AzureBlobMessageStore>(),
+            containerClient,
+            Options.Create(blobOptions));
     }
 }
