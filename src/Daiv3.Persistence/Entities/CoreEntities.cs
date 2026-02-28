@@ -34,6 +34,26 @@ public class Project
 }
 
 /// <summary>
+/// Represents a task in a project.
+/// Stores dependency metadata for orchestrated execution.
+/// </summary>
+public class ProjectTask
+{
+    public string TaskId { get; set; } = string.Empty;
+    public string? ProjectId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public int Priority { get; set; }
+    public long? ScheduledAt { get; set; }
+    public long? CompletedAt { get; set; }
+    public string? DependenciesJson { get; set; }
+    public string? ResultJson { get; set; }
+    public long CreatedAt { get; set; }
+    public long UpdatedAt { get; set; }
+}
+
+/// <summary>
 /// Represents a topic index entry.
 /// Tier 1 - One embedding per document.
 /// </summary>

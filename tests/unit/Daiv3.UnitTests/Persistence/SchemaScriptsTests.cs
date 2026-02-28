@@ -114,6 +114,7 @@ public class SchemaScriptsTests
         Assert.Contains("title TEXT NOT NULL", sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("status TEXT NOT NULL", sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("priority INTEGER NOT NULL", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("dependencies_json TEXT", sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("FOREIGN KEY (project_id) REFERENCES projects(project_id)", sql, StringComparison.OrdinalIgnoreCase);
     }
 

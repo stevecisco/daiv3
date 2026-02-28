@@ -37,6 +37,7 @@ public static class PersistenceServiceExtensions
         // Note: Using Scoped for repositories to support transactional operations
         services.AddScoped<DocumentRepository>();
         services.AddScoped<ProjectRepository>();
+        services.AddScoped<TaskRepository>();
         
         // MQ-REQ-013: Model queue repository for offline queueing
         services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
