@@ -70,7 +70,7 @@ public class KnowledgeDatabaseFixture : IAsyncLifetime
         // Register embedding services for real model testing
         var modelPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Daiv3", "models", "embeddings", "model.onnx");
+            "Daiv3", "models", "embeddings", "all-MiniLM-L6-v2", "model.onnx");
         
         services.AddEmbeddingServices(opts =>
         {
