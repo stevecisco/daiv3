@@ -16,12 +16,12 @@ public class OnlineProviderOptions
     public string DefaultProvider { get; set; } = "openai";
 
     /// <summary>
-    /// Whether to require user confirmation for online calls.
+    /// Confirmation mode for online provider requests.
     /// </summary>
-    public bool RequireUserConfirmation { get; set; } = true;
+    public ConfirmationMode ConfirmationMode { get; set; } = ConfirmationMode.AboveThreshold;
 
     /// <summary>
-    /// Token threshold above which to require confirmation (if enabled).
+    /// Token threshold above which to require confirmation (when ConfirmationMode is AboveThreshold).
     /// </summary>
     public int ConfirmationThreshold { get; set; } = 1000;
 }

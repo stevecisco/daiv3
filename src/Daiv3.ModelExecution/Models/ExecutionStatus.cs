@@ -11,6 +11,11 @@ public enum ExecutionStatus
     Pending,
 
     /// <summary>
+    /// Request is awaiting user confirmation before execution.
+    /// </summary>
+    AwaitingConfirmation,
+
+    /// <summary>
     /// Request is queued for execution.
     /// </summary>
     Queued,

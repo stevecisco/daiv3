@@ -69,4 +69,41 @@ public interface IOnlineProviderRouter
     /// <param name="ct">Cancellation token</param>
     /// <returns>Number of requests successfully retried</returns>
     Task<int> RetryPendingRequestsAsync(CancellationToken ct = default);
-}
+
+    /// <summary>
+    /// Checks if a request requires user confirmation before execution.
+    /// </summary>
+    /// <remarks>
+    /// Implements MQ-REQ-014: Decision logic based on ConfirmationMode setting.
+    /// - Always: Always requires confirmation
+    /// - AboveThreshold: Requires confirmation if estimated tokens > threshold
+    /// - AutoWithinBudget: Requires confirmation if exceeding budget
+    /// - Never: Never requires confirmation
+    /// </remarks>
+    /// <param name="request">The execution request to check</param>
+    /// <param name="provider">Optional specific provider (or null for auto-select)</param>
+    /// <returns>True if user confirmation is required</returns>
+    bool RequiresConfirmation(ExecutionRequest request, string? provider = null);
+
+    /// <summary>
+    /// Gets confirmation details for a request (estimated tokens, cost, provider).
+    /// </summary>
+    /// <param name="request">The execution request</param>
+    /// <param name="provider">Optional specific provider (or null for auto-select)</param>
+    /// <returns>Confirmation details including estimated tokens and selected provider</returns>
+    ConfirmationDetails GetConfirmationDetails(ExecutionRequest request, string? provider = null);
+
+    /// <summary>
+    /// Executes a request with confirmation already granted (bypasses confirmation check).
+    /// </summary>
+    /// <remarks>
+    /// Use this after user has provided explicit confirmation via RequiresConfirmation/GetConfirmationDetails flow.
+    /// </remarks>
+    /// <param name="request">Execution request</param>
+    /// <param name="provider">Specific provider or null for auto-select</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Execution result</returns>
+    Task<ExecutionResult> ExecuteWithConfirmationAsync(
+        ExecutionRequest request,
+        string? provider = null,
+        CancellationToken ct = default);}

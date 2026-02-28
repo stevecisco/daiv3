@@ -106,6 +106,26 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             }
         }
 
+        // MQ-REQ-014: Check if user confirmation is required
+        if (RequiresConfirmation(request, providerName))
+        {
+            _logger.LogInformation(
+                "User confirmation required for request {RequestId} to provider {Provider}",
+                request.Id, providerName);
+
+            var details = GetConfirmationDetails(request, providerName);
+
+            return new ExecutionResult
+            {
+                RequestId = request.Id,
+                Content = string.Empty,
+                Status = ExecutionStatus.AwaitingConfirmation,
+                CompletedAt = DateTimeOffset.UtcNow,
+                ErrorMessage = $"User confirmation required: {details.ConfirmationReason}",
+                TokenUsage = new TokenUsage()
+            };
+        }
+
         // Check budget
         await CheckTokenBudgetAsync(providerName, request);
 
@@ -261,7 +281,6 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
                 usage.DailyInputLimit - usage.DailyInputTokens);
         }
 
-        // TODO: Prompt user if above confirmation threshold
         await Task.CompletedTask;
     }
 
@@ -383,6 +402,152 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             successCount, pendingRequests.Count);
 
         return successCount;
+    }
+
+    public bool RequiresConfirmation(ExecutionRequest request, string? provider = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // Never mode: always auto-approve
+        if (_options.ConfirmationMode == ConfirmationMode.Never)
+        {
+            return false;
+        }
+
+        // Always mode: always require confirmation
+        if (_options.ConfirmationMode == ConfirmationMode.Always)
+        {
+            return true;
+        }
+
+        var providerName = provider ?? SelectProvider(request);
+        var estimatedTokens = EstimateTokens(request.Content);
+
+        // AboveThreshold mode: require confirmation if tokens exceed threshold
+        if (_options.ConfirmationMode == ConfirmationMode.AboveThreshold)
+        {
+            return estimatedTokens > _options.ConfirmationThreshold;
+        }
+
+        // AutoWithinBudget mode: require confirmation if exceeding budget
+        if (_options.ConfirmationMode == ConfirmationMode.AutoWithinBudget)
+        {
+            if (!_tokenUsage.TryGetValue(providerName, out var usage))
+            {
+                // No usage tracking, require confirmation to be safe
+                return true;
+            }
+
+            var remainingBudget = usage.DailyInputLimit - usage.DailyInputTokens;
+            return estimatedTokens > remainingBudget;
+        }
+
+        return false;
+    }
+
+    public ConfirmationDetails GetConfirmationDetails(ExecutionRequest request, string? provider = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var providerName = provider ?? SelectProvider(request);
+        var estimatedTokens = EstimateTokens(request.Content);
+        
+        var details = new ConfirmationDetails
+        {
+            ProviderName = providerName,
+            EstimatedInputTokens = estimatedTokens,
+            EstimatedOutputTokens = 100 // Conservative estimate
+        };
+
+        if (_tokenUsage.TryGetValue(providerName, out var usage))
+        {
+            details.CurrentDailyInputTokens = usage.DailyInputTokens;
+            details.DailyInputLimit = usage.DailyInputLimit;
+        }
+
+        // Determine confirmation reason based on mode
+        details.ConfirmationReason = _options.ConfirmationMode switch
+        {
+            ConfirmationMode.Always => 
+                "Confirmation required for all online requests (ConfirmationMode: Always)",
+            
+            ConfirmationMode.AboveThreshold when estimatedTokens > _options.ConfirmationThreshold => 
+                $"Estimated tokens ({estimatedTokens}) exceed threshold ({_options.ConfirmationThreshold})",
+            
+            ConfirmationMode.AutoWithinBudget when details.ExceedsBudget => 
+                $"Request would exceed daily budget ({details.RemainingDailyBudget} tokens remaining)",
+            
+            _ => "Confirmation required"
+        };
+
+        return details;
+    }
+
+    public async Task<ExecutionResult> ExecuteWithConfirmationAsync(
+        ExecutionRequest request,
+        string? provider = null,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // Select provider
+        var providerName = provider ?? SelectProvider(request);
+
+        _logger.LogInformation(
+            "Executing request {RequestId} with explicit confirmation to provider: {Provider}",
+            request.Id, providerName);
+
+        // Check network connectivity (even with confirmation, can't execute if offline)
+        if (_connectivityService != null && _queueRepository != null)
+        {
+            var isOnline = await _connectivityService.IsOnlineAsync(ct);
+            
+            if (!isOnline)
+            {
+                _logger.LogWarning(
+                    "System is offline. Queueing request {RequestId} as pending for provider {Provider}",
+                    request.Id, providerName);
+
+                await _queueRepository.SavePendingRequestAsync(
+                    request,
+                    ExecutionPriority.Normal,
+                    providerName,
+                    ct);
+
+                return new ExecutionResult
+                {
+                    RequestId = request.Id,
+                    Content = string.Empty,
+                    Status = ExecutionStatus.Pending,
+                    CompletedAt = DateTimeOffset.UtcNow,
+                    ErrorMessage = $"Request queued for provider '{providerName}' - system is offline",
+                    TokenUsage = new TokenUsage()
+                };
+            }
+        }
+
+        // Check budget (still need to enforce hard limits even with confirmation)
+        await CheckTokenBudgetAsync(providerName, request);
+
+        // TODO: Integrate with Microsoft.Extensions.AI abstractions
+        await Task.Delay(200, ct); // Simulate API call
+
+        var result = new ExecutionResult
+        {
+            RequestId = request.Id,
+            Content = $"[STUB] Processed by {providerName} (confirmed): {request.Content}",
+            Status = ExecutionStatus.Completed,
+            CompletedAt = DateTimeOffset.UtcNow,
+            TokenUsage = new TokenUsage
+            {
+                InputTokens = EstimateTokens(request.Content),
+                OutputTokens = 100
+            }
+        };
+
+        UpdateTokenUsage(providerName, result.TokenUsage);
+
+        return result;
     }
 
     public void Dispose()
