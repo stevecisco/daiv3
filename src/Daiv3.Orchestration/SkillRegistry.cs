@@ -66,7 +66,10 @@ public class SkillRegistry : ISkillRegistry
             {
                 Name = skill.Name,
                 Description = skill.Description,
-                Parameters = new List<ParameterMetadata>()  // TODO: Extract from skill attributes
+                Category = skill.Category,
+                Inputs = new List<ParameterMetadata>(),  // TODO: Extract from skill attributes or reflection
+                Outputs = skill.OutputSchema,
+                Permissions = new List<string>(skill.Permissions)
             })
             .OrderBy(m => m.Name)
             .ToList();

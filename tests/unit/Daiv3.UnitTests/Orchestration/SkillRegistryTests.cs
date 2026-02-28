@@ -175,19 +175,157 @@ public class SkillRegistryTests
         Assert.Equal("TestSkill executed", result);
     }
 
+    [Fact]
+    public void ListSkills_IncludesCategory()
+    {
+        // Arrange
+        var skill = new TestSkill(
+            "CodeReviewSkill", 
+            "Reviews code", 
+            category: SkillCategory.Code);
+        _registry.RegisterSkill(skill);
+
+        // Act
+        var skills = _registry.ListSkills();
+
+        // Assert
+        Assert.Single(skills);
+        Assert.Equal(SkillCategory.Code, skills[0].Category);
+    }
+
+    [Fact]
+    public void ListSkills_IncludesOutputSchema()
+    {
+        // Arrange
+        var outputSchema = new OutputSchema
+        {
+            Type = "object",
+            Description = "Analysis report",
+            Schema = "{\"type\": \"object\", \"properties\": {\"score\": {\"type\": \"number\"}}}"
+        };
+        var skill = new TestSkill(
+            "AnalysisSkill", 
+            "Analyzes data",
+            outputSchema: outputSchema);
+        _registry.RegisterSkill(skill);
+
+        // Act
+        var skills = _registry.ListSkills();
+
+        // Assert
+        Assert.Single(skills);
+        Assert.NotNull(skills[0].Outputs);
+        Assert.Equal("object", skills[0].Outputs.Type);
+        Assert.Equal("Analysis report", skills[0].Outputs.Description);
+        Assert.Contains("score", skills[0].Outputs.Schema);
+    }
+
+    [Fact]
+    public void ListSkills_IncludesPermissions()
+    {
+        // Arrange
+        var permissions = new List<string> { "FileSystem.Read", "Network.Access" };
+        var skill = new TestSkill(
+            "WebFetchSkill", 
+            "Fetches web content",
+            permissions: permissions);
+        _registry.RegisterSkill(skill);
+
+        // Act
+        var skills = _registry.ListSkills();
+
+        // Assert
+        Assert.Single(skills);
+        Assert.Equal(2, skills[0].Permissions.Count);
+        Assert.Contains("FileSystem.Read", skills[0].Permissions);
+        Assert.Contains("Network.Access", skills[0].Permissions);
+    }
+
+    [Fact]
+    public void ListSkills_WithAllMetadata_PopulatesComplete()
+    {
+        // Arrange
+        var outputSchema = new OutputSchema
+        {
+            Type = "string",
+            Description = "Generated document"
+        };
+        var permissions = new List<string> { "FileSystem.Write" };
+        var skill = new TestSkill(
+            "DocumentGenerator",
+            "Generates documents",
+            category: SkillCategory.Document,
+            outputSchema: outputSchema,
+            permissions: permissions);
+        _registry.RegisterSkill(skill);
+
+        // Act
+        var skills = _registry.ListSkills();
+
+        // Assert
+        var metadata = skills[0];
+        Assert.Equal("DocumentGenerator", metadata.Name);
+        Assert.Equal("Generates documents", metadata.Description);
+        Assert.Equal(SkillCategory.Document, metadata.Category);
+        Assert.NotNull(metadata.Outputs);
+        Assert.Equal("string", metadata.Outputs.Type);
+        Assert.Equal("Generated document", metadata.Outputs.Description);
+        Assert.Single(metadata.Permissions);
+        Assert.Contains("FileSystem.Write", metadata.Permissions);
+    }
+
+    [Fact]
+    public void SkillMetadata_InputsProperty_IsAlias()
+    {
+        // Arrange
+        var metadata = new SkillMetadata
+        {
+            Name = "Test",
+            Description = "Test skill",
+            Outputs = new OutputSchema { Type = "string" }
+        };
+        
+        var parameter = new ParameterMetadata
+        {
+            Name = "input1",
+            Type = "string",
+            Required = true
+        };
+
+        // Act
+        metadata.Inputs.Add(parameter);
+
+        // Assert
+        #pragma warning disable CS0618 // Type or member is obsolete
+        Assert.Single(metadata.Parameters);
+        Assert.Equal("input1", metadata.Parameters[0].Name);
+        #pragma warning restore CS0618 // Type or member is obsolete
+    }
+
     /// <summary>
     /// Test skill implementation for unit testing.
     /// </summary>
     private class TestSkill : ISkill
     {
-        public TestSkill(string name, string description)
+        public TestSkill(
+            string name, 
+            string description,
+            SkillCategory category = SkillCategory.Unspecified,
+            OutputSchema? outputSchema = null,
+            List<string>? permissions = null)
         {
             Name = name;
             Description = description;
+            Category = category;
+            OutputSchema = outputSchema ?? new OutputSchema { Type = "string", Description = "Default output" };
+            Permissions = permissions ?? new List<string>();
         }
 
         public string Name { get; }
         public string Description { get; }
+        public SkillCategory Category { get; }
+        public OutputSchema OutputSchema { get; }
+        public List<string> Permissions { get; }
 
         public Task<object> ExecuteAsync(Dictionary<string, object> parameters, CancellationToken ct = default)
         {

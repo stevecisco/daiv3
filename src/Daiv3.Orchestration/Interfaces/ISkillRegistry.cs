@@ -1,6 +1,60 @@
 namespace Daiv3.Orchestration.Interfaces;
 
 /// <summary>
+/// Skill category enumeration.
+/// </summary>
+public enum SkillCategory
+{
+    /// <summary>Category not specified.</summary>
+    Unspecified,
+    
+    /// <summary>Reasoning, analysis, brainstorming, argument mapping.</summary>
+    ReasoningAndAnalysis,
+    
+    /// <summary>Code generation, review, debugging, test writing.</summary>
+    Code,
+    
+    /// <summary>Document generation, format conversion, summarization.</summary>
+    Document,
+    
+    /// <summary>Data transformation, visualization, statistics.</summary>
+    DataAndVisualization,
+    
+    /// <summary>Web fetch, crawl, content extraction, research.</summary>
+    WebAndResearch,
+    
+    /// <summary>Task breakdown, scheduling, dependency analysis.</summary>
+    ProjectManagement,
+    
+    /// <summary>Email, messaging, meeting summaries, action items.</summary>
+    Communication,
+    
+    /// <summary>Other skill categories.</summary>
+    Other
+}
+
+/// <summary>
+/// Output schema for a skill.
+/// </summary>
+public class OutputSchema
+{
+    /// <summary>
+    /// Output type description (e.g., "string", "object", "array").
+    /// </summary>
+    public required string Type { get; set; }
+    
+    /// <summary>
+    /// Human-readable description of the output.
+    /// </summary>
+    public string? Description { get; set; }
+    
+    /// <summary>
+    /// Optional JSON schema describing the output structure.
+    /// </summary>
+    public string? Schema { get; set; }
+}
+
+/// <summary>
 /// Registry for managing and executing skills.
 /// </summary>
 public interface ISkillRegistry
@@ -41,6 +95,21 @@ public interface ISkill
     string Description { get; }
     
     /// <summary>
+    /// Skill category.
+    /// </summary>
+    SkillCategory Category { get; }
+    
+    /// <summary>
+    /// Output schema describing what the skill produces.
+    /// </summary>
+    OutputSchema OutputSchema { get; }
+    
+    /// <summary>
+    /// List of permissions required by this skill (e.g., "FileSystem.Read", "Network.Access", "MCP.Invoke").
+    /// </summary>
+    List<string> Permissions { get; }
+    
+    /// <summary>
     /// Executes the skill with the provided parameters.
     /// </summary>
     /// <param name="parameters">Skill execution parameters.</param>
@@ -65,9 +134,34 @@ public class SkillMetadata
     public required string Description { get; set; }
     
     /// <summary>
-    /// List of parameters this skill accepts.
+    /// Skill category.
     /// </summary>
-    public List<ParameterMetadata> Parameters { get; set; } = new();
+    public SkillCategory Category { get; set; }
+    
+    /// <summary>
+    /// List of input parameters this skill accepts.
+    /// </summary>
+    public List<ParameterMetadata> Inputs { get; set; } = new();
+    
+    /// <summary>
+    /// Output schema describing what the skill produces.
+    /// </summary>
+    public required OutputSchema Outputs { get; set; }
+    
+    /// <summary>
+    /// List of permissions required by this skill.
+    /// </summary>
+    public List<string> Permissions { get; set; } = new();
+    
+    /// <summary>
+    /// List of parameters this skill accepts (legacy property, use Inputs instead).
+    /// </summary>
+    [Obsolete("Use Inputs property instead")]
+    public List<ParameterMetadata> Parameters
+    {
+        get => Inputs;
+        set => Inputs = value;
+    }
 }
 
 /// <summary>
