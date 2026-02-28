@@ -38,6 +38,13 @@ public static class ModelExecutionServiceExtensions
         services.AddOptions<PriorityAssignerOptions>()
             .Bind(configuration.GetSection(PriorityAssignerOptions.SectionName));
 
+        // Register MQ-REQ-011 and MQ-REQ-012 configurations
+        services.AddOptions<LocalModelIntentClassificationOptions>()
+            .Bind(configuration.GetSection("LocalModelIntentClassification"));
+
+        services.AddOptions<TaskToModelMappingConfiguration>()
+            .Bind(configuration.GetSection("TaskToModelMapping"));
+
         // Register core services
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
         services.AddSingleton<IModelQueue, ModelQueue>();
@@ -48,6 +55,9 @@ public static class ModelExecutionServiceExtensions
         services.AddSingleton<ITaskTypeClassifier, TaskTypeClassifier>();
         services.AddSingleton<IModelSelector, ModelSelector>();
         services.AddSingleton<IPriorityAssigner, PriorityAssigner>();
+
+        // Register MQ-REQ-011 local model intent classifier
+        services.AddSingleton<ILocalModelIntentClassifier, LocalModelIntentClassifier>();
 
         return services;
     }
@@ -99,6 +109,10 @@ public static class ModelExecutionServiceExtensions
         services.Configure<ModelSelectorOptions>(_ => { });
         services.Configure<PriorityAssignerOptions>(_ => { });
 
+        // Configure MQ-REQ-011 and MQ-REQ-012 options with defaults
+        services.Configure<LocalModelIntentClassificationOptions>(_ => { });
+        services.Configure<TaskToModelMappingConfiguration>(_ => { });
+
         // Register core services
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
         services.AddSingleton<IModelQueue, ModelQueue>();
@@ -109,6 +123,9 @@ public static class ModelExecutionServiceExtensions
         services.AddSingleton<ITaskTypeClassifier, TaskTypeClassifier>();
         services.AddSingleton<IModelSelector, ModelSelector>();
         services.AddSingleton<IPriorityAssigner, PriorityAssigner>();
+
+        // Register MQ-REQ-011 local model intent classifier
+        services.AddSingleton<ILocalModelIntentClassifier, LocalModelIntentClassifier>();
 
         return services;
     }

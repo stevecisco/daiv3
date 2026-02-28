@@ -12,6 +12,7 @@ public class OnlineProviderRouterTests
 {
     private readonly Mock<ILogger<OnlineProviderRouter>> _mockLogger;
     private readonly OnlineProviderOptions _options;
+    private readonly TaskToModelMappingConfiguration _mappingConfig;
 
     public OnlineProviderRouterTests()
     {
@@ -39,13 +40,22 @@ public class OnlineProviderRouterTests
                 }
             }
         };
+        _mappingConfig = new TaskToModelMappingConfiguration();
+    }
+
+    private OnlineProviderRouter CreateRouter()
+    {
+        return new OnlineProviderRouter(
+            Options.Create(_options),
+            Options.Create(_mappingConfig),
+            _mockLogger.Object);
     }
 
     [Fact]
     public async Task ExecuteAsync_ValidRequest_ReturnsResult()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
         var request = new ExecutionRequest
         {
             Id = Guid.NewGuid(),
@@ -67,7 +77,7 @@ public class OnlineProviderRouterTests
     public async Task ExecuteAsync_NullRequest_ThrowsArgumentNullException()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => router.ExecuteAsync(null!));
@@ -77,7 +87,7 @@ public class OnlineProviderRouterTests
     public async Task ExecuteAsync_SpecificProvider_UsesProvider()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
         var request = new ExecutionRequest { TaskType = "chat", Content = "Test" };
 
         // Act
@@ -92,7 +102,7 @@ public class OnlineProviderRouterTests
     public async Task GetTokenUsageAsync_ValidProvider_ReturnsUsage()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
 
         // Act
         var usage = await router.GetTokenUsageAsync("openai");
@@ -107,7 +117,7 @@ public class OnlineProviderRouterTests
     public async Task GetTokenUsageAsync_InvalidProvider_ThrowsArgumentException()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => router.GetTokenUsageAsync("invalid-provider"));
@@ -117,7 +127,7 @@ public class OnlineProviderRouterTests
     public async Task ListProvidersAsync_ReturnsConfiguredProviders()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
 
         // Act
         var providers = await router.ListProvidersAsync();
@@ -132,7 +142,7 @@ public class OnlineProviderRouterTests
     public async Task IsProviderAvailableAsync_ConfiguredProvider_ReturnsTrue()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
 
         // Act
         var isAvailable = await router.IsProviderAvailableAsync("openai");
@@ -145,7 +155,7 @@ public class OnlineProviderRouterTests
     public async Task IsProviderAvailableAsync_UnconfiguredProvider_ReturnsFalse()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
 
         // Act
         var isAvailable = await router.IsProviderAvailableAsync("anthropic");
@@ -158,7 +168,7 @@ public class OnlineProviderRouterTests
     public async Task ExecuteAsync_TracksTokenUsage()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
         var request = new ExecutionRequest { TaskType = "chat", Content = "Test message" };
 
         // Act
@@ -186,7 +196,7 @@ public class OnlineProviderRouterTests
             }
         };
 
-        var router = new OnlineProviderRouter(Options.Create(limitedOptions), _mockLogger.Object);
+        var router = new OnlineProviderRouter(Options.Create(limitedOptions), Options.Create(_mappingConfig), _mockLogger.Object);
         var request = new ExecutionRequest
         {
             TaskType = "chat",
@@ -201,7 +211,7 @@ public class OnlineProviderRouterTests
     public async Task ExecuteAsync_MultipleRequests_AccumulatesTokenUsage()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
         var request1 = new ExecutionRequest { TaskType = "chat", Content = "First message" };
         var request2 = new ExecutionRequest { TaskType = "chat", Content = "Second message" };
 
@@ -220,7 +230,7 @@ public class OnlineProviderRouterTests
     public async Task ExecuteAsync_DifferentProviders_TrackedSeparately()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
         var request = new ExecutionRequest { TaskType = "chat", Content = "Test" };
 
         // Act
@@ -239,7 +249,7 @@ public class OnlineProviderRouterTests
     public async Task ExecuteAsync_PreservesRequestId()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
         var requestId = Guid.NewGuid();
         var request = new ExecutionRequest
         {
@@ -259,7 +269,7 @@ public class OnlineProviderRouterTests
     public void Constructor_InitializesTokenTracking()
     {
         // Arrange & Act
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
 
         // Assert - router created without exceptions
         Assert.NotNull(router);
@@ -269,7 +279,7 @@ public class OnlineProviderRouterTests
     public async Task GetTokenUsageAsync_NewlyCreated_ReturnsZeroUsage()
     {
         // Arrange
-        var router = new OnlineProviderRouter(Options.Create(_options), _mockLogger.Object);
+        var router = CreateRouter();
 
         // Act
         var usage = await router.GetTokenUsageAsync("openai");
