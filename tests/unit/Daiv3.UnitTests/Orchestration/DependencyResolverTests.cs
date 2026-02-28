@@ -481,4 +481,227 @@ public class DependencyResolverTests
         Assert.Equal(2, result.Count);
         Assert.All(result, r => Assert.Equal(0, r.ExecutionOrder));
     }
+
+    #region Determinism Tests (PTS-NFR-001)
+
+    [Fact]
+    public async Task ResolveDependenciesAsync_WithSameInput_ProducesIdenticalOutputMultipleTimes()
+    {
+        // Arrange
+        const string task1 = "task-a";
+        const string task2 = "task-b";
+        const string task3 = "task-c";
+        const string mainTask = "task-main";
+
+        var t1 = new ProjectTask { TaskId = task1, Title = "Task A", Status = "pending", Priority = 5, DependenciesJson = null };
+        var t2 = new ProjectTask { TaskId = task2, Title = "Task B", Status = "pending", Priority = 5, DependenciesJson = null };
+        var t3 = new ProjectTask { TaskId = task3, Title = "Task C", Status = "pending", Priority = 5, DependenciesJson = JsonSerializer.Serialize(new[] { task1, task2 }) };
+        var tMain = new ProjectTask { TaskId = mainTask, Title = "Main Task", Status = "pending", Priority = 5, DependenciesJson = JsonSerializer.Serialize(new[] { task3 }) };
+
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask), It.IsAny<CancellationToken>())).ReturnsAsync(tMain);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task1), It.IsAny<CancellationToken>())).ReturnsAsync(t1);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task2), It.IsAny<CancellationToken>())).ReturnsAsync(t2);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task3), It.IsAny<CancellationToken>())).ReturnsAsync(t3);
+
+        // Act - Run multiple times
+        var result1 = await _resolver.ResolveDependenciesAsync(mainTask);
+        var result2 = await _resolver.ResolveDependenciesAsync(mainTask);
+        var result3 = await _resolver.ResolveDependenciesAsync(mainTask);
+
+        // Assert - All results should be identical
+        Assert.Equal(3, result1.Count);
+        Assert.Equal(3, result2.Count);
+        Assert.Equal(3, result3.Count);
+
+        for (int i = 0; i < result1.Count; i++)
+        {
+            Assert.Equal(result1[i].TaskId, result2[i].TaskId);
+            Assert.Equal(result1[i].TaskId, result3[i].TaskId);
+            Assert.Equal(result1[i].ExecutionOrder, result2[i].ExecutionOrder);
+            Assert.Equal(result1[i].ExecutionOrder, result3[i].ExecutionOrder);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveDependenciesAsync_WithTasksSameExecutionOrder_SortsAlphabeticallyByTaskId()
+    {
+        // Arrange - Create tasks with IDs that would NOT be in alphabetical order if unsorted
+        const string taskZ = "task-z";
+        const string taskA = "task-a";
+        const string taskM = "task-m";
+        const string mainTask = "task-main";
+
+        var tZ = new ProjectTask { TaskId = taskZ, Title = "Task Z", Status = "pending", Priority = 5, DependenciesJson = null };
+        var tA = new ProjectTask { TaskId = taskA, Title = "Task A", Status = "pending", Priority = 5, DependenciesJson = null };
+        var tM = new ProjectTask { TaskId = taskM, Title = "Task M", Status = "pending", Priority = 5, DependenciesJson = null };
+        var tMain = new ProjectTask 
+        { 
+            TaskId = mainTask, 
+            Title = "Main Task", 
+            Status = "pending", 
+            Priority = 5, 
+            // JSON array in non-alphabetical order
+            DependenciesJson = JsonSerializer.Serialize(new[] { taskZ, taskA, taskM }) 
+        };
+
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask), It.IsAny<CancellationToken>())).ReturnsAsync(tMain);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == taskZ), It.IsAny<CancellationToken>())).ReturnsAsync(tZ);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == taskA), It.IsAny<CancellationToken>())).ReturnsAsync(tA);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == taskM), It.IsAny<CancellationToken>())).ReturnsAsync(tM);
+
+        // Act
+        var result = await _resolver.ResolveDependenciesAsync(mainTask);
+
+        // Assert - Tasks should be sorted alphabetically (task-a, task-m, task-z)
+        Assert.Equal(3, result.Count);
+        Assert.Equal(taskA, result[0].TaskId); // task-a
+        Assert.Equal(taskM, result[1].TaskId); // task-m
+        Assert.Equal(taskZ, result[2].TaskId); // task-z
+        Assert.All(result, r => Assert.Equal(0, r.ExecutionOrder)); // All same execution order
+    }
+
+    [Fact]
+    public async Task ResolveDependenciesAsync_WithDependenciesInDifferentJsonOrder_ProducesSameResult()
+    {
+        // Arrange - Create two resolvers with same dependencies but different JSON order
+        const string task1 = "task-1";
+        const string task2 = "task-2";
+        const string task3 = "task-3";
+        const string mainTask1 = "task-main-1";
+        const string mainTask2 = "task-main-2";
+
+        var t1 = new ProjectTask { TaskId = task1, Title = "Task 1", Status = "pending", Priority = 5, DependenciesJson = null };
+        var t2 = new ProjectTask { TaskId = task2, Title = "Task 2", Status = "pending", Priority = 5, DependenciesJson = null };
+        var t3 = new ProjectTask { TaskId = task3, Title = "Task 3", Status = "pending", Priority = 5, DependenciesJson = null };
+
+        // Main task 1: dependencies in order [task-1, task-2, task-3]
+        var tMain1 = new ProjectTask 
+        { 
+            TaskId = mainTask1, 
+            Title = "Main Task 1", 
+            Status = "pending", 
+            Priority = 5, 
+            DependenciesJson = JsonSerializer.Serialize(new[] { task1, task2, task3 }) 
+        };
+
+        // Main task 2: dependencies in DIFFERENT order [task-3, task-1, task-2]
+        var tMain2 = new ProjectTask 
+        { 
+            TaskId = mainTask2, 
+            Title = "Main Task 2", 
+            Status = "pending", 
+            Priority = 5, 
+            DependenciesJson = JsonSerializer.Serialize(new[] { task3, task1, task2 }) 
+        };
+
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask1), It.IsAny<CancellationToken>())).ReturnsAsync(tMain1);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask2), It.IsAny<CancellationToken>())).ReturnsAsync(tMain2);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task1), It.IsAny<CancellationToken>())).ReturnsAsync(t1);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task2), It.IsAny<CancellationToken>())).ReturnsAsync(t2);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task3), It.IsAny<CancellationToken>())).ReturnsAsync(t3);
+
+        // Act
+        var result1 = await _resolver.ResolveDependenciesAsync(mainTask1);
+        var result2 = await _resolver.ResolveDependenciesAsync(mainTask2);
+
+        // Assert - Both should produce the same order despite different JSON order
+        Assert.Equal(result1.Count, result2.Count);
+        for (int i = 0; i < result1.Count; i++)
+        {
+            Assert.Equal(result1[i].TaskId, result2[i].TaskId);
+            Assert.Equal(result1[i].ExecutionOrder, result2[i].ExecutionOrder);
+        }
+
+        // Verify they're in alphabetical order by TaskId
+        Assert.Equal(task1, result1[0].TaskId);
+        Assert.Equal(task2, result1[1].TaskId);
+        Assert.Equal(task3, result1[2].TaskId);
+    }
+
+    [Fact]
+    public async Task ResolveDependenciesAsync_WithComplexDependencyGraph_ProducesDeterministicOrder()
+    {
+        // Arrange - Complex graph with multiple levels and branches
+        //    task-main
+        //       |
+        //    task-c  (depends on task-a, task-b)
+        //      / \
+        //  task-a task-b   (no dependencies)
+        const string taskA = "task-a";
+        const string taskB = "task-b";
+        const string taskC = "task-c";
+        const string mainTask = "task-main";
+
+        var tA = new ProjectTask { TaskId = taskA, Title = "Task A", Status = "pending", Priority = 5, DependenciesJson = null };
+        var tB = new ProjectTask { TaskId = taskB, Title = "Task B", Status = "pending", Priority = 5, DependenciesJson = null };
+        var tC = new ProjectTask { TaskId = taskC, Title = "Task C", Status = "pending", Priority = 5, DependenciesJson = JsonSerializer.Serialize(new[] { taskB, taskA }) }; // note: B then A
+        var tMain = new ProjectTask { TaskId = mainTask, Title = "Main Task", Status = "pending", Priority = 5, DependenciesJson = JsonSerializer.Serialize(new[] { taskC }) };
+
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask), It.IsAny<CancellationToken>())).ReturnsAsync(tMain);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == taskA), It.IsAny<CancellationToken>())).ReturnsAsync(tA);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == taskB), It.IsAny<CancellationToken>())).ReturnsAsync(tB);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == taskC), It.IsAny<CancellationToken>())).ReturnsAsync(tC);
+
+        // Act - Run multiple times
+        var result1 = await _resolver.ResolveDependenciesAsync(mainTask);
+        var result2 = await _resolver.ResolveDependenciesAsync(mainTask);
+        var result3 = await _resolver.ResolveDependenciesAsync(mainTask);
+
+        // Assert - All runs produce identical results
+        Assert.Equal(3, result1.Count);
+        for (int i = 0; i < result1.Count; i++)
+        {
+            Assert.Equal(result1[i].TaskId, result2[i].TaskId);
+            Assert.Equal(result1[i].TaskId, result3[i].TaskId);
+        }
+
+        // Verify correct execution order
+        Assert.Equal(taskA, result1[0].TaskId); // task-a: execution order 0
+        Assert.Equal(taskB, result1[1].TaskId); // task-b: execution order 0
+        Assert.Equal(taskC, result1[2].TaskId); // task-c: execution order 1
+        Assert.Equal(0, result1[0].ExecutionOrder);
+        Assert.Equal(0, result1[1].ExecutionOrder);
+        Assert.Equal(1, result1[2].ExecutionOrder);
+    }
+
+    [Fact]
+    public async Task AreDependenciesSatisfiedAsync_ChecksDependenciesInDeterministicOrder()
+    {
+        // Arrange
+        const string task1 = "task-1";
+        const string task2 = "task-2";
+        const string task3 = "task-3";
+        const string mainTask = "task-main";
+
+        var t1 = new ProjectTask { TaskId = task1, Title = "Task 1", Status = "completed", Priority = 5, DependenciesJson = null };
+        var t2 = new ProjectTask { TaskId = task2, Title = "Task 2", Status = "completed", Priority = 5, DependenciesJson = null };
+        var t3 = new ProjectTask { TaskId = task3, Title = "Task 3", Status = "pending", Priority = 5, DependenciesJson = null };
+        var tMain = new ProjectTask 
+        { 
+            TaskId = mainTask, 
+            Title = "Main Task", 
+            Status = "pending", 
+            Priority = 5, 
+            // Dependencies in non-alphabetical order
+            DependenciesJson = JsonSerializer.Serialize(new[] { task3, task1, task2 }) 
+        };
+
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask), It.IsAny<CancellationToken>())).ReturnsAsync(tMain);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task1), It.IsAny<CancellationToken>())).ReturnsAsync(t1);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task2), It.IsAny<CancellationToken>())).ReturnsAsync(t2);
+        _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == task3), It.IsAny<CancellationToken>())).ReturnsAsync(t3);
+
+        // Act
+        var satisfied = await _resolver.AreDependenciesSatisfiedAsync(mainTask);
+
+        // Assert
+        Assert.False(satisfied); // task-3 is pending, so dependencies not satisfied
+
+        // Verify GetByIdAsync was called in deterministic (sorted) order: task-1, task-2, task-3
+        // Note: The implementation will check task-1 first (alphabetically), find it complete,
+        // then task-2 (complete), then task-3 (pending) and return false
+        _mockTaskRepository.Verify(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Exactly(4)); // main + 3 deps
+    }
+
+    #endregion
 }

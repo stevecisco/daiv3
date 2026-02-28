@@ -8,6 +8,16 @@ namespace Daiv3.Orchestration;
 /// <summary>
 /// Resolves task dependencies and determines execution order before enqueueing model requests.
 /// </summary>
+/// <remarks>
+/// <para><strong>Deterministic Guarantee (PTS-NFR-001):</strong></para>
+/// <para>This resolver guarantees deterministic dependency resolution:</para>
+/// <list type="bullet">
+///   <item>Dependencies are always processed in sorted order (by TaskId using Ordinal comparison)</item>
+///   <item>Execution order is calculated consistently based on dependency hierarchy</item>
+///   <item>Tasks with the same execution order level are sorted by TaskId for stable output</item>
+///   <item>For identical input (same tasks and dependencies), output order is always identical</item>
+/// </list>
+/// </remarks>
 public class DependencyResolver : IDependencyResolver
 {
     private readonly TaskRepository _taskRepository;
@@ -26,6 +36,7 @@ public class DependencyResolver : IDependencyResolver
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
 
+        var startTime = DateTime.UtcNow;
         _logger.LogInformation("Resolving dependencies for task {TaskId}", taskId);
 
         var task = await _taskRepository.GetByIdAsync(taskId, ct).ConfigureAwait(false);
@@ -44,12 +55,19 @@ public class DependencyResolver : IDependencyResolver
         // Remove the main task from results - only return its dependencies
         resolvedTasks = resolvedTasks.Where(t => t.TaskId != taskId).ToList();
 
-        // Sort by execution order
-        resolvedTasks = resolvedTasks.OrderBy(t => t.ExecutionOrder).ToList();
+        // Sort by execution order (primary), then by TaskId (secondary) for deterministic ordering
+        resolvedTasks = resolvedTasks
+            .OrderBy(t => t.ExecutionOrder)
+            .ThenBy(t => t.TaskId, StringComparer.Ordinal)
+            .ToList();
 
+        var duration = DateTime.UtcNow - startTime;
+        var maxExecutionOrder = resolvedTasks.Count > 0 ? resolvedTasks.Max(t => t.ExecutionOrder) : 0;
+        var orderedTaskIds = string.Join(",", resolvedTasks.Select(t => t.TaskId));
+        
         _logger.LogInformation(
-            "Resolved {Count} dependencies for task {TaskId}",
-            resolvedTasks.Count, taskId);
+            "Resolved {Count} dependencies for task {TaskId} in {Duration}ms. Max execution order: {MaxOrder}. Resolution sequence: [{Sequence}]",
+            resolvedTasks.Count, taskId, duration.TotalMilliseconds, maxExecutionOrder, orderedTaskIds);
 
         return resolvedTasks.AsReadOnly();
     }
@@ -79,8 +97,11 @@ public class DependencyResolver : IDependencyResolver
             return true;
         }
 
+        // Sort dependency IDs for deterministic processing and logging order
+        var sortedDependencyIds = dependencyIds.OrderBy(id => id, StringComparer.Ordinal).ToList();
+
         // Check if all dependencies are complete
-        foreach (var depId in dependencyIds)
+        foreach (var depId in sortedDependencyIds)
         {
             var depTask = await _taskRepository.GetByIdAsync(depId, ct).ConfigureAwait(false);
             if (depTask == null)
@@ -137,9 +158,12 @@ public class DependencyResolver : IDependencyResolver
             return new DependencyValidationResult { IsValid = true };
         }
 
+        // Sort dependency IDs for deterministic validation order
+        var sortedDependencyIds = dependencyIds.OrderBy(id => id, StringComparer.Ordinal).ToList();
+
         // Validate all dependencies exist
         var involvedTasks = new List<string> { taskId };
-        foreach (var depId in dependencyIds)
+        foreach (var depId in sortedDependencyIds)
         {
             var depTask = await _taskRepository.GetByIdAsync(depId, ct).ConfigureAwait(false);
             if (depTask == null)
@@ -202,7 +226,9 @@ public class DependencyResolver : IDependencyResolver
         if (!string.IsNullOrWhiteSpace(task.DependenciesJson))
         {
             var dependencyIds = ParseDependencies(task.DependenciesJson);
-            foreach (var depId in dependencyIds)
+            // Sort dependency IDs for deterministic processing order
+            var sortedDependencyIds = dependencyIds.OrderBy(id => id, StringComparer.Ordinal).ToList();
+            foreach (var depId in sortedDependencyIds)
             {
                 var depTask = await _taskRepository.GetByIdAsync(depId, ct).ConfigureAwait(false);
                 if (depTask != null)
