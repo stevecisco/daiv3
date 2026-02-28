@@ -1291,6 +1291,78 @@ If you do not update the tracker:
 
 ---
 
+## 📦 Git Commits for Multi-Requirement Work
+
+**MANDATORY: When working on multiple requirements, create a git commit after completing EACH requirement.**
+
+### Commit Strategy for Multiple Requirements
+
+**When:** After completing a requirement and updating Master-Implementation-Tracker.md to "Complete" status
+
+**Commit Message Format:**
+```
+REQ-XXX - Brief description of requirement implementation
+```
+
+Where `REQ-XXX` is the requirement identifier (e.g., `MQ-REQ-001`, `KM-REQ-035`, `ARCH-REQ-003`)
+
+**Example Commit Messages:**
+```
+MQ-REQ-001 - Implement model execution queue lifecycle management
+KM-REQ-035 - Add vector embeddings search with SQLite extension
+ARCH-REQ-003 - Implement hardware capability detection layer
+HW-REQ-012 - Add NPU acceleration detection and fallback mechanism
+```
+
+### Commit Process
+
+1. **After completing a requirement:**
+   - Verify all code compiles without errors/warnings
+   - Verify all unit tests pass
+   - Verify all integration tests pass
+   - Update requirement document with completion status and test traceability
+   - Update Master-Implementation-Tracker.md to "Complete" with all details
+
+2. **Create commit:**
+   ```bash
+   git add .
+   git commit -m "REQ-XXX - Brief description of requirement"
+   ```
+
+3. **Proceed to next requirement:**
+   - Start next requirement from the clean commit state
+   - This creates atomic, reviewable commits for each requirement
+
+### Why This Approach
+
+- **Atomic Commits:** Each requirement is a self-contained, reviewable unit
+- **Traceability:** Git history directly maps to requirement completion
+- **Rollback Safety:** If an issue is discovered, individual requirements can be reverted
+- **Code Review:** Each commit can be reviewed in context of a single requirement
+- **Bisect Capability:** Issues can be traced back to the exact requirement that introduced them
+- **Progress Tracking:** Commit history serves as verification of work completion
+
+### When NOT to Create Intermediate Commits
+
+- **DO NOT commit** between tasks within a single requirement
+- **DO NOT commit** partially completed requirements
+- **DO commit** only when:
+  - All code for requirement is complete
+  - All unit tests pass
+  - All integration tests pass
+  - Requirement document is updated with test traceability
+  - Master-Implementation-Tracker.md is updated to "Complete"
+
+### Handling Incomplete Requirements
+
+If blocking issues prevent requirement completion:
+- Update Master-Implementation-Tracker.md to "Blocked" status
+- Document blocker in Notes column
+- Do NOT create a commit for incomplete work
+- Resolve blocker, complete requirement, then commit
+
+---
+
 ### DON'T Requirements
 
 - ❌ **DON'T** start coding without reviewing requirements and design documents
