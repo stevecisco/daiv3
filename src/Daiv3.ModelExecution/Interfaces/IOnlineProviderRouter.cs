@@ -35,6 +35,22 @@ public interface IOnlineProviderRouter
         CancellationToken ct = default);
 
     /// <summary>
+    /// Executes multiple online requests, allowing concurrent execution across different providers.
+    /// </summary>
+    /// <remarks>
+    /// Implements MQ-REQ-016.
+    /// - When <c>AllowParallelProviderExecution</c> is enabled, requests are dispatched concurrently.
+    /// - Provider-specific concurrency limits are still enforced.
+    /// - When disabled, requests execute sequentially in input order.
+    /// </remarks>
+    /// <param name="requests">Requests to execute.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Execution results in the same order as the input requests.</returns>
+    Task<IReadOnlyList<ExecutionResult>> ExecuteBatchAsync(
+        IReadOnlyList<ExecutionRequest> requests,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Gets token usage for a provider.
     /// </summary>
     /// <param name="providerName">Provider name</param>

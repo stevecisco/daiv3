@@ -20,7 +20,9 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
     private readonly OnlineProviderOptions _options;
     private readonly TaskToModelMappingConfiguration _taskModelMappings;
     private readonly Dictionary<string, ProviderTokenUsage> _tokenUsage = new();
-    private readonly SemaphoreSlim _concurrencyLimiter;
+    private readonly Dictionary<string, SemaphoreSlim> _providerConcurrencyLimiters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _tokenUsageLock = new();
+    private readonly object _providerLimiterLock = new();
     private readonly INetworkConnectivityService? _connectivityService;
     private readonly IModelQueueRepository? _queueRepository;
 
@@ -34,7 +36,6 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         _logger = logger;
         _options = options.Value;
         _taskModelMappings = taskModelMappings.Value;
-        _concurrencyLimiter = new SemaphoreSlim(_taskModelMappings.MaxConcurrentRequestsPerProvider);
         _connectivityService = connectivityService;
         _queueRepository = queueRepository;
 
@@ -50,6 +51,8 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
                 MonthlyOutputLimit = _options.Providers[provider].MonthlyOutputTokenLimit,
                 ResetDate = DateTimeOffset.UtcNow.Date.AddDays(1)
             };
+
+            _providerConcurrencyLimiters[provider] = new SemaphoreSlim(_taskModelMappings.MaxConcurrentRequestsPerProvider);
         }
 
         _logger.LogInformation(
@@ -126,64 +129,67 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             };
         }
 
-        // Check budget
-        await CheckTokenBudgetAsync(providerName, request);
+        return await ExecuteThroughProviderAsync(request, providerName, confirmed: false, ct);
+    }
 
-        // MQ-REQ-015: Minimize context before sending to online provider
-        var minimizedRequest = MinimizeContextForOnlineProvider(request);
+    public async Task<IReadOnlyList<ExecutionResult>> ExecuteBatchAsync(
+        IReadOnlyList<ExecutionRequest> requests,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
 
-        // TODO: Integrate with Microsoft.Extensions.AI abstractions
-        // - Get IChatClient for provider
-        // - Execute completion request using minimizedRequest (not original request)
-        // - Handle API errors and retries
-        // - Track actual token usage
-
-        // Stub implementation
-        await Task.Delay(200, ct); // Simulate API call
-
-        var result = new ExecutionResult
+        if (requests.Count == 0)
         {
-            RequestId = minimizedRequest.Id,
-            Content = $"[STUB] Processed by {providerName}: {minimizedRequest.Content}",
-            Status = ExecutionStatus.Completed,
-            CompletedAt = DateTimeOffset.UtcNow,
-            TokenUsage = new TokenUsage
+            return Array.Empty<ExecutionResult>();
+        }
+
+        if (!_taskModelMappings.AllowParallelProviderExecution || requests.Count == 1)
+        {
+            var sequentialResults = new List<ExecutionResult>(requests.Count);
+            foreach (var request in requests)
             {
-                InputTokens = EstimateTokens(minimizedRequest.Content) + 
-                              minimizedRequest.Context.Sum(kvp => EstimateTokens(kvp.Value)),
-                OutputTokens = 100 // Stub output
+                sequentialResults.Add(await ExecuteAsync(request, null, ct));
             }
-        };
 
-        // Update token usage
-        UpdateTokenUsage(providerName, result.TokenUsage);
+            return sequentialResults;
+        }
 
-        return result;
+        _logger.LogInformation(
+            "Executing {RequestCount} online requests with parallel provider execution enabled",
+            requests.Count);
+
+        var tasks = requests.Select(request => ExecuteAsync(request, null, ct));
+        return await Task.WhenAll(tasks);
     }
 
     public Task<ProviderTokenUsage> GetTokenUsageAsync(
         string providerName,
         CancellationToken ct = default)
     {
-        if (!_tokenUsage.TryGetValue(providerName, out var usage))
-        {
-            throw new ArgumentException($"Provider '{providerName}' not found", nameof(providerName));
-        }
+        ProviderTokenUsage snapshot;
 
-        // Return a copy to avoid exposing internal state
-        var snapshot = new ProviderTokenUsage
+        lock (_tokenUsageLock)
         {
-            ProviderName = usage.ProviderName,
-            DailyInputTokens = usage.DailyInputTokens,
-            DailyOutputTokens = usage.DailyOutputTokens,
-            MonthlyInputTokens = usage.MonthlyInputTokens,
-            MonthlyOutputTokens = usage.MonthlyOutputTokens,
-            DailyInputLimit = usage.DailyInputLimit,
-            DailyOutputLimit = usage.DailyOutputLimit,
-            MonthlyInputLimit = usage.MonthlyInputLimit,
-            MonthlyOutputLimit = usage.MonthlyOutputLimit,
-            ResetDate = usage.ResetDate
-        };
+            if (!_tokenUsage.TryGetValue(providerName, out var usage))
+            {
+                throw new ArgumentException($"Provider '{providerName}' not found", nameof(providerName));
+            }
+
+            // Return a copy to avoid exposing internal state
+            snapshot = new ProviderTokenUsage
+            {
+                ProviderName = usage.ProviderName,
+                DailyInputTokens = usage.DailyInputTokens,
+                DailyOutputTokens = usage.DailyOutputTokens,
+                MonthlyInputTokens = usage.MonthlyInputTokens,
+                MonthlyOutputTokens = usage.MonthlyOutputTokens,
+                DailyInputLimit = usage.DailyInputLimit,
+                DailyOutputLimit = usage.DailyOutputLimit,
+                MonthlyInputLimit = usage.MonthlyInputLimit,
+                MonthlyOutputLimit = usage.MonthlyOutputLimit,
+                ResetDate = usage.ResetDate
+            };
+        }
 
         return Task.FromResult(snapshot);
     }
@@ -258,31 +264,37 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
 
     private bool IsProviderWithinDailyBudget(string providerName)
     {
-        if (!_tokenUsage.TryGetValue(providerName, out var usage))
+        lock (_tokenUsageLock)
         {
-            return false;
-        }
+            if (!_tokenUsage.TryGetValue(providerName, out var usage))
+            {
+                return false;
+            }
 
-        return usage.DailyInputTokens < usage.DailyInputLimit &&
-               usage.DailyOutputTokens < usage.DailyOutputLimit;
+            return usage.DailyInputTokens < usage.DailyInputLimit &&
+                   usage.DailyOutputTokens < usage.DailyOutputLimit;
+        }
     }
 
     private async Task CheckTokenBudgetAsync(string providerName, ExecutionRequest request)
     {
-        if (!_tokenUsage.TryGetValue(providerName, out var usage))
+        lock (_tokenUsageLock)
         {
-            return; // No tracking for this provider
-        }
+            if (!_tokenUsage.TryGetValue(providerName, out var usage))
+            {
+                return; // No tracking for this provider
+            }
 
-        var estimatedTokens = EstimateTokens(request.Content);
+            var estimatedTokens = EstimateTokens(request.Content);
 
-        // Check daily budget
-        if (usage.DailyInputTokens + estimatedTokens > usage.DailyInputLimit)
-        {
-            throw new TokenBudgetExceededException(
-                providerName,
-                estimatedTokens,
-                usage.DailyInputLimit - usage.DailyInputTokens);
+            // Check daily budget
+            if (usage.DailyInputTokens + estimatedTokens > usage.DailyInputLimit)
+            {
+                throw new TokenBudgetExceededException(
+                    providerName,
+                    estimatedTokens,
+                    usage.DailyInputLimit - usage.DailyInputTokens);
+            }
         }
 
         await Task.CompletedTask;
@@ -290,23 +302,26 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
 
     private void UpdateTokenUsage(string providerName, TokenUsage usage)
     {
-        if (!_tokenUsage.TryGetValue(providerName, out var providerUsage))
+        lock (_tokenUsageLock)
         {
-            return;
+            if (!_tokenUsage.TryGetValue(providerName, out var providerUsage))
+            {
+                return;
+            }
+
+            providerUsage.DailyInputTokens += usage.InputTokens;
+            providerUsage.DailyOutputTokens += usage.OutputTokens;
+            providerUsage.MonthlyInputTokens += usage.InputTokens;
+            providerUsage.MonthlyOutputTokens += usage.OutputTokens;
+
+            _logger.LogInformation(
+                "Token usage for {Provider}: Daily {DailyInput}+{DailyOutput}, Monthly {MonthlyInput}+{MonthlyOutput}",
+                providerName,
+                providerUsage.DailyInputTokens,
+                providerUsage.DailyOutputTokens,
+                providerUsage.MonthlyInputTokens,
+                providerUsage.MonthlyOutputTokens);
         }
-
-        providerUsage.DailyInputTokens += usage.InputTokens;
-        providerUsage.DailyOutputTokens += usage.OutputTokens;
-        providerUsage.MonthlyInputTokens += usage.InputTokens;
-        providerUsage.MonthlyOutputTokens += usage.OutputTokens;
-
-        _logger.LogInformation(
-            "Token usage for {Provider}: Daily {DailyInput}+{DailyOutput}, Monthly {MonthlyInput}+{MonthlyOutput}",
-            providerName,
-            providerUsage.DailyInputTokens,
-            providerUsage.DailyOutputTokens,
-            providerUsage.MonthlyInputTokens,
-            providerUsage.MonthlyOutputTokens);
     }
 
     private static int EstimateTokens(string text)
@@ -436,14 +451,17 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         // AutoWithinBudget mode: require confirmation if exceeding budget
         if (_options.ConfirmationMode == ConfirmationMode.AutoWithinBudget)
         {
-            if (!_tokenUsage.TryGetValue(providerName, out var usage))
+            lock (_tokenUsageLock)
             {
-                // No usage tracking, require confirmation to be safe
-                return true;
-            }
+                if (!_tokenUsage.TryGetValue(providerName, out var usage))
+                {
+                    // No usage tracking, require confirmation to be safe
+                    return true;
+                }
 
-            var remainingBudget = usage.DailyInputLimit - usage.DailyInputTokens;
-            return estimatedTokens > remainingBudget;
+                var remainingBudget = usage.DailyInputLimit - usage.DailyInputTokens;
+                return estimatedTokens > remainingBudget;
+            }
         }
 
         return false;
@@ -463,10 +481,13 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             EstimatedOutputTokens = 100 // Conservative estimate
         };
 
-        if (_tokenUsage.TryGetValue(providerName, out var usage))
+        lock (_tokenUsageLock)
         {
-            details.CurrentDailyInputTokens = usage.DailyInputTokens;
-            details.DailyInputLimit = usage.DailyInputLimit;
+            if (_tokenUsage.TryGetValue(providerName, out var usage))
+            {
+                details.CurrentDailyInputTokens = usage.DailyInputTokens;
+                details.DailyInputLimit = usage.DailyInputLimit;
+            }
         }
 
         // Determine confirmation reason based on mode
@@ -530,33 +551,79 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             }
         }
 
-        // Check budget (still need to enforce hard limits even with confirmation)
+        return await ExecuteThroughProviderAsync(request, providerName, confirmed: true, ct);
+    }
+
+    private async Task<ExecutionResult> ExecuteThroughProviderAsync(
+        ExecutionRequest request,
+        string providerName,
+        bool confirmed,
+        CancellationToken ct)
+    {
         await CheckTokenBudgetAsync(providerName, request);
 
-        // MQ-REQ-015: Minimize context before sending to online provider
         var minimizedRequest = MinimizeContextForOnlineProvider(request);
+        var providerLimiter = GetProviderConcurrencyLimiter(providerName);
 
+        await providerLimiter.WaitAsync(ct);
+        try
+        {
+            var result = await ExecuteStubProviderCallAsync(minimizedRequest, providerName, confirmed, ct);
+            UpdateTokenUsage(providerName, result.TokenUsage);
+            return result;
+        }
+        finally
+        {
+            providerLimiter.Release();
+        }
+    }
+
+    private static async Task<ExecutionResult> ExecuteStubProviderCallAsync(
+        ExecutionRequest minimizedRequest,
+        string providerName,
+        bool confirmed,
+        CancellationToken ct)
+    {
         // TODO: Integrate with Microsoft.Extensions.AI abstractions
-        // Use minimizedRequest (not original request) when sending to provider
+        // - Get IChatClient for provider
+        // - Execute completion request using minimizedRequest (not original request)
+        // - Handle API errors and retries
+        // - Track actual token usage
+
         await Task.Delay(200, ct); // Simulate API call
 
-        var result = new ExecutionResult
+        var content = confirmed
+            ? $"[STUB] Processed by {providerName} (confirmed): {minimizedRequest.Content}"
+            : $"[STUB] Processed by {providerName}: {minimizedRequest.Content}";
+
+        return new ExecutionResult
         {
             RequestId = minimizedRequest.Id,
-            Content = $"[STUB] Processed by {providerName} (confirmed): {minimizedRequest.Content}",
+            Content = content,
             Status = ExecutionStatus.Completed,
             CompletedAt = DateTimeOffset.UtcNow,
             TokenUsage = new TokenUsage
             {
-                InputTokens = EstimateTokens(minimizedRequest.Content) + 
+                InputTokens = EstimateTokens(minimizedRequest.Content) +
                               minimizedRequest.Context.Sum(kvp => EstimateTokens(kvp.Value)),
                 OutputTokens = 100
             }
         };
+    }
 
-        UpdateTokenUsage(providerName, result.TokenUsage);
+    private SemaphoreSlim GetProviderConcurrencyLimiter(string providerName)
+    {
+        lock (_providerLimiterLock)
+        {
+            if (_providerConcurrencyLimiters.TryGetValue(providerName, out var limiter))
+            {
+                return limiter;
+            }
 
-        return result;
+            limiter = new SemaphoreSlim(_taskModelMappings.MaxConcurrentRequestsPerProvider);
+            _providerConcurrencyLimiters[providerName] = limiter;
+            return limiter;
+        }
     }
 
     /// <summary>
@@ -730,6 +797,14 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
 
     public void Dispose()
     {
-        _concurrencyLimiter?.Dispose();
+        lock (_providerLimiterLock)
+        {
+            foreach (var limiter in _providerConcurrencyLimiters.Values)
+            {
+                limiter.Dispose();
+            }
+
+            _providerConcurrencyLimiters.Clear();
+        }
     }
 }
