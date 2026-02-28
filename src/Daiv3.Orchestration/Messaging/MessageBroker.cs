@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Daiv3.Orchestration.Messaging.Correlation;
 using Daiv3.Orchestration.Messaging.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,7 @@ public class MessageBroker : IMessageBroker, IAsyncDisposable
     private readonly ILogger<MessageBroker> _logger;
     private readonly IMessageStore _messageStore;
     private readonly MessageBrokerOptions _options;
+    private readonly MessageCorrelationContext _correlationContext;
 
     /// <summary>
     /// Subscription registrations keyed by (topic, handler).
@@ -39,6 +41,7 @@ public class MessageBroker : IMessageBroker, IAsyncDisposable
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _messageStore = messageStore ?? throw new ArgumentNullException(nameof(messageStore));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _correlationContext = new MessageCorrelationContext();
 
         _options.Validate();
 
@@ -155,6 +158,23 @@ public class MessageBroker : IMessageBroker, IAsyncDisposable
         return _messageStore.LoadMessageAsync(messageId, ct);
     }
 
+    /// <summary>
+    /// Waits for a reply message matching the correlation ID.
+    /// Used for request/reply patterns.
+    /// </summary>
+    /// <param name="correlationId">The correlation ID to wait for.</param>
+    /// <param name="timeout">Maximum time to wait for a reply.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The reply message if received within timeout.</returns>
+    public Task<IAgentMessage> WaitForReplyAsync(
+        string correlationId,
+        TimeSpan timeout,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(correlationId);
+        return _correlationContext.WaitForReplyAsync(correlationId, timeout);
+    }
+
     /// <inheritdoc />
     public Task<MessageBrokerResult> MarkProcessedAsync(Guid messageId, CancellationToken ct = default)
     {
@@ -242,6 +262,9 @@ public class MessageBroker : IMessageBroker, IAsyncDisposable
         _subscriptions.Clear();
         _watchers.Clear();
 
+        // Clear correlation context
+        _correlationContext.Dispose();
+
         await Task.CompletedTask.ConfigureAwait(false);
         GC.SuppressFinalize(this);
     }
@@ -261,6 +284,18 @@ public class MessageBroker : IMessageBroker, IAsyncDisposable
     /// </summary>
     private async Task DeliverToSubscribersAsync(IAgentMessage message)
     {
+        // Check if this is a reply to a waiting correlation
+        if (!string.IsNullOrWhiteSpace(message.Metadata?.CorrelationId))
+        {
+            if (_correlationContext.DeliverReply(message.Metadata.CorrelationId, message))
+            {
+                _logger.LogDebug(
+                    "Message {MessageId} delivered to waiting correlator via correlation context",
+                    message.MessageId);
+                return; // Don't broadcast replies to subscribers
+            }
+        }
+
         if (_subscriptions.IsEmpty)
             return;
 
