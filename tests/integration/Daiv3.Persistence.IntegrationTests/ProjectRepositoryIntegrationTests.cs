@@ -79,7 +79,15 @@ public class ProjectRepositoryIntegrationTests : IAsyncLifetime
             CreatedAt = now,
             UpdatedAt = now,
             Status = "active",
-            ConfigJson = "{\"localOnly\":true}"
+            ConfigJson = new ProjectConfiguration
+            {
+                Instructions = "Focus on reliable delivery and concise outputs.",
+                ModelPreferences = new ProjectModelPreferences
+                {
+                    PreferredModelId = "phi-4-mini",
+                    FallbackModelId = "gpt-4o-mini"
+                }
+            }.ToJsonOrNull()
         });
 
         var project = await repository.GetByIdAsync(projectId);
@@ -91,6 +99,10 @@ public class ProjectRepositoryIntegrationTests : IAsyncLifetime
         Assert.Equal("active", project.Status);
         Assert.Equal(now, project.CreatedAt);
         Assert.Equal(now, project.UpdatedAt);
+        var config = ProjectConfiguration.Parse(project.ConfigJson);
+        Assert.Equal("Focus on reliable delivery and concise outputs.", config.Instructions);
+        Assert.Equal("phi-4-mini", config.ModelPreferences.PreferredModelId);
+        Assert.Equal("gpt-4o-mini", config.ModelPreferences.FallbackModelId);
 
         var parsedRootPaths = ProjectRootPaths.Parse(project.RootPaths);
         Assert.Equal(2, parsedRootPaths.Count);

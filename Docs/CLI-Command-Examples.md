@@ -141,6 +141,9 @@ PROJECTS:
   Root Paths:
     - C:\repo\src
     - C:\repo\docs
+  Instructions: Keep responses concise and prioritize reliability.
+  Preferred Model: phi-4-mini
+  Fallback Model: gpt-4o-mini
   Status: active
   Created: 2026-02-28 18:42:11 UTC
   Updated: 2026-02-28 18:42:11 UTC
@@ -154,6 +157,8 @@ PROJECTS:
 # with explicit root path(s)
 .\run-cli.bat projects create --name "My Project" -r "C:\repo\src"
 .\run-cli.bat projects create --name "My Project" -r "C:\repo\src" -r "C:\repo\docs"
+# with project-level instructions and model preferences
+.\run-cli.bat projects create --name "My Project" -i "Keep responses concise" --preferred-model "phi-4-mini" --fallback-model "gpt-4o-mini"
 ```
 Creates a new project with the specified name and optional description. Root paths default to the current working directory if `--root-path` is not provided.
 
@@ -165,6 +170,9 @@ Creates a new project with the specified name and optional description. Root pat
   Description: Project description
   Root Paths:
     - C:\repo\src
+  Instructions: Keep responses concise
+  Preferred Model: phi-4-mini
+  Fallback Model: gpt-4o-mini
   Status: active
   Created: 2026-02-28 18:42:11 UTC
 ```

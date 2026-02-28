@@ -94,15 +94,27 @@ public class Program
         {
             Arity = ArgumentArity.ZeroOrMore
         };
+        var projectInstructionsOption = new Option<string?>(
+            aliases: new[] { "--instructions", "-i" },
+            description: "Project-level instructions (system prompt and constraints)");
+        var preferredModelOption = new Option<string?>(
+            aliases: new[] { "--preferred-model" },
+            description: "Preferred model ID for project tasks");
+        var fallbackModelOption = new Option<string?>(
+            aliases: new[] { "--fallback-model" },
+            description: "Fallback model ID when preferred model is unavailable");
         projectsCreateCommand.AddOption(projectNameOption);
         projectsCreateCommand.AddOption(projectDescOption);
         projectsCreateCommand.AddOption(projectRootPathOption);
-        projectsCreateCommand.SetHandler(async (string name, string desc, string[] rootPaths) =>
+        projectsCreateCommand.AddOption(projectInstructionsOption);
+        projectsCreateCommand.AddOption(preferredModelOption);
+        projectsCreateCommand.AddOption(fallbackModelOption);
+        projectsCreateCommand.SetHandler(async (string name, string desc, string[] rootPaths, string? instructions, string? preferredModel, string? fallbackModel) =>
         {
             var host = CreateHost();
-            var exitCode = await ProjectsCreateCommand(host, name, desc, rootPaths);
+            var exitCode = await ProjectsCreateCommand(host, name, desc, rootPaths, instructions, preferredModel, fallbackModel);
             Environment.Exit(exitCode);
-        }, projectNameOption, projectDescOption, projectRootPathOption);
+        }, projectNameOption, projectDescOption, projectRootPathOption, projectInstructionsOption, preferredModelOption, fallbackModelOption);
 
         projectsCommand.AddCommand(projectsListCommand);
         projectsCommand.AddCommand(projectsCreateCommand);
@@ -384,6 +396,7 @@ public class Program
             foreach (var project in projects)
             {
                 var rootPaths = ProjectRootPaths.Parse(project.RootPaths);
+                var configuration = ProjectConfiguration.Parse(project.ConfigJson);
                 Console.WriteLine($"  ID: {project.ProjectId}");
                 Console.WriteLine($"  Name: {project.Name}");
                 Console.WriteLine($"  Description: {project.Description ?? string.Empty}");
@@ -399,6 +412,9 @@ public class Program
                         Console.WriteLine($"    - {rootPath}");
                     }
                 }
+                Console.WriteLine($"  Instructions: {configuration.Instructions ?? string.Empty}");
+                Console.WriteLine($"  Preferred Model: {configuration.ModelPreferences.PreferredModelId ?? string.Empty}");
+                Console.WriteLine($"  Fallback Model: {configuration.ModelPreferences.FallbackModelId ?? string.Empty}");
                 Console.WriteLine($"  Status: {project.Status}");
                 Console.WriteLine($"  Created: {FromUnixSeconds(project.CreatedAt):yyyy-MM-dd HH:mm:ss} UTC");
                 Console.WriteLine($"  Updated: {FromUnixSeconds(project.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
@@ -414,7 +430,14 @@ public class Program
         }
     }
 
-    private static async Task<int> ProjectsCreateCommand(IHost host, string name, string description, IReadOnlyList<string> rootPaths)
+    private static async Task<int> ProjectsCreateCommand(
+        IHost host,
+        string name,
+        string description,
+        IReadOnlyList<string> rootPaths,
+        string? instructions,
+        string? preferredModel,
+        string? fallbackModel)
     {
         try
         {
@@ -433,6 +456,17 @@ public class Program
             var normalizedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
             var normalizedRootPaths = NormalizeProjectRootPaths(rootPaths);
             var serializedRootPaths = ProjectRootPaths.Serialize(normalizedRootPaths);
+            var projectConfiguration = new ProjectConfiguration
+            {
+                Instructions = instructions,
+                ModelPreferences = new ProjectModelPreferences
+                {
+                    PreferredModelId = preferredModel,
+                    FallbackModelId = fallbackModel
+                }
+            };
+            var projectConfigJson = projectConfiguration.ToJsonOrNull();
+            var effectiveProjectConfiguration = ProjectConfiguration.Parse(projectConfigJson);
 
             await projectRepository.AddAsync(new Project
             {
@@ -442,7 +476,8 @@ public class Program
                 RootPaths = serializedRootPaths,
                 CreatedAt = now,
                 UpdatedAt = now,
-                Status = "active"
+                Status = "active",
+                ConfigJson = projectConfigJson
             }).ConfigureAwait(false);
 
             Console.WriteLine("✓ Project created successfully");
@@ -454,6 +489,9 @@ public class Program
             {
                 Console.WriteLine($"    - {rootPath}");
             }
+            Console.WriteLine($"  Instructions: {effectiveProjectConfiguration.Instructions ?? string.Empty}");
+            Console.WriteLine($"  Preferred Model: {effectiveProjectConfiguration.ModelPreferences.PreferredModelId ?? string.Empty}");
+            Console.WriteLine($"  Fallback Model: {effectiveProjectConfiguration.ModelPreferences.FallbackModelId ?? string.Empty}");
             Console.WriteLine("  Status: active");
             Console.WriteLine($"  Created: {FromUnixSeconds(now):yyyy-MM-dd HH:mm:ss} UTC");
             
