@@ -2,12 +2,13 @@
 setlocal
 
 echo ================================================================================
-echo Running All Unit and Integration Tests
+echo Running Full Test Suite (Canonical)
 echo ================================================================================
 echo.
 
-REM Run all tests in the solution (all target frameworks)
-dotnet test "%~dp0Daiv3.FoundryLocal.slnx" --verbosity normal %*
+REM Canonical full-suite command. Do not pipe to Select-String/grep when validating totals.
+REM This preserves the final aggregate "Test summary" line for consistent reporting.
+dotnet test "%~dp0Daiv3.FoundryLocal.slnx" --nologo --verbosity minimal --logger "console;verbosity=minimal" %*
 
 echo.
 echo ================================================================================

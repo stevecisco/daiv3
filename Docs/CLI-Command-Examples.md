@@ -511,6 +511,24 @@ Usage Example:
 
 ---
 
+## Test Verification (Canonical)
+
+Use this command for full-suite verification and stable reporting:
+
+```bash
+dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal --logger "console;verbosity=minimal"
+```
+
+**Important:** Do not pipe test output to `Select-String`, `grep`, or other filters when validating totals. Filtering can hide the final aggregate `Test summary` line and make counts look lower than they are.
+
+For convenience on Windows, use:
+
+```bash
+.\run-tests.bat
+```
+
+---
+
 ## Help and Documentation
 
 ### General Help

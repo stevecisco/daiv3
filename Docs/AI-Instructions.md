@@ -255,8 +255,10 @@ Use conditional compilation for platform-specific implementations:
 - **When user asks for FULL suite execution/counts, do NOT rely on editor test tooling alone** (it may under-discover in this repo).
 - For full-suite runs, always execute from workspace root:
    - `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`
+   - **NEVER pipe test output to `Select-String`, `grep`, or other filters** when validating totals - this hides the final aggregate `Test summary` line
+   - Use `.\run-tests.bat` for consistent canonical output (see `Docs/CLI-Command-Examples.md`)
 - Parse the final per-assembly summaries and aggregate totals.
-- Validate that totals are in expected range (current baseline on 2026-02-28: ~1411 total across both `Daiv3.UnitTests` target runs).
+- Validate that totals are in expected range (current baseline on 2026-02-28: ~1677 total including integration tests).
 - If observed totals are far lower than baseline, treat as discovery failure and re-run via solution-level `dotnet test` before reporting results.
 
 #### Testing Best Practices
@@ -1593,8 +1595,11 @@ dotnet build src/Daiv3.FoundryLocal.Management.Cli/Daiv3.FoundryLocal.Management
 
 ### Testing Commands
 ```bash
-# Run all tests (from root directory)
-dotnet test Daiv3.FoundryLocal.slnx
+# Run all tests (canonical full-suite command - from root directory)
+dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal
+
+# OR use the canonical test script (Windows)
+.\run-tests.bat
 
 # Run specific test project (from root directory with full path)
 dotnet test tests/integration/Daiv3.FoundryLocal.IntegrationTests/Daiv3.FoundryLocal.IntegrationTests.csproj
@@ -1605,6 +1610,12 @@ dotnet test Daiv3.FoundryLocal.slnx --verbosity detailed
 # Run with code coverage (from root directory)
 dotnet test Daiv3.FoundryLocal.slnx /p:CollectCoverage=true
 ```
+
+**Critical: Do NOT filter test output when reporting totals**
+- Never pipe to `Select-String`, `grep`, or similar filters
+- Filtering hides the final aggregate "Test summary" line
+- This can make totals appear lower than they actually are (e.g., showing 803 instead of 1677)
+- See `Docs/CLI-Command-Examples.md` for detailed guidance
 
 **Why Full Paths:**
 - Eliminates need to change directories
