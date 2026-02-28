@@ -67,7 +67,8 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
                     MonthlyInputTokenLimit = 1000,
                     MonthlyOutputTokenLimit = 1000
                 }
-            }
+            },
+            ConfirmationMode = ConfirmationMode.Never // Bypass confirmation for this test
         };
 
         var router = CreateRouter(options);
