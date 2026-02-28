@@ -208,6 +208,93 @@ public class OnlineProviderRouterTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_ExceedingDailyOutputBudget_ThrowsTokenBudgetExceededException()
+    {
+        // Arrange
+        var limitedOptions = new OnlineProviderOptions
+        {
+            Providers = new Dictionary<string, ProviderConfig>
+            {
+                ["limited-output"] = new ProviderConfig
+                {
+                    DailyInputTokenLimit = 1000,
+                    DailyOutputTokenLimit = 50,
+                    MonthlyInputTokenLimit = 10000,
+                    MonthlyOutputTokenLimit = 10000
+                }
+            }
+        };
+
+        var router = new OnlineProviderRouter(Options.Create(limitedOptions), Options.Create(_mappingConfig), _mockLogger.Object);
+        var request = new ExecutionRequest
+        {
+            TaskType = "chat",
+            Content = "short"
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<TokenBudgetExceededException>(() => router.ExecuteAsync(request, "limited-output"));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ExceedingMonthlyInputBudget_ThrowsTokenBudgetExceededException()
+    {
+        // Arrange
+        var limitedOptions = new OnlineProviderOptions
+        {
+            Providers = new Dictionary<string, ProviderConfig>
+            {
+                ["limited-monthly-input"] = new ProviderConfig
+                {
+                    DailyInputTokenLimit = 10000,
+                    DailyOutputTokenLimit = 10000,
+                    MonthlyInputTokenLimit = 10,
+                    MonthlyOutputTokenLimit = 10000
+                }
+            }
+        };
+
+        var router = new OnlineProviderRouter(Options.Create(limitedOptions), Options.Create(_mappingConfig), _mockLogger.Object);
+        var request = new ExecutionRequest
+        {
+            TaskType = "chat",
+            Content = "This is a very long message that will exceed monthly input budget before execution"
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<TokenBudgetExceededException>(() => router.ExecuteAsync(request, "limited-monthly-input"));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ExceedingMonthlyOutputBudget_ThrowsTokenBudgetExceededException()
+    {
+        // Arrange
+        var limitedOptions = new OnlineProviderOptions
+        {
+            Providers = new Dictionary<string, ProviderConfig>
+            {
+                ["limited-monthly-output"] = new ProviderConfig
+                {
+                    DailyInputTokenLimit = 10000,
+                    DailyOutputTokenLimit = 10000,
+                    MonthlyInputTokenLimit = 10000,
+                    MonthlyOutputTokenLimit = 50
+                }
+            }
+        };
+
+        var router = new OnlineProviderRouter(Options.Create(limitedOptions), Options.Create(_mappingConfig), _mockLogger.Object);
+        var request = new ExecutionRequest
+        {
+            TaskType = "chat",
+            Content = "short"
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<TokenBudgetExceededException>(() => router.ExecuteAsync(request, "limited-monthly-output"));
+    }
+
+    [Fact]
     public async Task ExecuteAsync_MultipleRequests_AccumulatesTokenUsage()
     {
         // Arrange

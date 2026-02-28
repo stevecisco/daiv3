@@ -239,7 +239,7 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
 
         // Fall back to checking budget availability
         var availableByBudget = _options.Providers.Keys
-            .Where(p => IsProviderWithinDailyBudget(p))
+            .Where(IsProviderWithinBudget)
             .FirstOrDefault();
 
         if (!string.IsNullOrEmpty(availableByBudget))
@@ -265,7 +265,7 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         return _options.Providers.ContainsKey(providerName);
     }
 
-    private bool IsProviderWithinDailyBudget(string providerName)
+    private bool IsProviderWithinBudget(string providerName)
     {
         lock (_tokenUsageLock)
         {
@@ -275,7 +275,9 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             }
 
             return usage.DailyInputTokens < usage.DailyInputLimit &&
-                   usage.DailyOutputTokens < usage.DailyOutputLimit;
+                   usage.DailyOutputTokens < usage.DailyOutputLimit &&
+                   usage.MonthlyInputTokens < usage.MonthlyInputLimit &&
+                   usage.MonthlyOutputTokens < usage.MonthlyOutputLimit;
         }
     }
 
@@ -288,15 +290,39 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
                 return; // No tracking for this provider
             }
 
-            var estimatedTokens = EstimateTokens(request.Content);
+            var estimatedInputTokens = EstimateTokens(request.Content);
+            var estimatedOutputTokens = EstimateOutputTokens(request);
 
-            // Check daily budget
-            if (usage.DailyInputTokens + estimatedTokens > usage.DailyInputLimit)
+            if (usage.DailyInputTokens + estimatedInputTokens > usage.DailyInputLimit)
             {
                 throw new TokenBudgetExceededException(
                     providerName,
-                    estimatedTokens,
+                    estimatedInputTokens,
                     usage.DailyInputLimit - usage.DailyInputTokens);
+            }
+
+            if (usage.DailyOutputTokens + estimatedOutputTokens > usage.DailyOutputLimit)
+            {
+                throw new TokenBudgetExceededException(
+                    providerName,
+                    estimatedOutputTokens,
+                    usage.DailyOutputLimit - usage.DailyOutputTokens);
+            }
+
+            if (usage.MonthlyInputTokens + estimatedInputTokens > usage.MonthlyInputLimit)
+            {
+                throw new TokenBudgetExceededException(
+                    providerName,
+                    estimatedInputTokens,
+                    usage.MonthlyInputLimit - usage.MonthlyInputTokens);
+            }
+
+            if (usage.MonthlyOutputTokens + estimatedOutputTokens > usage.MonthlyOutputLimit)
+            {
+                throw new TokenBudgetExceededException(
+                    providerName,
+                    estimatedOutputTokens,
+                    usage.MonthlyOutputLimit - usage.MonthlyOutputTokens);
             }
         }
 
@@ -331,6 +357,12 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
     {
         // Rough estimate: ~4 characters per token
         return text.Length / 4;
+    }
+
+    private static int EstimateOutputTokens(ExecutionRequest request)
+    {
+        _ = request;
+        return 100;
     }
 
     public async Task<int> RetryPendingRequestsAsync(CancellationToken ct = default)

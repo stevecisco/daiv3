@@ -5,6 +5,8 @@ namespace Daiv3.FoundryLocal.IntegrationTests;
 
 public sealed class FoundryLocalManagerFixture : IAsyncLifetime, IDisposable
 {
+    private static readonly SemaphoreSlim InitializationGate = new(1, 1);
+    private static bool _initialized;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<FoundryLocalManagerFixture> _logger;
 
@@ -23,14 +25,43 @@ public sealed class FoundryLocalManagerFixture : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var config = new Configuration
+        if (_initialized)
         {
-            AppName = "FoundryLocalIntegrationTests",
-            LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information
-        };
+            Manager = FoundryLocalManager.Instance;
+            return;
+        }
 
-        await FoundryLocalManager.CreateAsync(config, _logger);
-        Manager = FoundryLocalManager.Instance;
+        await InitializationGate.WaitAsync();
+        try
+        {
+            if (_initialized)
+            {
+                Manager = FoundryLocalManager.Instance;
+                return;
+            }
+
+            var config = new Configuration
+            {
+                AppName = "FoundryLocalIntegrationTests",
+                LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information
+            };
+
+            try
+            {
+                await FoundryLocalManager.CreateAsync(config, _logger);
+            }
+            catch (FoundryLocalException ex) when (ex.Message.Contains("already been created", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("FoundryLocalManager singleton already initialized; reusing existing instance");
+            }
+
+            Manager = FoundryLocalManager.Instance;
+            _initialized = true;
+        }
+        finally
+        {
+            InitializationGate.Release();
+        }
     }
 
     public Task DisposeAsync()
