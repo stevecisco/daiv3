@@ -95,7 +95,7 @@ public class LocalModelIntentClassifierTests
     }
 
     [Fact]
-    public async Task ClassifyAsync_WithNullContent_ThrowsException()
+    public async Task ClassifyAsync_WithNullContent_ThrowsArgumentNullException()
     {
         // Arrange
         var optionsWrapper = Options.Create(_options);
@@ -105,7 +105,7 @@ public class LocalModelIntentClassifierTests
             _mockPatternFallback.Object);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
             classifier.ClassifyAsync(null!));
     }
 

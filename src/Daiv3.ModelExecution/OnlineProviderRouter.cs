@@ -21,8 +21,10 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
     private readonly TaskToModelMappingConfiguration _taskModelMappings;
     private readonly Dictionary<string, ProviderTokenUsage> _tokenUsage = new();
     private readonly Dictionary<string, SemaphoreSlim> _providerConcurrencyLimiters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Queue<DateTimeOffset>> _providerRequestWindows = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _tokenUsageLock = new();
     private readonly object _providerLimiterLock = new();
+    private readonly object _providerRateLimitLock = new();
     private readonly INetworkConnectivityService? _connectivityService;
     private readonly IModelQueueRepository? _queueRepository;
 
@@ -53,6 +55,7 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             };
 
             _providerConcurrencyLimiters[provider] = new SemaphoreSlim(_taskModelMappings.MaxConcurrentRequestsPerProvider);
+            _providerRequestWindows[provider] = new Queue<DateTimeOffset>();
         }
 
         _logger.LogInformation(
@@ -561,6 +564,7 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         CancellationToken ct)
     {
         await CheckTokenBudgetAsync(providerName, request);
+        await WaitForProviderRateLimitSlotAsync(providerName, ct);
 
         var minimizedRequest = MinimizeContextForOnlineProvider(request);
         var providerLimiter = GetProviderConcurrencyLimiter(providerName);
@@ -575,6 +579,68 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         finally
         {
             providerLimiter.Release();
+        }
+    }
+
+    private async Task WaitForProviderRateLimitSlotAsync(string providerName, CancellationToken ct)
+    {
+        if (!_options.Providers.TryGetValue(providerName, out var providerConfig))
+        {
+            return;
+        }
+
+        if (providerConfig.MaxRequestsPerWindow <= 0 || providerConfig.RateLimitWindowSeconds <= 0)
+        {
+            return;
+        }
+
+        var window = TimeSpan.FromSeconds(providerConfig.RateLimitWindowSeconds);
+
+        while (true)
+        {
+            TimeSpan? delay = null;
+
+            lock (_providerRateLimitLock)
+            {
+                if (!_providerRequestWindows.TryGetValue(providerName, out var providerWindow))
+                {
+                    providerWindow = new Queue<DateTimeOffset>();
+                    _providerRequestWindows[providerName] = providerWindow;
+                }
+
+                var now = DateTimeOffset.UtcNow;
+
+                while (providerWindow.Count > 0 && now - providerWindow.Peek() >= window)
+                {
+                    providerWindow.Dequeue();
+                }
+
+                if (providerWindow.Count < providerConfig.MaxRequestsPerWindow)
+                {
+                    providerWindow.Enqueue(now);
+                    return;
+                }
+
+                delay = window - (now - providerWindow.Peek());
+                if (delay < TimeSpan.Zero)
+                {
+                    delay = TimeSpan.Zero;
+                }
+            }
+
+            if (delay.GetValueOrDefault() > TimeSpan.Zero)
+            {
+                _logger.LogDebug(
+                    "Rate limit reached for provider {Provider}. Waiting {DelayMs} ms before retrying",
+                    providerName,
+                    delay.Value.TotalMilliseconds);
+
+                await Task.Delay(delay.Value, ct);
+            }
+            else
+            {
+                await Task.Yield();
+            }
         }
     }
 

@@ -45,6 +45,8 @@ public class ProviderConfig
     public int DailyOutputTokenLimit { get; set; } = 10000;
     public int MonthlyInputTokenLimit { get; set; } = 300000;
     public int MonthlyOutputTokenLimit { get; set; } = 300000;
+    public int RateLimitWindowSeconds { get; set; } = 60;
+    public int MaxRequestsPerWindow { get; set; } = 60;
     public Dictionary<string, string> TaskTypeToModel { get; set; } = new();
 }
 
