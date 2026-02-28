@@ -1,7 +1,7 @@
 # DAIv3 CLI Command Examples
 
 > **Auto-Updated**: This file is automatically updated as new CLI commands are implemented.
-> **Last Updated**: February 25, 2026
+> **Last Updated**: February 28, 2026
 
 ## Overview
 
@@ -175,6 +175,95 @@ Creates a new project with the specified name and optional description. Root pat
   Fallback Model: gpt-4o-mini
   Status: active
   Created: 2026-02-28 18:42:11 UTC
+```
+
+---
+
+## Task Management Commands
+
+### List All Tasks
+```bash
+.\run-cli.bat tasks list
+# filter by project
+.\run-cli.bat tasks list --project-id "7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f"
+# or short form
+.\run-cli.bat tasks list -p "7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f"
+# filter by status
+.\run-cli.bat tasks list --status pending
+# or short form
+.\run-cli.bat tasks list -s in-progress
+```
+Displays all tasks, optionally filtered by project ID or status.
+
+**Output Example:**
+```
+TASKS:
+  ID: a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p
+  Title: Implement API
+  Description: Create REST endpoints for user management
+  Project: 7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f
+  Status: in-progress
+  Priority: 8
+  Dependencies: ["dep-task-1", "dep-task-2"]
+  Next Run: 2026-03-01 10:00:00 UTC
+  Last Run: 2026-02-28 14:30:00 UTC
+  Created: 2026-02-28 09:15:30 UTC
+  Updated: 2026-02-28 18:42:11 UTC
+```
+
+### Create New Task
+```bash
+.\run-cli.bat tasks create --title "My Task"
+# with description
+.\run-cli.bat tasks create --title "My Task" --description "Task description"
+# with short form
+.\run-cli.bat tasks create -t "My Task" -d "Task description"
+# associate with project
+.\run-cli.bat tasks create --title "My Task" --project-id "7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f"
+# or short form
+.\run-cli.bat tasks create -t "My Task" -p "7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f"
+# set priority (0-9, default: 5)
+.\run-cli.bat tasks create --title "My Task" --priority 8
+# add dependencies
+.\run-cli.bat tasks create --title "My Task" --dependency "dep-task-1" --dependency "dep-task-2"
+# combine all options
+.\run-cli.bat tasks create -t "Implement API" -d "Create REST endpoints" -p "7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f" --priority 8 --dep "planning-task" --dep "design-task"
+```
+Creates a new task with specified properties. Title is required; all other fields are optional.
+
+**Output Example:**
+```
+✓ Task created successfully
+  ID: a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p
+  Title: Implement API
+  Description: Create REST endpoints
+  Project: 7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f
+  Status: pending
+  Priority: 8
+  Dependencies: ["planning-task", "design-task"]
+  Created: 2026-02-28 18:42:11 UTC
+```
+
+### Update Task
+```bash
+.\run-cli.bat tasks update --id "a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p" --status in-progress
+# or short form
+.\run-cli.bat tasks update --id "a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p" -s complete
+# update priority
+.\run-cli.bat tasks update --id "a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p" --priority 9
+# update both status and priority
+.\run-cli.bat tasks update --id "a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p" --status complete --priority 1
+```
+Updates an existing task's status and/or priority. Setting status to "complete" or "completed" automatically records the completion timestamp.
+
+**Output Example:**
+```
+✓ Task updated successfully
+  ID: a1b2c3d4-e5f6-4g7h-8i9j-0k1l2m3n4o5p
+  Title: Implement API
+  Status: complete
+  Priority: 1
+  Updated: 2026-02-28 19:15:30 UTC
 ```
 
 ---
