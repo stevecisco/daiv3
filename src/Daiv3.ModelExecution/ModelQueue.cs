@@ -195,10 +195,63 @@ public class ModelQueue : IModelQueue
             return immediateRequest;
         }
 
-        // P1 (Normal): Prefer current model, but switch if queue drains
+        // P1 (Normal): Implement model affinity batching (MQ-REQ-004)
+        // If current model is loaded and P1 requests exist, scan for matching requests
+        if (_currentModelId != null && _normalChannel.Reader.Count > 0)
+        {
+            var scannedRequests = new List<QueuedRequest>();
+            const int maxLookahead = 10; // Limit scanning to prevent delays
+
+            // Scan up to 10 P1 requests for current model match
+            for (int i = 0; i < maxLookahead && _normalChannel.Reader.TryRead(out var req); i++)
+            {
+                var reqModelId = DetermineModelId(req.Request);
+                
+                if (reqModelId == _currentModelId)
+                {
+                    // Found match! Requeue others and return this one
+                    _logger.LogDebug(
+                        "Found P1 request {RequestId} for current model {ModelId} after scanning {Count} requests (batching)",
+                        req.Request.Id, _currentModelId, i + 1);
+
+                    foreach (var other in scannedRequests)
+                    {
+                        await _normalChannel.Writer.WriteAsync(other);
+                    }
+
+                    return req;
+                }
+
+                scannedRequests.Add(req);
+            }
+
+            // No match found in lookahead - take first request (will cause model switch)
+            if (scannedRequests.Count > 0)
+            {
+                var firstRequest = scannedRequests[0];
+                var newModelId = DetermineModelId(firstRequest.Request);
+
+                _logger.LogInformation(
+                    "No P1 requests for current model {CurrentModelId} in lookahead, switching to {NewModelId}",
+                    _currentModelId, newModelId);
+
+                // Requeue the rest
+                foreach (var req in scannedRequests.Skip(1))
+                {
+                    await _normalChannel.Writer.WriteAsync(req);
+                }
+
+                return firstRequest;
+            }
+        }
+
+        // Fallback: Simple FIFO if no current model or empty queue
         if (_normalChannel.Reader.TryRead(out var normalRequest))
         {
-            _logger.LogDebug("Selected P1 (Normal) request {RequestId}", normalRequest.Request.Id);
+            var modelId = DetermineModelId(normalRequest.Request);
+            _logger.LogDebug(
+                "Selected P1 (Normal) request {RequestId} for model {ModelId}",
+                normalRequest.Request.Id, modelId);
             return normalRequest;
         }
 
@@ -257,9 +310,11 @@ public class ModelQueue : IModelQueue
                         "Model switch: {OldModel} → {NewModel}",
                         currentModel ?? "(none)", modelId);
 
-                    _currentModelId = modelId;
                     _lastModelSwitch = DateTimeOffset.UtcNow;
                 }
+
+                // Always update current model ID (even if no switch) for batching logic
+                _currentModelId = modelId;
 
                 result = await _foundryBridge.ExecuteAsync(request, modelId, executionCts.Token);
             }
