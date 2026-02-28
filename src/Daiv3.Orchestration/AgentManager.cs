@@ -2,7 +2,9 @@ using Daiv3.Orchestration.Interfaces;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Daiv3.Orchestration;
@@ -15,12 +17,17 @@ public class AgentManager : IAgentManager
 {
     private readonly ILogger<AgentManager> _logger;
     private readonly AgentRepository _agentRepository;
+    private readonly OrchestrationOptions _options;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
 
-    public AgentManager(ILogger<AgentManager> logger, AgentRepository agentRepository)
+    public AgentManager(
+        ILogger<AgentManager> logger,
+        AgentRepository agentRepository,
+        IOptions<OrchestrationOptions> options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _agentRepository = agentRepository ?? throw new ArgumentNullException(nameof(agentRepository));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <inheritdoc />
@@ -152,6 +159,237 @@ public class AgentManager : IAgentManager
         {
             _logger.LogWarning("Attempted to delete non-existent agent {AgentId}", agentId);
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<AgentExecutionResult> ExecuteTaskAsync(
+        AgentExecutionRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TaskGoal);
+
+        // Retrieve agent
+        var agent = await GetAgentAsync(request.AgentId, ct);
+        if (agent == null)
+        {
+            throw new InvalidOperationException($"Agent {request.AgentId} not found");
+        }
+
+        // Resolve execution options (use provided or defaults)
+        var options = ResolveExecutionOptions(request.Options);
+
+        var result = new AgentExecutionResult
+        {
+            AgentId = request.AgentId,
+            StartedAt = DateTimeOffset.UtcNow
+        };
+
+        _logger.LogInformation(
+            "Starting agent execution for Agent {AgentId} '{AgentName}'. Goal: {Goal}, MaxIterations: {MaxIterations}, Timeout: {Timeout}s, TokenBudget: {Budget}",
+            agent.Id, agent.Name, request.TaskGoal, options.MaxIterations, options.TimeoutSeconds, options.TokenBudget);
+
+        var stopwatch = Stopwatch.StartNew();
+        var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(options.TimeoutSeconds));
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+
+        try
+        {
+            // Execute iteration loop
+            for (int iteration = 1; iteration <= options.MaxIterations; iteration++)
+            {
+                linkedCts.Token.ThrowIfCancellationRequested();
+
+                _logger.LogDebug("Agent {AgentId} starting iteration {Iteration}/{MaxIterations}",
+                    agent.Id, iteration, options.MaxIterations);
+
+                // Execute one iteration step
+                var step = await ExecuteIterationAsync(
+                    agent,
+                    request.TaskGoal,
+                    request.Context,
+                    request.SuccessCriteria,
+                    iteration,
+                    result.Steps,
+                    linkedCts.Token);
+
+                result.Steps.Add(step);
+                result.TokensConsumed += step.TokensConsumed;
+                result.IterationsExecuted = iteration;
+
+                // Check token budget
+                if (result.TokensConsumed >= options.TokenBudget)
+                {
+                    _logger.LogWarning(
+                        "Agent {AgentId} exceeded token budget ({Consumed}/{Budget})",
+                        agent.Id, result.TokensConsumed, options.TokenBudget);
+
+                    result.Success = false;
+                    result.TerminationReason = "TokenBudgetExceeded";
+                    result.ErrorMessage = $"Token budget exceeded: {result.TokensConsumed}/{options.TokenBudget}";
+                    break;
+                }
+
+                // Check if task completed successfully
+                if (step.Success && step.StepType == "Completion")
+                {
+                    result.Success = true;
+                    result.TerminationReason = "Success";
+                    result.Output = step.Output;
+                    
+                    _logger.LogInformation(
+                        "Agent {AgentId} completed task successfully after {Iterations} iterations",
+                        agent.Id, iteration);
+                    break;
+                }
+
+                // Handle failure with optional self-correction
+                if (!step.Success && options.EnableSelfCorrection && iteration < options.MaxIterations)
+                {
+                    _logger.LogDebug(
+                        "Agent {AgentId} step failed, attempting self-correction on next iteration",
+                        agent.Id);
+                    // Self-correction context is passed via result.Steps history to next iteration
+                }
+
+                // Check if max iterations reached
+                if (iteration == options.MaxIterations)
+                {
+                    result.Success = false;
+                    result.TerminationReason = "MaxIterations";
+                    result.ErrorMessage = $"Maximum iterations ({options.MaxIterations}) reached without completion";
+                    result.Output = step.Output; // Partial output
+                    
+                    _logger.LogWarning(
+                        "Agent {AgentId} reached max iterations ({MaxIterations}) without completing task",
+                        agent.Id, options.MaxIterations);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
+        {
+            result.Success = false;
+            result.TerminationReason = "Timeout";
+            result.ErrorMessage = $"Execution timeout ({options.TimeoutSeconds}s) exceeded";
+            
+            _logger.LogWarning(
+                "Agent {AgentId} execution timed out after {Elapsed}ms",
+                agent.Id, stopwatch.ElapsedMilliseconds);
+        }
+        catch (OperationCanceledException)
+        {
+            result.Success = false;
+            result.TerminationReason = "Cancelled";
+            result.ErrorMessage = "Execution cancelled by user";
+            
+            _logger.LogInformation(
+                "Agent {AgentId} execution cancelled by user",
+                agent.Id);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.TerminationReason = "Error";
+            result.ErrorMessage = ex.Message;
+            
+            _logger.LogError(ex,
+                "Agent {AgentId} execution failed with error",
+                agent.Id);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            result.CompletedAt = DateTimeOffset.UtcNow;
+            timeoutCts.Dispose();
+            linkedCts.Dispose();
+
+            _logger.LogInformation(
+                "Agent {AgentId} execution completed. ExecutionId: {ExecutionId}, Success: {Success}, Reason: {Reason}, Iterations: {Iterations}, Tokens: {Tokens}, Duration: {Duration}ms",
+                agent.Id, result.ExecutionId, result.Success, result.TerminationReason,
+                result.IterationsExecuted, result.TokensConsumed, stopwatch.ElapsedMilliseconds);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Executes a single iteration step for the agent.
+    /// </summary>
+    /// <remarks>
+    /// This is a placeholder implementation. In the future, this will:
+    /// - Call language models for reasoning and planning
+    /// - Invoke skills based on agent's enabled skills
+    /// - Execute tools via IToolInvoker
+    /// - Evaluate success criteria
+    /// - Learn from previous step failures (self-correction)
+    /// </remarks>
+    private async Task<AgentExecutionStep> ExecuteIterationAsync(
+        Agent agent,
+        string taskGoal,
+        Dictionary<string, string> context,
+        string? successCriteria,
+        int iteration,
+        List<AgentExecutionStep> previousSteps,
+        CancellationToken ct)
+    {
+        var stepStartTime = DateTimeOffset.UtcNow;
+
+        // TODO: Replace with actual model inference and skill execution
+        // For now, simulate a multi-step task completion
+
+        var stepType = iteration switch
+        {
+            1 => "Planning",
+            var i when i < 5 => "Execution",
+            _ => "Completion"
+        };
+
+        // Simulate processing delay
+        await Task.Delay(50, ct);
+
+        var step = new AgentExecutionStep
+        {
+            StepNumber = iteration,
+            StepType = stepType,
+            Description = $"Iteration {iteration}: {stepType} step for goal: {taskGoal}",
+            Output = $"Step {iteration} output (placeholder)",
+            TokensConsumed = 100, // Placeholder token count
+            StartedAt = stepStartTime,
+            CompletedAt = DateTimeOffset.UtcNow,
+            Success = true
+        };
+
+        _logger.LogDebug(
+            "Agent {AgentId} completed step {StepNumber} ({StepType}): {Description}",
+            agent.Id, step.StepNumber, step.StepType, step.Description);
+
+        return step;
+    }
+
+    /// <summary>
+    /// Resolves execution options by merging provided options with configured defaults.
+    /// </summary>
+    private AgentExecutionOptions ResolveExecutionOptions(AgentExecutionOptions? provided)
+    {
+        if (provided == null)
+        {
+            return new AgentExecutionOptions
+            {
+                MaxIterations = _options.DefaultAgentMaxIterations,
+                TimeoutSeconds = _options.DefaultAgentTimeoutSeconds,
+                TokenBudget = _options.DefaultAgentTokenBudget,
+                EnableSelfCorrection = _options.DefaultAgentEnableSelfCorrection
+            };
+        }
+
+        // Use provided values, fallback to defaults if not specified
+        return new AgentExecutionOptions
+        {
+            MaxIterations = provided.MaxIterations > 0 ? provided.MaxIterations : _options.DefaultAgentMaxIterations,
+            TimeoutSeconds = provided.TimeoutSeconds > 0 ? provided.TimeoutSeconds : _options.DefaultAgentTimeoutSeconds,
+            TokenBudget = provided.TokenBudget > 0 ? provided.TokenBudget : _options.DefaultAgentTokenBudget,
+            EnableSelfCorrection = provided.EnableSelfCorrection
+        };
     }
 
     /// <summary>

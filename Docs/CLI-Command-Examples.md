@@ -520,6 +520,223 @@ Modifies the scheduling parameters of an existing job. The modification paramete
 
 ---
 
+## Agent Management Commands
+
+### List All Agents
+```bash
+.\run-cli.bat agent list
+```
+Lists all configured agents with their details.
+
+**Output Example:**
+```
+AGENTS:
+  Agent ID: 550e8400-e29b-41d4-a716-446655440000
+  Name: CodeReviewer
+  Purpose: Reviews code for best practices
+  Enabled Skills: code-analysis, lint-check
+  Created: 2026-02-28 14:30:00 UTC
+
+  Agent ID: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+  Name: DocumentGenerator
+  Purpose: Generates comprehensive documentation
+  Enabled Skills: document-generation, markdown-formatting
+  Created: 2026-02-28 15:00:00 UTC
+```
+
+### Create New Agent
+```bash
+# Basic agent creation
+.\run-cli.bat agent create --name "CodeReviewer" --purpose "Reviews code for best practices"
+
+# Agent with enabled skills
+.\run-cli.bat agent create \
+  --name "CodeReviewer" \
+  --purpose "Reviews code for best practices" \
+  --skills "code-analysis" \
+  --skills "lint-check" \
+  --skills "security-scan"
+
+# Short form
+.\run-cli.bat agent create -n "DocGen" -p "Documentation generator" -s "doc-gen" -s "markdown"
+```
+Creates a new agent with the specified name, purpose, and optional enabled skills.
+
+**Parameters:**
+- `--name, -n`: Agent name (required)
+- `--purpose, -p`: Agent purpose or description (required)
+- `--skills, -s`: Enabled skill names (repeat for multiple skills, optional)
+
+**Output Example:**
+```
+✓ Agent created successfully
+  Agent ID: 550e8400-e29b-41d4-a716-446655440000
+  Name: CodeReviewer
+  Purpose: Reviews code for best practices
+  Enabled Skills: code-analysis, lint-check, security-scan
+  Created: 2026-02-28 14:30:00 UTC
+```
+
+### Get Agent Details
+```bash
+.\run-cli.bat agent get --id "550e8400-e29b-41d4-a716-446655440000"
+```
+Retrieves detailed information about a specific agent.
+
+**Output Example:**
+```
+AGENT DETAILS:
+  Agent ID: 550e8400-e29b-41d4-a716-446655440000
+  Name: CodeReviewer
+  Purpose: Reviews code for best practices
+  Enabled Skills: code-analysis, lint-check, security-scan
+  Created: 2026-02-28 14:30:00 UTC
+  Configuration:
+    review_depth: thorough
+    output_format: markdown
+```
+
+### Delete Agent
+```bash
+.\run-cli.bat agent delete --id "550e8400-e29b-41d4-a716-446655440000"
+```
+Deletes an agent, removing it from the system.
+
+**Output Example:**
+```
+✓ Agent 550e8400-e29b-41d4-a716-446655440000 deleted successfully
+```
+
+### Execute Task with Agent
+```bash
+# Basic execution with defaults
+.\run-cli.bat agent execute \
+  --agent-id "550e8400-e29b-41d4-a716-446655440000" \
+  --goal "Review the authentication module for security issues"
+
+# Custom execution parameters
+.\run-cli.bat agent execute \
+  --agent-id "550e8400-e29b-41d4-a716-446655440000" \
+  --goal "Generate comprehensive API documentation" \
+  --max-iterations 15 \
+  --timeout 900 \
+  --token-budget 20000
+
+# Short form
+.\run-cli.bat agent execute \
+  -a "550e8400-e29b-41d4-a716-446655440000" \
+  -g "Analyze the codebase for performance bottlenecks" \
+  -i 20 \
+  -t 1800 \
+  -b 50000
+```
+Executes a task using the specified agent with multi-step iteration and configurable limits.
+
+**Parameters:**
+- `--agent-id, -a`: Agent ID to use for execution (required)
+- `--goal, -g`: Task goal or objective (required)
+- `--max-iterations, -i`: Maximum number of iterations (default: 10)
+- `--timeout, -t`: Execution timeout in seconds (default: 600)
+- `--token-budget, -b`: Token budget for execution (default: 10,000)
+
+**Execution Features:**
+- Multi-step iteration with configurable max iterations
+- Timeout enforcement to prevent runaway execution
+- Token budget tracking to control costs
+- Step-by-step observability
+- Multiple termination conditions (Success, MaxIterations, Timeout, TokenBudgetExceeded, Error, Cancelled)
+
+**Output Example:**
+```
+AGENT EXECUTION
+===============
+Agent ID: 550e8400-e29b-41d4-a716-446655440000
+Goal: Review the authentication module for security issues
+Max Iterations: 10
+Timeout: 600s
+Token Budget: 10000
+
+Executing...
+
+EXECUTION RESULT:
+  Execution ID: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+  Status: ✓ Success
+  Termination Reason: Success
+  Iterations Executed: 5
+  Tokens Consumed: 1250
+  Duration: 2.34s
+
+EXECUTION STEPS (5):
+  Step 1: Planning
+    Description: Iteration 1: Planning step for goal: Review the authentication module for security issues
+    Status: ✓
+    Tokens: 100
+    Output: Step 1 output (placeholder)
+
+  Step 2: Execution
+    Description: Iteration 2: Execution step for goal: Review the authentication module for security issues
+    Status: ✓
+    Tokens: 100
+    Output: Step 2 output (placeholder)
+
+  Step 3: Execution
+    Description: Iteration 3: Execution step for goal: Review the authentication module for security issues
+    Status: ✓
+    Tokens: 100
+    Output: Step 3 output (placeholder)
+
+  Step 4: Execution
+    Description: Iteration 4: Execution step for goal: Review the authentication module for security issues
+    Status: ✓
+    Tokens: 100
+    Output: Step 4 output (placeholder)
+
+  Step 5: Completion
+    Description: Iteration 5: Completion step for goal: Review the authentication module for security issues
+    Status: ✓
+    Tokens: 100
+    Output: Step 5 output (placeholder)
+
+FINAL OUTPUT:
+Step 5 output (placeholder)
+```
+
+**Error Examples:**
+```
+# Agent not found
+✗ Agent not found: 550e8400-e29b-41d4-a716-446655440000
+
+# Max iterations reached
+EXECUTION RESULT:
+  Status: ✗ Failed
+  Termination Reason: MaxIterations
+  Error: Maximum iterations (10) reached without completion
+
+# Token budget exceeded
+EXECUTION RESULT:
+  Status: ✗ Failed
+  Termination Reason: TokenBudgetExceeded
+  Error: Token budget exceeded: 10100/10000
+
+# Timeout
+EXECUTION RESULT:
+  Status: ✗ Failed
+  Termination Reason: Timeout
+  Error: Execution timeout (600s) exceeded
+```
+
+**Integration Note:**
+Current implementation uses placeholder execution logic. Future integration will include:
+- Language model calls for reasoning and planning
+- Skill execution based on agent's enabled skills
+- Tool invocation via IToolInvoker
+- Success criteria evaluation
+- Self-correction learning from failures
+
+Core iteration loop, termination logic, token tracking, and observability are fully operational.
+
+---
+
 ## Settings Commands
 
 ### Show Current Settings

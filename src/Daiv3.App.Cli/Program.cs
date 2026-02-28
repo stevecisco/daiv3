@@ -8,6 +8,7 @@ using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Scheduler;
+using Daiv3.Orchestration;
 
 namespace Daiv3.App.Cli;
 
@@ -347,6 +348,102 @@ public class Program
         scheduleCommand.AddCommand(scheduleResumeCommand);
         scheduleCommand.AddCommand(scheduleModifyCommand);
         rootCommand.AddCommand(scheduleCommand);
+
+        // Agent commands
+        var agentCommand = new Command("agent", "Agent management and execution commands");
+
+        var agentListCommand = new Command("list", "List all agents");
+        agentListCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentListCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        var agentCreateCommand = new Command("create", "Create a new agent");
+        var agentNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Agent name") { IsRequired = true };
+        var agentPurposeOption = new Option<string>(
+            aliases: new[] { "--purpose", "-p" },
+            description: "Agent purpose or description") { IsRequired = true };
+        var agentSkillsOption = new Option<string[]>(
+            aliases: new[] { "--skills", "-s" },
+            description: "Enabled skill names (repeat option for multiple skills)")
+        {
+            Arity = ArgumentArity.ZeroOrMore
+        };
+        agentCreateCommand.AddOption(agentNameOption);
+        agentCreateCommand.AddOption(agentPurposeOption);
+        agentCreateCommand.AddOption(agentSkillsOption);
+        agentCreateCommand.SetHandler(async (string name, string purpose, string[] skills) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentCreateCommand(host, name, purpose, skills);
+            Environment.Exit(exitCode);
+        }, agentNameOption, agentPurposeOption, agentSkillsOption);
+
+        var agentGetCommand = new Command("get", "Get agent details");
+        var agentIdGetOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Agent ID") { IsRequired = true };
+        agentGetCommand.AddOption(agentIdGetOption);
+        agentGetCommand.SetHandler(async (string id) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentGetCommand(host, id);
+            Environment.Exit(exitCode);
+        }, agentIdGetOption);
+
+        var agentDeleteCommand = new Command("delete", "Delete an agent");
+        var agentIdDeleteOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Agent ID") { IsRequired = true };
+        agentDeleteCommand.AddOption(agentIdDeleteOption);
+        agentDeleteCommand.SetHandler(async (string id) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentDeleteCommand(host, id);
+            Environment.Exit(exitCode);
+        }, agentIdDeleteOption);
+
+        var agentExecuteCommand = new Command("execute", "Execute a task using an agent");
+        var agentIdExecuteOption = new Option<string>(
+            aliases: new[] { "--agent-id", "-a" },
+            description: "Agent ID to use for execution") { IsRequired = true };
+        var agentGoalOption = new Option<string>(
+            aliases: new[] { "--goal", "-g" },
+            description: "Task goal or objective") { IsRequired = true };
+        var agentMaxIterationsOption = new Option<int>(
+            aliases: new[] { "--max-iterations", "-i" },
+            description: "Maximum number of iterations (default: 10)",
+            getDefaultValue: () => 10);
+        var agentTimeoutOption = new Option<int>(
+            aliases: new[] { "--timeout", "-t" },
+            description: "Execution timeout in seconds (default: 600)",
+            getDefaultValue: () => 600);
+        var agentTokenBudgetOption = new Option<int>(
+            aliases: new[] { "--token-budget", "-b" },
+            description: "Token budget for execution (default: 10000)",
+            getDefaultValue: () => 10_000);
+        agentExecuteCommand.AddOption(agentIdExecuteOption);
+        agentExecuteCommand.AddOption(agentGoalOption);
+        agentExecuteCommand.AddOption(agentMaxIterationsOption);
+        agentExecuteCommand.AddOption(agentTimeoutOption);
+        agentExecuteCommand.AddOption(agentTokenBudgetOption);
+        agentExecuteCommand.SetHandler(async (string agentId, string goal, int maxIterations, int timeout, int tokenBudget) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentExecuteCommand(host, agentId, goal, maxIterations, timeout, tokenBudget);
+            Environment.Exit(exitCode);
+        }, agentIdExecuteOption, agentGoalOption, agentMaxIterationsOption, agentTimeoutOption, agentTokenBudgetOption);
+
+        agentCommand.AddCommand(agentListCommand);
+        agentCommand.AddCommand(agentCreateCommand);
+        agentCommand.AddCommand(agentGetCommand);
+        agentCommand.AddCommand(agentDeleteCommand);
+        agentCommand.AddCommand(agentExecuteCommand);
+        rootCommand.AddCommand(agentCommand);
 
         // Settings command
         var settingsCommand = new Command("settings", "Configuration management");
@@ -1505,6 +1602,252 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to modify job: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentListCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var agentManager = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentManager>();
+            logger.LogInformation("Listing agents");
+
+            var agents = await agentManager.ListAgentsAsync();
+
+            Console.WriteLine("AGENTS:");
+            if (agents.Count == 0)
+            {
+                Console.WriteLine("  (No agents found)");
+                Console.WriteLine();
+                Console.WriteLine("Use 'agent create' to create a new agent.");
+                return 0;
+            }
+
+            foreach (var agent in agents)
+            {
+                Console.WriteLine($"  Agent ID: {agent.Id}");
+                Console.WriteLine($"  Name: {agent.Name}");
+                Console.WriteLine($"  Purpose: {agent.Purpose}");
+                Console.WriteLine($"  Enabled Skills: {(agent.EnabledSkills.Count > 0 ? string.Join(", ", agent.EnabledSkills) : "(none)")}");
+                Console.WriteLine($"  Created: {agent.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list agents: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentCreateCommand(IHost host, string name, string purpose, string[] skills)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var agentManager = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentManager>();
+            logger.LogInformation("Creating agent '{Name}'", name);
+
+            var definition = new Daiv3.Orchestration.Interfaces.AgentDefinition
+            {
+                Name = name,
+                Purpose = purpose,
+                EnabledSkills = new List<string>(skills)
+            };
+
+            var agent = await agentManager.CreateAgentAsync(definition);
+
+            Console.WriteLine("✓ Agent created successfully");
+            Console.WriteLine($"  Agent ID: {agent.Id}");
+            Console.WriteLine($"  Name: {agent.Name}");
+            Console.WriteLine($"  Purpose: {agent.Purpose}");
+            Console.WriteLine($"  Enabled Skills: {(agent.EnabledSkills.Count > 0 ? string.Join(", ", agent.EnabledSkills) : "(none)")}");
+            Console.WriteLine($"  Created: {agent.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to create agent: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentGetCommand(IHost host, string id)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var agentManager = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentManager>();
+
+            if (!Guid.TryParse(id, out var agentId))
+            {
+                Console.WriteLine($"✗ Invalid agent ID: {id}");
+                return 1;
+            }
+
+            logger.LogInformation("Getting agent {AgentId}", agentId);
+
+            var agent = await agentManager.GetAgentAsync(agentId);
+
+            if (agent == null)
+            {
+                Console.WriteLine($"✗ Agent not found: {id}");
+                return 1;
+            }
+
+            Console.WriteLine("AGENT DETAILS:");
+            Console.WriteLine($"  Agent ID: {agent.Id}");
+            Console.WriteLine($"  Name: {agent.Name}");
+            Console.WriteLine($"  Purpose: {agent.Purpose}");
+            Console.WriteLine($"  Enabled Skills: {(agent.EnabledSkills.Count > 0 ? string.Join(", ", agent.EnabledSkills) : "(none)")}");
+            Console.WriteLine($"  Created: {agent.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
+            
+            if (agent.Config.Count > 0)
+            {
+                Console.WriteLine("  Configuration:");
+                foreach (var kvp in agent.Config)
+                {
+                    Console.WriteLine($"    {kvp.Key}: {kvp.Value}");
+                }
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to get agent: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentDeleteCommand(IHost host, string id)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var agentManager = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentManager>();
+
+            if (!Guid.TryParse(id, out var agentId))
+            {
+                Console.WriteLine($"✗ Invalid agent ID: {id}");
+                return 1;
+            }
+
+            logger.LogInformation("Deleting agent {AgentId}", agentId);
+
+            await agentManager.DeleteAgentAsync(agentId);
+
+            Console.WriteLine($"✓ Agent {id} deleted successfully");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to delete agent: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentExecuteCommand(
+        IHost host,
+        string agentId,
+        string goal,
+        int maxIterations,
+        int timeout,
+        int tokenBudget)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var agentManager = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentManager>();
+
+            if (!Guid.TryParse(agentId, out var parsedAgentId))
+            {
+                Console.WriteLine($"✗ Invalid agent ID: {agentId}");
+                return 1;
+            }
+
+            logger.LogInformation("Executing task with agent {AgentId}", parsedAgentId);
+
+            Console.WriteLine("AGENT EXECUTION");
+            Console.WriteLine("===============");
+            Console.WriteLine($"Agent ID: {agentId}");
+            Console.WriteLine($"Goal: {goal}");
+            Console.WriteLine($"Max Iterations: {maxIterations}");
+            Console.WriteLine($"Timeout: {timeout}s");
+            Console.WriteLine($"Token Budget: {tokenBudget}");
+            Console.WriteLine();
+            Console.WriteLine("Executing...");
+            Console.WriteLine();
+
+            var request = new Daiv3.Orchestration.Interfaces.AgentExecutionRequest
+            {
+                AgentId = parsedAgentId,
+                TaskGoal = goal,
+                Options = new Daiv3.Orchestration.Interfaces.AgentExecutionOptions
+                {
+                    MaxIterations = maxIterations,
+                    TimeoutSeconds = timeout,
+                    TokenBudget = tokenBudget
+                }
+            };
+
+            var result = await agentManager.ExecuteTaskAsync(request);
+
+            Console.WriteLine("EXECUTION RESULT:");
+            Console.WriteLine($"  Execution ID: {result.ExecutionId}");
+            Console.WriteLine($"  Status: {(result.Success ? "✓ Success" : "✗ Failed")}");
+            Console.WriteLine($"  Termination Reason: {result.TerminationReason}");
+            Console.WriteLine($"  Iterations Executed: {result.IterationsExecuted}");
+            Console.WriteLine($"  Tokens Consumed: {result.TokensConsumed}");
+            Console.WriteLine($"  Duration: {(result.CompletedAt - result.StartedAt)?.TotalSeconds:F2}s");
+            Console.WriteLine();
+
+            if (result.Steps.Count > 0)
+            {
+                Console.WriteLine($"EXECUTION STEPS ({result.Steps.Count}):");
+                foreach (var step in result.Steps)
+                {
+                    Console.WriteLine($"  Step {step.StepNumber}: {step.StepType}");
+                    Console.WriteLine($"    Description: {step.Description}");
+                    Console.WriteLine($"    Status: {(step.Success ? "✓" : "✗")}");
+                    Console.WriteLine($"    Tokens: {step.TokensConsumed}");
+                    if (!string.IsNullOrEmpty(step.Output))
+                    {
+                        Console.WriteLine($"    Output: {step.Output}");
+                    }
+                    if (!string.IsNullOrEmpty(step.ErrorMessage))
+                    {
+                        Console.WriteLine($"    Error: {step.ErrorMessage}");
+                    }
+                }
+                Console.WriteLine();
+            }
+
+            if (!string.IsNullOrEmpty(result.Output))
+            {
+                Console.WriteLine("FINAL OUTPUT:");
+                Console.WriteLine(result.Output);
+                Console.WriteLine();
+            }
+
+            if (!string.IsNullOrEmpty(result.ErrorMessage))
+            {
+                Console.WriteLine("ERROR:");
+                Console.WriteLine(result.ErrorMessage);
+                Console.WriteLine();
+            }
+
+            return result.Success ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to execute agent task: {ex.Message}");
             return 1;
         }
     }

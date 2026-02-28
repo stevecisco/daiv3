@@ -35,6 +35,14 @@ public interface IAgentManager
     /// <param name="agentId">The agent ID to delete.</param>
     /// <param name="ct">Cancellation token.</param>
     Task DeleteAgentAsync(Guid agentId, CancellationToken ct = default);
+    
+    /// <summary>
+    /// Executes a task using the specified agent with multi-step iteration and termination limits.
+    /// </summary>
+    /// <param name="request">The agent execution request containing task details and options.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The execution result including all steps, iterations, and final output.</returns>
+    Task<AgentExecutionResult> ExecuteTaskAsync(AgentExecutionRequest request, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -97,4 +105,174 @@ public class Agent
     /// Agent-specific configuration.
     /// </summary>
     public Dictionary<string, string> Config { get; set; } = new();
+}
+
+/// <summary>
+/// Request to execute a task using an agent.
+/// </summary>
+public class AgentExecutionRequest
+{
+    /// <summary>
+    /// The agent ID to use for execution.
+    /// </summary>
+    public required Guid AgentId { get; set; }
+    
+    /// <summary>
+    /// The task goal or objective.
+    /// </summary>
+    public required string TaskGoal { get; set; }
+    
+    /// <summary>
+    /// Optional context or input data for the task.
+    /// </summary>
+    public Dictionary<string, string> Context { get; set; } = new();
+    
+    /// <summary>
+    /// Optional success criteria to evaluate task completion.
+    /// </summary>
+    public string? SuccessCriteria { get; set; }
+    
+    /// <summary>
+    /// Execution options. If null, uses defaults from configuration.
+    /// </summary>
+    public AgentExecutionOptions? Options { get; set; }
+}
+
+/// <summary>
+/// Options controlling agent execution behavior.
+/// </summary>
+public class AgentExecutionOptions
+{
+    /// <summary>
+    /// Maximum number of iterations before stopping (default: 10).
+    /// </summary>
+    public int MaxIterations { get; set; } = 10;
+    
+    /// <summary>
+    /// Maximum execution time in seconds (default: 600 = 10 minutes).
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 600;
+    
+    /// <summary>
+    /// Maximum token budget for this execution (default: 10,000).
+    /// Prevents runaway costs on local/online model calls.
+    /// </summary>
+    public int TokenBudget { get; set; } = 10_000;
+    
+    /// <summary>
+    /// Whether to enable self-correction on failures (default: true).
+    /// </summary>
+    public bool EnableSelfCorrection { get; set; } = true;
+}
+
+/// <summary>
+/// Result of an agent task execution.
+/// </summary>
+public class AgentExecutionResult
+{
+    /// <summary>
+    /// Unique identifier for this execution session.
+    /// </summary>
+    public Guid ExecutionId { get; init; } = Guid.NewGuid();
+    
+    /// <summary>
+    /// The agent ID that executed the task.
+    /// </summary>
+    public required Guid AgentId { get; set; }
+    
+    /// <summary>
+    /// Whether the task completed successfully.
+    /// </summary>
+    public bool Success { get; set; }
+    
+    /// <summary>
+    /// Final output or result of the task.
+    /// </summary>
+    public string Output { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Error message if execution failed.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+    
+    /// <summary>
+    /// Total number of iterations executed.
+    /// </summary>
+    public int IterationsExecuted { get; set; }
+    
+    /// <summary>
+    /// All execution steps performed during the task.
+    /// </summary>
+    public List<AgentExecutionStep> Steps { get; set; } = new();
+    
+    /// <summary>
+    /// Total tokens consumed during execution.
+    /// </summary>
+    public int TokensConsumed { get; set; }
+    
+    /// <summary>
+    /// When execution started.
+    /// </summary>
+    public DateTimeOffset StartedAt { get; set; }
+    
+    /// <summary>
+    /// When execution completed.
+    /// </summary>
+    public DateTimeOffset? CompletedAt { get; set; }
+    
+    /// <summary>
+    /// Termination reason (MaxIterations, Success, Timeout, TokenBudgetExceeded, Error, Cancelled).
+    /// </summary>
+    public string TerminationReason { get; set; } = "Unknown";
+}
+
+/// <summary>
+/// Represents a single step in multi-step agent execution.
+/// </summary>
+public class AgentExecutionStep
+{
+    /// <summary>
+    /// Step number (1-based).
+    /// </summary>
+    public int StepNumber { get; set; }
+    
+    /// <summary>
+    /// Step type (e.g., "Reasoning", "ToolCall", "SkillExecution", "Evaluation").
+    /// </summary>
+    public required string StepType { get; set; }
+    
+    /// <summary>
+    /// Step description or action taken.
+    /// </summary>
+    public required string Description { get; set; }
+    
+    /// <summary>
+    /// Step output or result.
+    /// </summary>
+    public string Output { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Tokens consumed in this step.
+    /// </summary>
+    public int TokensConsumed { get; set; }
+    
+    /// <summary>
+    /// When this step started.
+    /// </summary>
+    public DateTimeOffset StartedAt { get; set; }
+    
+    /// <summary>
+    /// When this step completed.
+    /// </summary>
+    public DateTimeOffset CompletedAt { get; set; }
+    
+    /// <summary>
+    /// Whether this step succeeded.
+    /// </summary>
+    public bool Success { get; set; }
+    
+    /// <summary>
+    /// Error message if step failed.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
 }
