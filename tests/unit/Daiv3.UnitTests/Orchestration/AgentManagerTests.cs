@@ -235,6 +235,60 @@ public class AgentManagerTests
         Assert.Equal("value2", agent.Config["setting2"]);
     }
 
+    [Fact]
+    public async Task GetOrCreateAgentForTaskTypeAsync_WithNewTaskType_CreatesDynamicAgent()
+    {
+        // Act
+        var agent = await _manager.GetOrCreateAgentForTaskTypeAsync("document-analysis");
+
+        // Assert
+        Assert.NotNull(agent);
+        Assert.StartsWith("task-document-analysis-agent", agent.Name, StringComparison.Ordinal);
+        Assert.Equal("document-analysis", agent.Config["task_type"]);
+        Assert.Equal("dynamic", agent.Config["creation_mode"]);
+    }
+
+    [Fact]
+    public async Task GetOrCreateAgentForTaskTypeAsync_WithExistingTaskType_ReusesAgent()
+    {
+        // Act
+        var first = await _manager.GetOrCreateAgentForTaskTypeAsync("summarize");
+        var second = await _manager.GetOrCreateAgentForTaskTypeAsync("summarize");
+
+        // Assert
+        Assert.Equal(first.Id, second.Id);
+
+        var allAgents = await _manager.ListAgentsAsync();
+        Assert.Single(allAgents);
+    }
+
+    [Fact]
+    public async Task GetOrCreateAgentForTaskTypeAsync_WithTaskTypeSkillMapping_MergesConfiguredSkills()
+    {
+        // Arrange
+        _options.DynamicAgentDefaultSkills = new List<string> { "reasoning" };
+        _options.DynamicAgentSkillsByTaskType["search"] = new List<string> { "web-fetch", "reasoning" };
+
+        // Act
+        var agent = await _manager.GetOrCreateAgentForTaskTypeAsync("search");
+
+        // Assert
+        Assert.Equal(2, agent.EnabledSkills.Count);
+        Assert.Contains("reasoning", agent.EnabledSkills);
+        Assert.Contains("web-fetch", agent.EnabledSkills);
+    }
+
+    [Fact]
+    public async Task GetOrCreateAgentForTaskTypeAsync_WhenDisabled_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        _options.EnableDynamicAgentCreation = false;
+
+        // Act + Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _manager.GetOrCreateAgentForTaskTypeAsync("chat"));
+    }
+
     #region ExecuteTaskAsync Tests
 
     [Fact]

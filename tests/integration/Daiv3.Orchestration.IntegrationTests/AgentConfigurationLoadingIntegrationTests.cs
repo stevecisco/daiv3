@@ -16,6 +16,7 @@ namespace Daiv3.IntegrationTests.Orchestration;
 public class AgentConfigurationLoadingIntegrationTests : IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScope _scope;
     private readonly AgentConfigFileLoader _loader;
     private readonly IAgentManager _agentManager;
     private readonly string _testDirectory;
@@ -35,17 +36,19 @@ public class AgentConfigurationLoadingIntegrationTests : IDisposable
         services.AddScoped<AgentConfigFileLoader>();
 
         _serviceProvider = services.BuildServiceProvider();
+        _scope = _serviceProvider.CreateScope();
 
         // Initialize database
-        var scope = _serviceProvider.CreateScope();
-        scope.ServiceProvider.InitializeDatabaseAsync().GetAwaiter().GetResult();
-        
-        _loader = _serviceProvider.CreateScope().ServiceProvider.GetRequiredService<AgentConfigFileLoader>();
-        _agentManager = _serviceProvider.CreateScope().ServiceProvider.GetRequiredService<IAgentManager>();
+        _scope.ServiceProvider.InitializeDatabaseAsync().GetAwaiter().GetResult();
+
+        _loader = _scope.ServiceProvider.GetRequiredService<AgentConfigFileLoader>();
+        _agentManager = _scope.ServiceProvider.GetRequiredService<IAgentManager>();
     }
 
     public void Dispose()
     {
+        _scope.Dispose();
+
         if (Directory.Exists(_testDirectory))
         {
             Directory.Delete(_testDirectory, true);
@@ -277,5 +280,26 @@ public class AgentConfigurationLoadingIntegrationTests : IDisposable
         // Assert - Only valid agent should be created
         Assert.Single(createdAgents);
         Assert.Equal("ValidAgent", createdAgents[0].Name);
+    }
+
+    [Fact]
+    public async Task GetOrCreateAgentForTaskTypeAsync_AcrossScopes_ReusesPersistedDynamicAgent()
+    {
+        // Arrange
+        using var firstScope = _serviceProvider.CreateScope();
+        var firstManager = firstScope.ServiceProvider.GetRequiredService<IAgentManager>();
+
+        // Act - Create in first scope
+        var created = await firstManager.GetOrCreateAgentForTaskTypeAsync("analyze");
+
+        // Act - Resolve from fresh scope with a new manager instance
+        using var secondScope = _serviceProvider.CreateScope();
+        var secondManager = secondScope.ServiceProvider.GetRequiredService<IAgentManager>();
+        var reused = await secondManager.GetOrCreateAgentForTaskTypeAsync("analyze");
+
+        // Assert
+        Assert.Equal(created.Id, reused.Id);
+        Assert.Equal(created.Name, reused.Name);
+        Assert.Equal("analyze", reused.Config["task_type"]);
     }
 }

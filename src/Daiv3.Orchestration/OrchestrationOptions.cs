@@ -49,5 +49,32 @@ public class OrchestrationOptions
     /// Whether to enable self-correction by default for agent execution.
     /// </summary>
     public bool DefaultAgentEnableSelfCorrection { get; set; } = true;
+
+    /// <summary>
+    /// Whether task-type-driven dynamic agent creation is enabled.
+    /// </summary>
+    public bool EnableDynamicAgentCreation { get; set; } = true;
+
+    /// <summary>
+    /// Prefix used when generating names for dynamic agents.
+    /// </summary>
+    public string DynamicAgentNamePrefix { get; set; } = "task";
+
+    /// <summary>
+    /// Purpose template used when generating dynamic agents.
+    /// Supports the placeholder <c>{taskType}</c>.
+    /// </summary>
+    public string DynamicAgentPurposeTemplate { get; set; } = "Auto-generated agent for task type '{taskType}'.";
+
+    /// <summary>
+    /// Default skills assigned to all dynamically created agents.
+    /// </summary>
+    public List<string> DynamicAgentDefaultSkills { get; set; } = new();
+
+    /// <summary>
+    /// Optional task-type specific skill mappings for dynamic agent creation.
+    /// The dictionary key is the normalized task type.
+    /// </summary>
+    public Dictionary<string, List<string>> DynamicAgentSkillsByTaskType { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

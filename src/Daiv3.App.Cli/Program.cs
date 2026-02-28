@@ -384,6 +384,33 @@ public class Program
             Environment.Exit(exitCode);
         }, agentNameOption, agentPurposeOption, agentSkillsOption);
 
+        var agentCreateForTaskCommand = new Command("create-for-task", "Create or reuse a dynamic agent for a task type");
+        var agentTaskTypeOption = new Option<string>(
+            aliases: new[] { "--task-type", "-t" },
+            description: "Task type to map to a dynamic agent") { IsRequired = true };
+        var agentTaskNameOption = new Option<string?>(
+            aliases: new[] { "--name", "-n" },
+            description: "Optional explicit agent name override");
+        var agentTaskPurposeOption = new Option<string?>(
+            aliases: new[] { "--purpose", "-p" },
+            description: "Optional explicit purpose override");
+        var agentTaskSkillsOption = new Option<string[]>(
+            aliases: new[] { "--skills", "-s" },
+            description: "Optional explicit skills (repeat option for multiple)")
+        {
+            Arity = ArgumentArity.ZeroOrMore
+        };
+        agentCreateForTaskCommand.AddOption(agentTaskTypeOption);
+        agentCreateForTaskCommand.AddOption(agentTaskNameOption);
+        agentCreateForTaskCommand.AddOption(agentTaskPurposeOption);
+        agentCreateForTaskCommand.AddOption(agentTaskSkillsOption);
+        agentCreateForTaskCommand.SetHandler(async (string taskType, string? name, string? purpose, string[] skills) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentCreateForTaskTypeCommand(host, taskType, name, purpose, skills);
+            Environment.Exit(exitCode);
+        }, agentTaskTypeOption, agentTaskNameOption, agentTaskPurposeOption, agentTaskSkillsOption);
+
         var agentGetCommand = new Command("get", "Get agent details");
         var agentIdGetOption = new Option<string>(
             aliases: new[] { "--id" },
@@ -463,6 +490,7 @@ public class Program
 
         agentCommand.AddCommand(agentListCommand);
         agentCommand.AddCommand(agentCreateCommand);
+        agentCommand.AddCommand(agentCreateForTaskCommand);
         agentCommand.AddCommand(agentGetCommand);
         agentCommand.AddCommand(agentDeleteCommand);
         agentCommand.AddCommand(agentExecuteCommand);
@@ -1703,6 +1731,45 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to create agent: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentCreateForTaskTypeCommand(
+        IHost host,
+        string taskType,
+        string? name,
+        string? purpose,
+        string[] skills)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var agentManager = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentManager>();
+            logger.LogInformation("Resolving dynamic agent for task type '{TaskType}'", taskType);
+
+            var options = new Daiv3.Orchestration.Interfaces.DynamicAgentCreationOptions
+            {
+                AgentName = string.IsNullOrWhiteSpace(name) ? null : name,
+                Purpose = string.IsNullOrWhiteSpace(purpose) ? null : purpose,
+                EnabledSkills = skills.Length == 0 ? null : new List<string>(skills)
+            };
+
+            var agent = await agentManager.GetOrCreateAgentForTaskTypeAsync(taskType, options);
+
+            Console.WriteLine("✓ Dynamic task-type agent resolved successfully");
+            Console.WriteLine($"  Task Type: {taskType}");
+            Console.WriteLine($"  Agent ID: {agent.Id}");
+            Console.WriteLine($"  Name: {agent.Name}");
+            Console.WriteLine($"  Purpose: {agent.Purpose}");
+            Console.WriteLine($"  Enabled Skills: {(agent.EnabledSkills.Count > 0 ? string.Join(", ", agent.EnabledSkills) : "(none)")}");
+            Console.WriteLine($"  Created: {agent.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to resolve dynamic agent for task type: {ex.Message}");
             return 1;
         }
     }

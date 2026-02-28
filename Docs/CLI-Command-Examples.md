@@ -583,6 +583,42 @@ Creates a new agent with the specified name, purpose, and optional enabled skill
 ```
 Retrieves detailed information about a specific agent.
 
+### Create or Reuse Dynamic Agent by Task Type
+```bash
+# Basic dynamic mapping (auto name/purpose/skills from orchestration defaults)
+.\run-cli.bat agent create-for-task --task-type "search"
+
+# Override generated name and purpose
+.\run-cli.bat agent create-for-task \
+  --task-type "document-analysis" \
+  --name "DocAnalysisAgent" \
+  --purpose "Analyzes and summarizes technical documents"
+
+# Override skills for this dynamic mapping
+.\run-cli.bat agent create-for-task \
+  --task-type "web-fetch" \
+  --skills "web-fetch" \
+  --skills "content-extract"
+```
+Resolves an agent for a task type. If a matching dynamic agent already exists, it is reused; otherwise a new one is created.
+
+**Parameters:**
+- `--task-type, -t`: Task type to map to a dynamic agent (required)
+- `--name, -n`: Optional explicit agent name override
+- `--purpose, -p`: Optional explicit purpose override
+- `--skills, -s`: Optional explicit skills (repeat for multiple)
+
+**Output Example:**
+```
+✓ Dynamic task-type agent resolved successfully
+  Task Type: search
+  Agent ID: 9f6f5ac5-3982-4976-a12d-85fd13a0f47e
+  Name: task-search-agent
+  Purpose: Auto-generated agent for task type 'search'.
+  Enabled Skills: (none)
+  Created: 2026-02-28 23:44:02 UTC
+```
+
 **Output Example:**
 ```
 AGENT DETAILS:

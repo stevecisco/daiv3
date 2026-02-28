@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Daiv3.Orchestration;
 
@@ -19,6 +20,7 @@ public class AgentManager : IAgentManager
     private readonly AgentRepository _agentRepository;
     private readonly OrchestrationOptions _options;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
+    private readonly ConcurrentDictionary<string, Guid> _taskTypeAgentIds = new(StringComparer.OrdinalIgnoreCase);
 
     public AgentManager(
         ILogger<AgentManager> logger,
@@ -98,21 +100,145 @@ public class AgentManager : IAgentManager
     /// <inheritdoc />
     public Task<Agent?> GetAgentAsync(Guid agentId, CancellationToken ct = default)
     {
-        _agents.TryGetValue(agentId, out var agent);
-        
-        if (agent != null)
+        if (_agents.TryGetValue(agentId, out var cachedAgent))
         {
-            _logger.LogDebug("Retrieved agent {AgentId} '{Name}'", agent.Id, agent.Name);
-        }
-        else
-        {
-            _logger.LogDebug("Agent {AgentId} not found", agentId);
+            _logger.LogDebug("Retrieved agent {AgentId} '{Name}' from in-memory cache", cachedAgent.Id, cachedAgent.Name);
+            return Task.FromResult<Agent?>(cachedAgent);
         }
 
-        return Task.FromResult(agent);
+        return GetAgentFromRepositoryAsync(agentId, ct);
     }
 
     /// <inheritdoc />
+    public async Task<Agent> GetOrCreateAgentForTaskTypeAsync(
+        string taskType,
+        DynamicAgentCreationOptions? options = null,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskType);
+
+        if (!_options.EnableDynamicAgentCreation)
+        {
+            throw new InvalidOperationException("Dynamic agent creation is disabled in orchestration options");
+        }
+
+        var normalizedTaskType = NormalizeTaskType(taskType);
+        var generatedName = !string.IsNullOrWhiteSpace(options?.AgentName)
+            ? options!.AgentName!.Trim()
+            : BuildDynamicAgentName(normalizedTaskType);
+
+        if (_taskTypeAgentIds.TryGetValue(normalizedTaskType, out var cachedAgentId) &&
+            _agents.TryGetValue(cachedAgentId, out var cachedAgent))
+        {
+            _logger.LogDebug(
+                "Resolved existing dynamic agent {AgentId} for task type '{TaskType}' from in-memory mapping",
+                cachedAgent.Id,
+                normalizedTaskType);
+
+            return cachedAgent;
+        }
+
+        // Fallback to repository lookup (allows reuse across scopes/processes)
+        var existingDbAgent = await _agentRepository.GetByNameAsync(generatedName, ct).ConfigureAwait(false);
+        if (existingDbAgent != null)
+        {
+            var hydratedAgent = ToRuntimeAgent(existingDbAgent);
+            _agents[hydratedAgent.Id] = hydratedAgent;
+            _taskTypeAgentIds[normalizedTaskType] = hydratedAgent.Id;
+
+            _logger.LogInformation(
+                "Reused existing dynamic agent {AgentId} '{AgentName}' for task type '{TaskType}'",
+                hydratedAgent.Id,
+                hydratedAgent.Name,
+                normalizedTaskType);
+
+            return hydratedAgent;
+        }
+
+        var dynamicPurpose = !string.IsNullOrWhiteSpace(options?.Purpose)
+            ? options!.Purpose!.Trim()
+            : (_options.DynamicAgentPurposeTemplate ?? "Auto-generated agent for task type '{taskType}'.")
+                .Replace("{taskType}", taskType.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        var resolvedSkills = ResolveDynamicSkills(normalizedTaskType, options?.EnabledSkills);
+
+        var config = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["task_type"] = normalizedTaskType,
+            ["creation_mode"] = "dynamic"
+        };
+
+        if (options?.Config != null)
+        {
+            foreach (var item in options.Config)
+            {
+                if (string.IsNullOrWhiteSpace(item.Key) || string.IsNullOrWhiteSpace(item.Value))
+                {
+                    continue;
+                }
+
+                config[item.Key.Trim()] = item.Value.Trim();
+            }
+        }
+
+        try
+        {
+            var createdAgent = await CreateAgentAsync(new AgentDefinition
+            {
+                Name = generatedName,
+                Purpose = dynamicPurpose,
+                EnabledSkills = resolvedSkills,
+                Config = config
+            }, ct).ConfigureAwait(false);
+
+            _taskTypeAgentIds[normalizedTaskType] = createdAgent.Id;
+
+            _logger.LogInformation(
+                "Created dynamic agent {AgentId} '{AgentName}' for task type '{TaskType}'",
+                createdAgent.Id,
+                createdAgent.Name,
+                normalizedTaskType);
+
+            return createdAgent;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+        {
+            // Handles race condition where another request created the same dynamic agent name.
+            var concurrentAgent = await _agentRepository.GetByNameAsync(generatedName, ct).ConfigureAwait(false);
+            if (concurrentAgent == null)
+            {
+                throw;
+            }
+
+            var hydratedAgent = ToRuntimeAgent(concurrentAgent);
+            _agents[hydratedAgent.Id] = hydratedAgent;
+            _taskTypeAgentIds[normalizedTaskType] = hydratedAgent.Id;
+            return hydratedAgent;
+        }
+    }
+
+    private async Task<Agent?> GetAgentFromRepositoryAsync(Guid agentId, CancellationToken ct)
+    {
+        var dbAgent = await _agentRepository.GetByIdAsync(agentId.ToString(), ct).ConfigureAwait(false);
+        if (dbAgent == null || string.Equals(dbAgent.Status, "deleted", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("Agent {AgentId} not found", agentId);
+            return null;
+        }
+
+        var hydrated = ToRuntimeAgent(dbAgent);
+        _agents[hydrated.Id] = hydrated;
+
+        if (hydrated.Config.TryGetValue("task_type", out var taskTypeFromConfig) &&
+            !string.IsNullOrWhiteSpace(taskTypeFromConfig))
+        {
+            _taskTypeAgentIds[NormalizeTaskType(taskTypeFromConfig)] = hydrated.Id;
+        }
+
+        _logger.LogDebug("Retrieved agent {AgentId} '{Name}' from repository", hydrated.Id, hydrated.Name);
+        return hydrated;
+    }
+        
     public Task<List<Agent>> ListAgentsAsync(Guid? projectId = null, CancellationToken ct = default)
     {
         var agents = _agents.Values.ToList();
@@ -448,5 +574,58 @@ public class AgentManager : IAgentManager
         {
             return new Dictionary<string, string>();
         }
+    }
+
+    private static string NormalizeTaskType(string taskType)
+    {
+        var normalized = Regex.Replace(taskType.Trim().ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+        return string.IsNullOrWhiteSpace(normalized) ? "unknown" : normalized;
+    }
+
+    private string BuildDynamicAgentName(string normalizedTaskType)
+    {
+        var prefix = string.IsNullOrWhiteSpace(_options.DynamicAgentNamePrefix)
+            ? "task"
+            : _options.DynamicAgentNamePrefix.Trim();
+
+        return $"{prefix}-{normalizedTaskType}-agent";
+    }
+
+    private List<string> ResolveDynamicSkills(string normalizedTaskType, List<string>? explicitSkills)
+    {
+        if (explicitSkills is { Count: > 0 })
+        {
+            return explicitSkills
+                .Where(skill => !string.IsNullOrWhiteSpace(skill))
+                .Select(skill => skill.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        var mergedSkills = new List<string>(_options.DynamicAgentDefaultSkills);
+
+        if (_options.DynamicAgentSkillsByTaskType.TryGetValue(normalizedTaskType, out var taskSpecificSkills))
+        {
+            mergedSkills.AddRange(taskSpecificSkills);
+        }
+
+        return mergedSkills
+            .Where(skill => !string.IsNullOrWhiteSpace(skill))
+            .Select(skill => skill.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static Agent ToRuntimeAgent(Persistence.Entities.Agent dbAgent)
+    {
+        return new Agent
+        {
+            Id = Guid.Parse(dbAgent.AgentId),
+            Name = dbAgent.Name,
+            Purpose = dbAgent.Purpose,
+            EnabledSkills = DeserializeSkills(dbAgent.EnabledSkillsJson),
+            CreatedAt = DateTimeOffset.FromUnixTimeSeconds(dbAgent.CreatedAt),
+            Config = DeserializeConfig(dbAgent.ConfigJson)
+        };
     }
 }

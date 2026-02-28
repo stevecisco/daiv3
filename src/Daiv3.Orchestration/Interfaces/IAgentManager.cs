@@ -12,6 +12,18 @@ public interface IAgentManager
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The created agent.</returns>
     Task<Agent> CreateAgentAsync(AgentDefinition definition, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets or dynamically creates an agent for the specified task type.
+    /// </summary>
+    /// <param name="taskType">The task type (for example: chat, search, analyze).</param>
+    /// <param name="options">Optional creation overrides. When null, configured defaults are used.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An existing or newly created agent mapped to the task type.</returns>
+    Task<Agent> GetOrCreateAgentForTaskTypeAsync(
+        string taskType,
+        DynamicAgentCreationOptions? options = null,
+        CancellationToken ct = default);
     
     /// <summary>
     /// Retrieves an agent by ID.
@@ -43,6 +55,32 @@ public interface IAgentManager
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The execution result including all steps, iterations, and final output.</returns>
     Task<AgentExecutionResult> ExecuteTaskAsync(AgentExecutionRequest request, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Optional overrides for dynamic task-type agent creation.
+/// </summary>
+public class DynamicAgentCreationOptions
+{
+    /// <summary>
+    /// Optional explicit agent name. If null/empty, a name is generated from task type and options defaults.
+    /// </summary>
+    public string? AgentName { get; set; }
+
+    /// <summary>
+    /// Optional purpose text. If null/empty, purpose is generated from options defaults.
+    /// </summary>
+    public string? Purpose { get; set; }
+
+    /// <summary>
+    /// Optional explicit skills. If null/empty, skills are resolved from configured defaults and task mappings.
+    /// </summary>
+    public List<string>? EnabledSkills { get; set; }
+
+    /// <summary>
+    /// Additional configuration values to merge into the dynamically created agent.
+    /// </summary>
+    public Dictionary<string, string> Config { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>

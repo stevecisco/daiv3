@@ -11,17 +11,20 @@ public class TaskOrchestrator : ITaskOrchestrator
 {
     private readonly IIntentResolver _intentResolver;
     private readonly IDependencyResolver _dependencyResolver;
+    private readonly IAgentManager _agentManager;
     private readonly ILogger<TaskOrchestrator> _logger;
     private readonly OrchestrationOptions _options;
 
     public TaskOrchestrator(
         IIntentResolver intentResolver,
         IDependencyResolver dependencyResolver,
+        IAgentManager agentManager,
         ILogger<TaskOrchestrator> logger,
         IOptions<OrchestrationOptions> options)
     {
         _intentResolver = intentResolver ?? throw new ArgumentNullException(nameof(intentResolver));
         _dependencyResolver = dependencyResolver ?? throw new ArgumentNullException(nameof(dependencyResolver));
+        _agentManager = agentManager ?? throw new ArgumentNullException(nameof(agentManager));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -186,16 +189,22 @@ public class TaskOrchestrator : ITaskOrchestrator
         return results;
     }
 
-    private Task<TaskExecutionResult> ExecuteTaskAsync(ResolvedTask task, CancellationToken ct)
+    private async Task<TaskExecutionResult> ExecuteTaskAsync(ResolvedTask task, CancellationToken ct)
     {
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_options.TaskTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
         try
         {
+            var executionAgent = await _agentManager
+                .GetOrCreateAgentForTaskTypeAsync(task.TaskType, null, linkedCts.Token)
+                .ConfigureAwait(false);
+
             _logger.LogInformation(
-                "Executing task type: {TaskType}",
-                task.TaskType);
+                "Executing task type: {TaskType} with agent {AgentId} '{AgentName}'",
+                task.TaskType,
+                executionAgent.Id,
+                executionAgent.Name);
 
             // TODO: Integrate with Model Execution Layer to actually execute tasks
             // For now, return a placeholder result
@@ -203,7 +212,7 @@ public class TaskOrchestrator : ITaskOrchestrator
             {
                 TaskId = Guid.NewGuid(),
                 TaskType = task.TaskType,
-                Content = $"Task {task.TaskType} executed successfully (placeholder)",
+                Content = $"Task {task.TaskType} executed successfully with agent {executionAgent.Name} (placeholder)",
                 Success = true,
                 CompletedAt = DateTimeOffset.UtcNow
             };
@@ -212,7 +221,7 @@ public class TaskOrchestrator : ITaskOrchestrator
                 "Task {TaskId} completed successfully",
                 result.TaskId);
 
-            return Task.FromResult(result);
+            return result;
         }
         catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
         {
@@ -220,27 +229,27 @@ public class TaskOrchestrator : ITaskOrchestrator
                 "Task {TaskType} timed out after {Timeout} seconds",
                 task.TaskType, _options.TaskTimeoutSeconds);
 
-            return Task.FromResult(new TaskExecutionResult
+            return new TaskExecutionResult
             {
                 TaskId = Guid.NewGuid(),
                 TaskType = task.TaskType,
                 Success = false,
                 ErrorMessage = $"Task timed out after {_options.TaskTimeoutSeconds} seconds",
                 CompletedAt = DateTimeOffset.UtcNow
-            });
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Task {TaskType} failed", task.TaskType);
 
-            return Task.FromResult(new TaskExecutionResult
+            return new TaskExecutionResult
             {
                 TaskId = Guid.NewGuid(),
                 TaskType = task.TaskType,
                 Success = false,
                 ErrorMessage = ex.Message,
                 CompletedAt = DateTimeOffset.UtcNow
-            });
+            };
         }
     }
 

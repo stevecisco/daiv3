@@ -18,7 +18,9 @@ public class TaskDependencyAcceptanceTests : IAsyncLifetime
 {
     private readonly DatabaseContext _databaseContext;
     private readonly TaskRepository _taskRepository;
+    private readonly AgentRepository _agentRepository;
     private readonly DependencyResolver _dependencyResolver;
+    private readonly IAgentManager _agentManager;
     private readonly ITaskOrchestrator _orchestrator;
     private readonly ILogger<TaskOrchestrator> _orchestratorLogger;
     private readonly ILogger<DependencyResolver> _resolverLogger;
@@ -40,6 +42,7 @@ public class TaskDependencyAcceptanceTests : IAsyncLifetime
 
         var taskLogger = loggerFactory.CreateLogger<TaskRepository>();
         _taskRepository = new TaskRepository(_databaseContext, taskLogger);
+        _agentRepository = new AgentRepository(_databaseContext, loggerFactory.CreateLogger<AgentRepository>());
 
         _dependencyResolver = new DependencyResolver(_taskRepository, _resolverLogger);
 
@@ -52,10 +55,15 @@ public class TaskDependencyAcceptanceTests : IAsyncLifetime
 
         var intentResolverLogger = loggerFactory.CreateLogger<IntentResolver>();
         var intentResolver = new IntentResolver(intentResolverLogger, orchestrationOptions);
+        _agentManager = new AgentManager(
+            loggerFactory.CreateLogger<AgentManager>(),
+            _agentRepository,
+            orchestrationOptions);
 
         _orchestrator = new TaskOrchestrator(
             intentResolver,
             _dependencyResolver,
+            _agentManager,
             _orchestratorLogger,
             orchestrationOptions);
     }
