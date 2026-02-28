@@ -198,6 +198,18 @@ dotnet test tests/integration/Daiv3.Knowledge.Embedding.IntegrationTests -k Vect
 - 10K vector search time
 - Date and conditions
 
+### Benchmark Methodology Note (Threshold Stability)
+
+To reduce false failures from JIT startup, scheduler jitter, and background OS activity, performance threshold tests use a stabilized measurement pattern:
+
+1. **Warmup pass first** for each benchmark shape (single or batch).
+2. Run **multiple measured iterations** (default: 5).
+3. Use a robust aggregate instead of a single-shot reading:
+    - **Single-operation benchmarks**: median of per-operation averages.
+    - **Batch benchmarks**: best-of measured iterations after warmup.
+
+This keeps thresholds meaningful for regression detection while avoiding brittle failures caused by transient machine noise.
+
 ## Future Improvements
 
 Potential optimizations for future versions:
@@ -208,6 +220,6 @@ Potential optimizations for future versions:
 
 ---
 
-**Version**: 1.0  
-**Updated**: February 23, 2026  
+**Version**: 1.1  
+**Updated**: February 27, 2026  
 **Audience**: System operators, DevOps engineers, performance analysts

@@ -187,6 +187,7 @@ This document provides:
 - Deployment recommendations
 - Optimization opportunities
 - Telemetry interpretation guide
+- Benchmark methodology for stable threshold validation (warmup + multi-sample; see **Benchmark Methodology Note (Threshold Stability)**)
 
 ## Dependencies
 - KLC-REQ-001 (Microsoft.ML.OnnxRuntime.DirectML for performance baseline)
