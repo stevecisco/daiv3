@@ -1241,6 +1241,113 @@ public class ModelQueueTests
             Times.Never);
     }
 
+    [Fact]
+    public async Task GetMetricsAsync_AfterSuccessfulExecution_ReturnsObservableCounters()
+    {
+        // Arrange
+        var queue = CreateQueue();
+        var request = new ExecutionRequest { TaskType = "chat", Content = "Metrics test" };
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ExecutionRequest req, string model, CancellationToken ct) =>
+            {
+                await Task.Delay(20, ct);
+                return new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "Response",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 5, OutputTokens = 10 }
+                };
+            });
+
+        // Act
+        var requestId = await queue.EnqueueAsync(request, ExecutionPriority.Normal);
+        await queue.ProcessAsync(requestId).WaitAsync(TimeSpan.FromSeconds(5));
+        var metrics = await queue.GetMetricsAsync();
+
+        // Assert
+        Assert.Equal(1, metrics.TotalEnqueued);
+        Assert.Equal(1, metrics.TotalDequeued);
+        Assert.Equal(1, metrics.TotalCompleted);
+        Assert.Equal(0, metrics.TotalFailed);
+        Assert.Equal(0, metrics.TotalPreempted);
+        Assert.Equal(1, metrics.TotalLocalExecutions);
+        Assert.Equal(0, metrics.TotalOnlineExecutions);
+        Assert.True(metrics.AverageQueueWaitMs >= 0);
+        Assert.True(metrics.AverageExecutionDurationMs > 0);
+        Assert.NotNull(metrics.LastDequeuedAt);
+    }
+
+    [Fact]
+    public async Task GetMetricsAsync_WhenP0PreemptsP1_IncrementsPreemptionCounter()
+    {
+        // Arrange
+        var queue = CreateQueue();
+        var p1Cancelled = new TaskCompletionSource<bool>();
+        var p1ExecutionCount = 0;
+
+        _mockFoundryBridge.Setup(x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ExecutionRequest req, string model, CancellationToken ct) =>
+            {
+                if (req.TaskType == "normal")
+                {
+                    p1ExecutionCount++;
+
+                    if (p1ExecutionCount == 1)
+                    {
+                        try
+                        {
+                            await Task.Delay(10000, ct);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            p1Cancelled.TrySetResult(true);
+                            throw;
+                        }
+                    }
+
+                    await Task.Delay(10, ct);
+                    return new ExecutionResult
+                    {
+                        RequestId = req.Id,
+                        Content = "P1 completed",
+                        Status = ExecutionStatus.Completed,
+                        TokenUsage = new TokenUsage { InputTokens = 5, OutputTokens = 5 }
+                    };
+                }
+
+                await Task.Delay(10, ct);
+                return new ExecutionResult
+                {
+                    RequestId = req.Id,
+                    Content = "P0 completed",
+                    Status = ExecutionStatus.Completed,
+                    TokenUsage = new TokenUsage { InputTokens = 5, OutputTokens = 5 }
+                };
+            });
+
+        var p1Request = new ExecutionRequest { TaskType = "normal", Content = "P1" };
+        var p0Request = new ExecutionRequest { TaskType = "immediate", Content = "P0" };
+
+        // Act
+        var p1Id = await queue.EnqueueAsync(p1Request, ExecutionPriority.Normal);
+        await Task.Delay(100);
+        var p0Id = await queue.EnqueueAsync(p0Request, ExecutionPriority.Immediate);
+
+        await p1Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await queue.ProcessAsync(p0Id).WaitAsync(TimeSpan.FromSeconds(5));
+        await queue.ProcessAsync(p1Id).WaitAsync(TimeSpan.FromSeconds(5));
+
+        var metrics = await queue.GetMetricsAsync();
+
+        // Assert
+        Assert.True(metrics.TotalEnqueued >= 2);
+        Assert.True(metrics.TotalDequeued >= 2);
+        Assert.Equal(1, metrics.TotalPreempted);
+        Assert.True(metrics.TotalCompleted >= 1);
+    }
+
     private ModelQueue CreateQueue()
     {
         return new ModelQueue(

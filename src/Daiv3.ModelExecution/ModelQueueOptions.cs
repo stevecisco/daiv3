@@ -22,4 +22,10 @@ public class ModelQueueOptions
 
     /// <summary>Timeout for request execution (seconds).</summary>
     public int RequestTimeoutSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Short coalescing window used before dominant P1 model selection when the current model
+    /// has no pending matches. Improves deterministic behavior for bursty enqueue patterns.
+    /// </summary>
+    public int DominantP1SelectionWindowMs { get; set; } = 20;
 }

@@ -58,4 +58,10 @@ public interface IModelQueue
     /// </summary>
     /// <returns>Status summary</returns>
     Task<QueueStatus> GetQueueStatusAsync();
+
+    /// <summary>
+    /// Gets observable queue metrics and runtime counters.
+    /// </summary>
+    /// <returns>Queue metrics snapshot</returns>
+    Task<QueueMetrics> GetMetricsAsync();
 }

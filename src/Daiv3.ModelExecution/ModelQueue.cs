@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.Channels;
 using Daiv3.ModelExecution.Interfaces;
 using Daiv3.ModelExecution.Models;
@@ -38,6 +39,21 @@ public class ModelQueue : IModelQueue
     private CancellationTokenSource? _currentExecutionCts;
     private readonly object _executionStateLock = new();
 
+    // MQ-NFR-001 observability metrics
+    private long _nextSequenceNumber;
+    private long _totalEnqueued;
+    private long _totalDequeued;
+    private long _totalCompleted;
+    private long _totalFailed;
+    private long _totalPreempted;
+    private long _totalLocalExecutions;
+    private long _totalOnlineExecutions;
+    private long _totalQueueWaitMs;
+    private long _totalExecutionDurationMs;
+    private long _measuredExecutionCount;
+    private long _inFlightExecutions;
+    private long _lastDequeuedAtUnixTimeMs;
+
     public ModelQueue(
         IFoundryBridge foundryBridge,
         IModelLifecycleManager modelLifecycleManager,
@@ -72,9 +88,11 @@ public class ModelQueue : IModelQueue
             Request = request,
             Priority = priority,
             EnqueuedAt = DateTimeOffset.UtcNow,
+            SequenceNumber = Interlocked.Increment(ref _nextSequenceNumber),
             CompletionSource = new TaskCompletionSource<ExecutionResult>()
         };
 
+        Interlocked.Increment(ref _totalEnqueued);
         _requests[request.Id] = queuedRequest;
 
         // Route to appropriate channel based on priority
@@ -89,8 +107,8 @@ public class ModelQueue : IModelQueue
         await channel.Writer.WriteAsync(queuedRequest, ct);
 
         _logger.LogInformation(
-            "Enqueued request {RequestId} with priority {Priority}, task type: {TaskType}",
-            request.Id, priority, request.TaskType);
+            "Enqueued request {RequestId} (seq={SequenceNumber}) with priority {Priority}, task type: {TaskType}",
+            request.Id, queuedRequest.SequenceNumber, priority, request.TaskType);
 
         // P0 (Immediate) preemption: cancel any in-progress P1/P2 request
         if (priority == ExecutionPriority.Immediate)
@@ -160,6 +178,43 @@ public class ModelQueue : IModelQueue
         return Task.FromResult(status);
     }
 
+    public Task<QueueMetrics> GetMetricsAsync()
+    {
+        var dequeued = Interlocked.Read(ref _totalDequeued);
+        var measuredExecutionCount = Interlocked.Read(ref _measuredExecutionCount);
+
+        var metrics = new QueueMetrics
+        {
+            TotalEnqueued = Interlocked.Read(ref _totalEnqueued),
+            TotalDequeued = dequeued,
+            TotalCompleted = Interlocked.Read(ref _totalCompleted),
+            TotalFailed = Interlocked.Read(ref _totalFailed),
+            TotalPreempted = Interlocked.Read(ref _totalPreempted),
+            TotalLocalExecutions = Interlocked.Read(ref _totalLocalExecutions),
+            TotalOnlineExecutions = Interlocked.Read(ref _totalOnlineExecutions),
+            InFlightExecutions = Interlocked.Read(ref _inFlightExecutions),
+            AverageQueueWaitMs = dequeued > 0
+                ? Interlocked.Read(ref _totalQueueWaitMs) / (double)dequeued
+                : 0,
+            AverageExecutionDurationMs = measuredExecutionCount > 0
+                ? Interlocked.Read(ref _totalExecutionDurationMs) / (double)measuredExecutionCount
+                : 0,
+            LastDequeuedAt = Interlocked.Read(ref _lastDequeuedAtUnixTimeMs) > 0
+                ? DateTimeOffset.FromUnixTimeMilliseconds(Interlocked.Read(ref _lastDequeuedAtUnixTimeMs))
+                : null,
+            QueueStatus = new QueueStatus
+            {
+                ImmediateCount = _immediateChannel.Reader.Count,
+                NormalCount = _normalChannel.Reader.Count,
+                BackgroundCount = _backgroundChannel.Reader.Count,
+                CurrentModelId = _currentModelId,
+                LastModelSwitch = _lastModelSwitch
+            }
+        };
+
+        return Task.FromResult(metrics);
+    }
+
     private async Task ProcessQueueAsync()
     {
         _logger.LogInformation("Model queue processing started");
@@ -199,6 +254,7 @@ public class ModelQueue : IModelQueue
         // P0 (Immediate): Always process first, regardless of model
         if (_immediateChannel.Reader.TryRead(out var immediateRequest))
         {
+            MarkRequestDequeued(immediateRequest);
             _logger.LogDebug("Selected P0 (Immediate) request {RequestId}", immediateRequest.Request.Id);
             return immediateRequest;
         }
@@ -227,6 +283,7 @@ public class ModelQueue : IModelQueue
                         await _normalChannel.Writer.WriteAsync(other);
                     }
 
+                    MarkRequestDequeued(req);
                     return req;
                 }
 
@@ -237,6 +294,11 @@ public class ModelQueue : IModelQueue
             // with the most pending P1 work (MQ-REQ-006).
             if (scannedRequests.Count > 0)
             {
+                if (_options.DominantP1SelectionWindowMs > 0)
+                {
+                    await Task.Delay(_options.DominantP1SelectionWindowMs);
+                }
+
                 while (_normalChannel.Reader.TryRead(out var remainingRequest))
                 {
                     scannedRequests.Add(remainingRequest);
@@ -249,6 +311,7 @@ public class ModelQueue : IModelQueue
                     "No P1 requests for current model {CurrentModelId}; selected dominant P1 model {SelectedModelId}",
                     _currentModelId, selectedModelId);
 
+                MarkRequestDequeued(selectedRequest);
                 return selectedRequest;
             }
         }
@@ -256,6 +319,7 @@ public class ModelQueue : IModelQueue
         // Fallback: Simple FIFO if no current model or empty queue
         if (_normalChannel.Reader.TryRead(out var normalRequest))
         {
+            MarkRequestDequeued(normalRequest);
             var modelId = DetermineModelId(normalRequest.Request);
             _logger.LogDebug(
                 "Selected P1 (Normal) request {RequestId} for model {ModelId}",
@@ -287,6 +351,7 @@ public class ModelQueue : IModelQueue
                         await _backgroundChannel.Writer.WriteAsync(other);
                     }
 
+                    MarkRequestDequeued(req);
                     return req;
                 }
 
@@ -309,6 +374,7 @@ public class ModelQueue : IModelQueue
                     await _backgroundChannel.Writer.WriteAsync(req);
                 }
 
+                MarkRequestDequeued(firstRequest);
                 return firstRequest;
             }
         }
@@ -316,6 +382,7 @@ public class ModelQueue : IModelQueue
         // Fallback: Simple FIFO if no current model or empty queue
         if (_backgroundChannel.Reader.TryRead(out var backgroundRequest))
         {
+            MarkRequestDequeued(backgroundRequest);
             var modelId = DetermineModelId(backgroundRequest.Request);
             _logger.LogDebug(
                 "Selected P2 (Background) request {RequestId} for model {ModelId}",
@@ -330,6 +397,8 @@ public class ModelQueue : IModelQueue
     {
         await _executionLock.WaitAsync();
         CancellationTokenSource? executionCts = null;
+        var executionStopwatch = Stopwatch.StartNew();
+        Interlocked.Increment(ref _inFlightExecutions);
 
         try
         {
@@ -355,11 +424,13 @@ public class ModelQueue : IModelQueue
 
             if (isOnlineRequest)
             {
+                Interlocked.Increment(ref _totalOnlineExecutions);
                 // Route to online provider
                 result = await _onlineRouter.ExecuteAsync(request, null, executionCts.Token);
             }
             else
             {
+                Interlocked.Increment(ref _totalLocalExecutions);
                 // Route to Foundry Local
                 var modelId = DetermineModelId(request);
 
@@ -385,6 +456,7 @@ public class ModelQueue : IModelQueue
             result.Status = ExecutionStatus.Completed;
             queuedRequest.Status = ExecutionStatus.Completed;
             queuedRequest.CompletionSource.TrySetResult(result);
+            Interlocked.Increment(ref _totalCompleted);
 
             _logger.LogInformation(
                 "Completed request {RequestId}: {TokenCount} tokens",
@@ -396,6 +468,7 @@ public class ModelQueue : IModelQueue
             _logger.LogInformation(
                 "Request {RequestId} (priority {Priority}) was preempted, requeuing",
                 queuedRequest.Request.Id, queuedRequest.Priority);
+            Interlocked.Increment(ref _totalPreempted);
 
             queuedRequest.Status = ExecutionStatus.Queued;
 
@@ -424,9 +497,15 @@ public class ModelQueue : IModelQueue
 
             queuedRequest.Status = ExecutionStatus.Failed;
             queuedRequest.CompletionSource.TrySetResult(errorResult);
+            Interlocked.Increment(ref _totalFailed);
         }
         finally
         {
+            executionStopwatch.Stop();
+            Interlocked.Add(ref _totalExecutionDurationMs, executionStopwatch.ElapsedMilliseconds);
+            Interlocked.Increment(ref _measuredExecutionCount);
+            Interlocked.Decrement(ref _inFlightExecutions);
+
             lock (_executionStateLock)
             {
                 _currentlyExecuting = null;
@@ -436,6 +515,19 @@ public class ModelQueue : IModelQueue
             executionCts?.Dispose();
             _executionLock.Release();
         }
+    }
+
+    private void MarkRequestDequeued(QueuedRequest queuedRequest)
+    {
+        Interlocked.Increment(ref _totalDequeued);
+
+        var queueWait = DateTimeOffset.UtcNow - queuedRequest.EnqueuedAt;
+        if (queueWait > TimeSpan.Zero)
+        {
+            Interlocked.Add(ref _totalQueueWaitMs, (long)queueWait.TotalMilliseconds);
+        }
+
+        Interlocked.Exchange(ref _lastDequeuedAtUnixTimeMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
 
     private bool ShouldRouteOnline(ExecutionRequest request)
@@ -527,6 +619,7 @@ public class ModelQueue : IModelQueue
         public ExecutionRequest Request { get; init; } = null!;
         public ExecutionPriority Priority { get; init; }
         public DateTimeOffset EnqueuedAt { get; init; }
+        public long SequenceNumber { get; init; }
         public ExecutionStatus Status { get; set; } = ExecutionStatus.Queued;
         public TaskCompletionSource<ExecutionResult> CompletionSource { get; init; } = null!;
     }
