@@ -3,7 +3,9 @@
 Source Spec: 12. Key .NET Libraries & Components - Requirements
 
 ## Requirement
-The system SHALL use Quartz.NET or a custom hosted service for scheduling.
+The system SHALL use a custom hosted service for scheduling.
+
+**Decision:** Quartz.NET was evaluated and rejected in favor of a lightweight custom scheduler implementation using `IHostedService` and `System.Threading.Timer`. The custom approach provides better control, reduces external dependencies, and avoids the complexity overhead of Quartz.NET for our use case.
 
 ## Implementation Plan
 - Identify the owning component and interface boundary.

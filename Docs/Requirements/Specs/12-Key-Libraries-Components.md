@@ -17,7 +17,7 @@ This document specifies requirements derived from Section 12 of the design docum
 - KLC-REQ-007: The system SHALL use AngleSharp or HtmlAgilityPack for HTML parsing.
 - KLC-REQ-008: The system SHALL use the Model Context Protocol .NET SDK for MCP tool support.
 - KLC-REQ-009: The system SHALL use PdfPig and Open XML SDK for PDF and DOCX extraction.
-- KLC-REQ-010: The system SHALL use Quartz.NET or a custom hosted service for scheduling.
+- KLC-REQ-010: The system SHALL use a custom hosted service for scheduling (Quartz.NET rejected).
 - KLC-REQ-011: The UI SHALL be implemented with WinUI 3 or Windows App SDK (or MAUI if chosen).
 
 ## Non-Functional Requirements
@@ -35,5 +35,5 @@ This document specifies requirements derived from Section 12 of the design docum
 
 ## Risks and Open Questions
 - Decide between AngleSharp and HtmlAgilityPack.
-- Decide between Quartz.NET and a custom scheduler.
+- **DECISION MADE:** Use custom scheduler (Quartz.NET rejected for complexity and overhead).
 - Confirm final UI framework choice.

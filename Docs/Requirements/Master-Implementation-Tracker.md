@@ -144,7 +144,7 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 | Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
 |-----|-------------|---------------|-------------|--------------|--------|------------|-------|
-| 91 | [KLC-REQ-010](Reqs/KLC-REQ-010.md) | [12. Key .NET Libraries & Components](Specs/12-Key-Libraries-Components.md) | The system SHALL use Quartz.NET or custom hosted service for scheduling. | None | Not Started | 0% | Scheduling infrastructure |
+| 91 | [KLC-REQ-010](Reqs/KLC-REQ-010.md) | [12. Key .NET Libraries & Components](Specs/12-Key-Libraries-Components.md) | The system SHALL use a custom hosted service for scheduling (Quartz.NET rejected). | None | Not Started | 0% | Custom scheduler implementation |
 | 92 | [PTS-DATA-001](Reqs/PTS-DATA-001.md) | [7. Projects, Tasks & Scheduling](Specs/07-Projects-Tasks-Scheduling.md) | The database SHALL store projects and tasks with dependency metadata. | KLC-REQ-004 | Not Started | 0% | Project/task schema |
 | 93 | [PTS-DATA-002](Reqs/PTS-DATA-002.md) | [7. Projects, Tasks & Scheduling](Specs/07-Projects-Tasks-Scheduling.md) | Scheduled tasks SHALL record next-run and last-run timestamps. | PTS-DATA-001 | Not Started | 0% | Scheduling metadata |
 | 94 | [PTS-REQ-001](Reqs/PTS-REQ-001.md) | [7. Projects, Tasks & Scheduling](Specs/07-Projects-Tasks-Scheduling.md) | The system SHALL support projects with name, description, status, timestamps. | PTS-DATA-001 | Not Started | 0% | Project entity |
