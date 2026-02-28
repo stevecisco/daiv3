@@ -29,11 +29,25 @@ public static class ModelExecutionServiceExtensions
         services.AddOptions<ModelLifecycleOptions>()
             .Bind(configuration.GetSection("ModelLifecycle"));
 
+        services.AddOptions<TaskTypeClassifierOptions>()
+            .Bind(configuration.GetSection(TaskTypeClassifierOptions.SectionName));
+
+        services.AddOptions<ModelSelectorOptions>()
+            .Bind(configuration.GetSection(ModelSelectorOptions.SectionName));
+
+        services.AddOptions<PriorityAssignerOptions>()
+            .Bind(configuration.GetSection(PriorityAssignerOptions.SectionName));
+
         // Register core services
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
         services.AddSingleton<IModelQueue, ModelQueue>();
         services.AddSingleton<IFoundryBridge, FoundryBridge>();
         services.AddSingleton<IOnlineProviderRouter, OnlineProviderRouter>();
+
+        // Register intent resolution services (MQ-REQ-008, MQ-REQ-009, MQ-REQ-010)
+        services.AddSingleton<ITaskTypeClassifier, TaskTypeClassifier>();
+        services.AddSingleton<IModelSelector, ModelSelector>();
+        services.AddSingleton<IPriorityAssigner, PriorityAssigner>();
 
         return services;
     }
@@ -80,11 +94,21 @@ public static class ModelExecutionServiceExtensions
             services.Configure<ModelLifecycleOptions>(_ => { });
         }
 
+        // Configure intent resolution services with defaults
+        services.Configure<TaskTypeClassifierOptions>(_ => { });
+        services.Configure<ModelSelectorOptions>(_ => { });
+        services.Configure<PriorityAssignerOptions>(_ => { });
+
         // Register core services
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
         services.AddSingleton<IModelQueue, ModelQueue>();
         services.AddSingleton<IFoundryBridge, FoundryBridge>();
         services.AddSingleton<IOnlineProviderRouter, OnlineProviderRouter>();
+
+        // Register intent resolution services (MQ-REQ-008, MQ-REQ-009, MQ-REQ-010)
+        services.AddSingleton<ITaskTypeClassifier, TaskTypeClassifier>();
+        services.AddSingleton<IModelSelector, ModelSelector>();
+        services.AddSingleton<IPriorityAssigner, PriorityAssigner>();
 
         return services;
     }
