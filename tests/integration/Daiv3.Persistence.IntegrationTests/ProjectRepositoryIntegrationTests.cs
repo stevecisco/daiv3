@@ -66,13 +66,16 @@ public class ProjectRepositoryIntegrationTests : IAsyncLifetime
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var projectId = Guid.NewGuid().ToString();
+        var rootPathA = Path.Combine(Path.GetTempPath(), "pts-req-002", projectId, "src");
+        var rootPathB = Path.Combine(Path.GetTempPath(), "pts-req-002", projectId, "docs");
+        var serializedRootPaths = ProjectRootPaths.Serialize([rootPathA, rootPathB]);
 
         await repository.AddAsync(new Project
         {
             ProjectId = projectId,
             Name = "PTS Core Project",
             Description = "Project persistence coverage",
-            RootPaths = "C:/workspace/project",
+            RootPaths = serializedRootPaths,
             CreatedAt = now,
             UpdatedAt = now,
             Status = "active",
@@ -88,6 +91,11 @@ public class ProjectRepositoryIntegrationTests : IAsyncLifetime
         Assert.Equal("active", project.Status);
         Assert.Equal(now, project.CreatedAt);
         Assert.Equal(now, project.UpdatedAt);
+
+        var parsedRootPaths = ProjectRootPaths.Parse(project.RootPaths);
+        Assert.Equal(2, parsedRootPaths.Count);
+        Assert.Contains(Path.GetFullPath(rootPathA), parsedRootPaths);
+        Assert.Contains(Path.GetFullPath(rootPathB), parsedRootPaths);
     }
 
     [Fact]
@@ -163,6 +171,27 @@ public class ProjectRepositoryIntegrationTests : IAsyncLifetime
         Assert.Equal("Beta", archived[0].Name);
         Assert.NotNull(alpha);
         Assert.Equal("active", alpha!.Status);
+    }
+
+    [Fact]
+    public async Task AddAsync_WithEmptyRootPaths_ThrowsArgumentException()
+    {
+        var databaseContext = await CreateInitializedContextAsync();
+        var repository = new ProjectRepository(databaseContext, _loggerFactory.CreateLogger<ProjectRepository>());
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => repository.AddAsync(new Project
+        {
+            ProjectId = Guid.NewGuid().ToString(),
+            Name = "Invalid Root Path Project",
+            Description = "Should fail",
+            RootPaths = "   ",
+            CreatedAt = now,
+            UpdatedAt = now,
+            Status = "active"
+        }));
+
+        Assert.Equal("entity", exception.ParamName);
     }
 
     private async Task<DatabaseContext> CreateInitializedContextAsync()

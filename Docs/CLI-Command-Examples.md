@@ -138,6 +138,9 @@ PROJECTS:
   ID: 7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f
   Name: My Project
   Description: Project description
+  Root Paths:
+    - C:\repo\src
+    - C:\repo\docs
   Status: active
   Created: 2026-02-28 18:42:11 UTC
   Updated: 2026-02-28 18:42:11 UTC
@@ -148,8 +151,11 @@ PROJECTS:
 .\run-cli.bat projects create --name "My Project" --description "Project description"
 # or short form
 .\run-cli.bat projects create -n "My Project" -d "Project description"
+# with explicit root path(s)
+.\run-cli.bat projects create --name "My Project" -r "C:\repo\src"
+.\run-cli.bat projects create --name "My Project" -r "C:\repo\src" -r "C:\repo\docs"
 ```
-Creates a new project with the specified name and optional description.
+Creates a new project with the specified name and optional description. Root paths default to the current working directory if `--root-path` is not provided.
 
 **Output Example:**
 ```
@@ -157,6 +163,8 @@ Creates a new project with the specified name and optional description.
   ID: ccc3d3cd-75e7-4a90-a2ec-c04109ce1e0c
   Name: My Project
   Description: Project description
+  Root Paths:
+    - C:\repo\src
   Status: active
   Created: 2026-02-28 18:42:11 UTC
 ```
@@ -441,7 +449,7 @@ Shows all available commands and options.
 | Database | `db init`, `db status` | ✅ Complete | Fully functional |
 | Dashboard | `dashboard` | 🔄 Partial | Hardware detection pending |
 | Chat | `chat`, `chat -m` | 🔄 Partial | Orchestration layer pending |
-| Projects | `projects list`, `projects create` | ✅ Complete | Persistence-backed project listing and creation |
+| Projects | `projects list`, `projects create` | ✅ Complete | Persistence-backed project listing/creation with explicit root path support (`--root-path`) |
 | Settings | `settings show` | 🔄 Partial | Configuration service pending |
 
 **Legend:**

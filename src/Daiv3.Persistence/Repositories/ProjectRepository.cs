@@ -42,6 +42,10 @@ public class ProjectRepository : RepositoryBase<Project>
     public override async Task<string> AddAsync(Project entity, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(entity);
+        if (string.IsNullOrWhiteSpace(entity.RootPaths))
+        {
+            throw new ArgumentException("Project root paths are required.", nameof(entity));
+        }
 
         const string sql = @"
             INSERT INTO projects (project_id, name, description, root_paths, created_at, updated_at, status, config_json)
@@ -66,6 +70,10 @@ public class ProjectRepository : RepositoryBase<Project>
     public override async Task UpdateAsync(Project entity, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(entity);
+        if (string.IsNullOrWhiteSpace(entity.RootPaths))
+        {
+            throw new ArgumentException("Project root paths are required.", nameof(entity));
+        }
 
         const string sql = @"
             UPDATE projects

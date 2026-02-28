@@ -88,14 +88,21 @@ public class Program
             aliases: new[] { "--description", "-d" },
             description: "Project description",
             getDefaultValue: () => "");
+        var projectRootPathOption = new Option<string[]>(
+            aliases: new[] { "--root-path", "-r" },
+            description: "Project root path for scoped indexing (repeat option for multiple roots)")
+        {
+            Arity = ArgumentArity.ZeroOrMore
+        };
         projectsCreateCommand.AddOption(projectNameOption);
         projectsCreateCommand.AddOption(projectDescOption);
-        projectsCreateCommand.SetHandler(async (string name, string desc) =>
+        projectsCreateCommand.AddOption(projectRootPathOption);
+        projectsCreateCommand.SetHandler(async (string name, string desc, string[] rootPaths) =>
         {
             var host = CreateHost();
-            var exitCode = await ProjectsCreateCommand(host, name, desc);
+            var exitCode = await ProjectsCreateCommand(host, name, desc, rootPaths);
             Environment.Exit(exitCode);
-        }, projectNameOption, projectDescOption);
+        }, projectNameOption, projectDescOption, projectRootPathOption);
 
         projectsCommand.AddCommand(projectsListCommand);
         projectsCommand.AddCommand(projectsCreateCommand);
@@ -376,9 +383,22 @@ public class Program
 
             foreach (var project in projects)
             {
+                var rootPaths = ProjectRootPaths.Parse(project.RootPaths);
                 Console.WriteLine($"  ID: {project.ProjectId}");
                 Console.WriteLine($"  Name: {project.Name}");
                 Console.WriteLine($"  Description: {project.Description ?? string.Empty}");
+                Console.WriteLine("  Root Paths:");
+                if (rootPaths.Count == 0)
+                {
+                    Console.WriteLine("    - (none)");
+                }
+                else
+                {
+                    foreach (var rootPath in rootPaths)
+                    {
+                        Console.WriteLine($"    - {rootPath}");
+                    }
+                }
                 Console.WriteLine($"  Status: {project.Status}");
                 Console.WriteLine($"  Created: {FromUnixSeconds(project.CreatedAt):yyyy-MM-dd HH:mm:ss} UTC");
                 Console.WriteLine($"  Updated: {FromUnixSeconds(project.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
@@ -394,7 +414,7 @@ public class Program
         }
     }
 
-    private static async Task<int> ProjectsCreateCommand(IHost host, string name, string description)
+    private static async Task<int> ProjectsCreateCommand(IHost host, string name, string description, IReadOnlyList<string> rootPaths)
     {
         try
         {
@@ -411,14 +431,15 @@ public class Program
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var projectId = Guid.NewGuid().ToString();
             var normalizedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
-            var currentRootPath = Directory.GetCurrentDirectory();
+            var normalizedRootPaths = NormalizeProjectRootPaths(rootPaths);
+            var serializedRootPaths = ProjectRootPaths.Serialize(normalizedRootPaths);
 
             await projectRepository.AddAsync(new Project
             {
                 ProjectId = projectId,
                 Name = name.Trim(),
                 Description = normalizedDescription,
-                RootPaths = currentRootPath,
+                RootPaths = serializedRootPaths,
                 CreatedAt = now,
                 UpdatedAt = now,
                 Status = "active"
@@ -428,6 +449,11 @@ public class Program
             Console.WriteLine($"  ID: {projectId}");
             Console.WriteLine($"  Name: {name.Trim()}");
             Console.WriteLine($"  Description: {normalizedDescription ?? string.Empty}");
+            Console.WriteLine("  Root Paths:");
+            foreach (var rootPath in normalizedRootPaths)
+            {
+                Console.WriteLine($"    - {rootPath}");
+            }
             Console.WriteLine("  Status: active");
             Console.WriteLine($"  Created: {FromUnixSeconds(now):yyyy-MM-dd HH:mm:ss} UTC");
             
@@ -438,6 +464,27 @@ public class Program
             Console.WriteLine($"✗ Failed to create project: {ex.Message}");
             return 1;
         }
+    }
+
+    private static IReadOnlyList<string> NormalizeProjectRootPaths(IReadOnlyList<string> rootPaths)
+    {
+        var candidatePaths = rootPaths.Count == 0 ? [Directory.GetCurrentDirectory()] : rootPaths;
+        var normalizedPaths = ProjectRootPaths.Normalize(candidatePaths);
+
+        if (normalizedPaths.Count == 0)
+        {
+            throw new ArgumentException("At least one valid root path is required.", nameof(rootPaths));
+        }
+
+        foreach (var rootPath in normalizedPaths)
+        {
+            if (!Directory.Exists(rootPath))
+            {
+                throw new DirectoryNotFoundException($"Root path does not exist: {rootPath}");
+            }
+        }
+
+        return normalizedPaths;
     }
 
     private static DateTimeOffset FromUnixSeconds(long unixSeconds) =>

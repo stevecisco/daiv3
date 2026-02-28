@@ -41,6 +41,7 @@ Purpose: Track warning/error baselines and requirement-by-requirement deltas so 
 ## Requirement Delta Log
 | Date | Requirement | Build/Test Commands | New Errors | New Warnings | Resolution | User Decision |
 |---|---|---|---:|---:|---|---|
+| 2026-02-28 | PTS-REQ-002 | targeted `dotnet test` (ProjectRootPaths + ProjectRepositoryIntegrationTests), `dotnet build Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`, `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal` | 0 | 0 | Added project root path normalization/validation + CLI root path options and persistence compatibility; no net-new warning/error pattern introduced beyond baseline classes | N/A |
 | 2026-02-28 | PTS-REQ-001 | targeted `dotnet test` (ProjectRepository unit/integration), `dotnet build Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`, `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal` | 0 | 0 | Added project persistence-backed CLI flows and project repository tests; no net-new warning/error pattern introduced beyond existing baseline classes | N/A |
 | 2026-02-28 | PTS-DATA-002 | `dotnet build Daiv3.FoundryLocal.slnx`; targeted `dotnet test` runs | 0 | 0 | No diagnostic delta introduced | N/A |
 | 2026-02-28 | Scheduler test remediation | targeted `runTests` (scheduler files); `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal` | 0 | 0 | Fixed scheduler DI activation and timeout test setup; full suite green on rerun | N/A |
