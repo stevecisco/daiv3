@@ -525,6 +525,369 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         Assert.Equal(0, metadataAfter.ExecutionCount);
     }
 
+    [Fact]
+    public async Task PauseJobAsync_WithValidJobId_PausesJob()
+    {
+        // Arrange
+        var job = new TestJob { Name = "pause-test" };
+        var futureTime = DateTime.UtcNow.AddSeconds(5);
+        var jobId = await _scheduler!.ScheduleAtTimeAsync(job, futureTime);
+
+        // Act
+        var paused = await _scheduler.PauseJobAsync(jobId);
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+
+        // Assert
+        Assert.True(paused);
+        Assert.NotNull(metadata);
+        Assert.Equal(ScheduledJobStatus.Paused, metadata.Status);
+    }
+
+    [Fact]
+    public async Task PauseJobAsync_WithRunningJob_ReturnsFalse()
+    {
+        // Arrange
+        var job = new TestJob { Name = "running-pause-test", DelayMs = 1000 };
+        var jobId = await _scheduler!.ScheduleImmediateAsync(job);
+        
+        // Wait for job to start running
+        await Task.Delay(200);
+
+        // Act
+        var paused = await _scheduler.PauseJobAsync(jobId);
+
+        // Assert
+        Assert.False(paused); // Cannot pause a running job
+    }
+
+    [Fact]
+    public async Task PauseJobAsync_WithCompletedJob_ReturnsFalse()
+    {
+        // Arrange
+        var job = new TestJob { Name = "completed-pause-test" };
+        var jobId = await _scheduler!.ScheduleImmediateAsync(job);
+        
+        // Wait for job to complete
+        await Task.Delay(500);
+
+        // Act
+        var paused = await _scheduler.PauseJobAsync(jobId);
+
+        // Assert
+        Assert.False(paused); // Cannot pause a completed job
+    }
+
+    [Fact]
+    public async Task PauseJobAsync_AlreadyPaused_ReturnsTrue()
+    {
+        // Arrange
+        var job = new TestJob { Name = "already-paused-test" };
+        var futureTime = DateTime.UtcNow.AddSeconds(5);
+        var jobId = await _scheduler!.ScheduleAtTimeAsync(job, futureTime);
+        await _scheduler.PauseJobAsync(jobId);
+
+        // Act
+        var paused = await _scheduler.PauseJobAsync(jobId);
+
+        // Assert
+        Assert.True(paused); // Pausing already paused job returns true
+    }
+
+    [Fact]
+    public async Task PausedJob_DoesNotExecute()
+    {
+        // Arrange
+        var job = new TestJob { Name = "no-execute-test" };
+        var jobId = await _scheduler!.ScheduleImmediateAsync(job);
+        
+        // Pause immediately
+        await _scheduler.PauseJobAsync(jobId);
+
+        // Wait for potential execution time
+        await Task.Delay(500);
+
+        // Assert
+        Assert.False(job.ExecutedAtUtc.HasValue);
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+        Assert.NotNull(metadata);
+        Assert.Equal(0, metadata.ExecutionCount);
+        Assert.Equal(ScheduledJobStatus.Paused, metadata.Status);
+    }
+
+    [Fact]
+    public async Task ResumeJobAsync_WithPausedJob_ResumesJob()
+    {
+        // Arrange
+        var job = new TestJob { Name = "resume-test" };
+        var futureTime = DateTime.UtcNow.AddSeconds(5);
+        var jobId = await _scheduler!.ScheduleAtTimeAsync(job, futureTime);
+        await _scheduler.PauseJobAsync(jobId);
+
+        // Act
+        var resumed = await _scheduler.ResumeJobAsync(jobId);
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+
+        // Assert
+        Assert.True(resumed);
+        Assert.NotNull(metadata);
+        Assert.Equal(ScheduledJobStatus.Scheduled, metadata.Status);
+    }
+
+    [Fact]
+    public async Task ResumeJobAsync_WithNonPausedJob_ReturnsFalse()
+    {
+        // Arrange
+        var job = new TestJob { Name = "non-paused-resume-test" };
+        var futureTime = DateTime.UtcNow.AddSeconds(5);
+        var jobId = await _scheduler!.ScheduleAtTimeAsync(job, futureTime);
+
+        // Act
+        var resumed = await _scheduler.ResumeJobAsync(jobId);
+
+        // Assert
+        Assert.False(resumed); // Cannot resume a non-paused job
+    }
+
+    [Fact]
+    public async Task ResumedJob_ExecutesCorrectly()
+    {
+        // Arrange
+        var job = new TestJob { Name = "resumed-execute-test" };
+        var jobId = await _scheduler!.ScheduleImmediateAsync(job);
+        await _scheduler.PauseJobAsync(jobId);
+
+        // Act
+        var resumed = await _scheduler.ResumeJobAsync(jobId);
+        
+        // Wait for execution
+        await Task.Delay(500);
+
+        // Assert
+        Assert.True(resumed);
+        Assert.True(job.ExecutedAtUtc.HasValue);
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+        Assert.NotNull(metadata);
+        Assert.Equal(1, metadata.ExecutionCount);
+    }
+
+    [Fact]
+    public async Task ModifyJobScheduleAsync_OneTimeJob_UpdatesScheduledTime()
+    {
+        // Arrange
+        var job = new TestJob { Name = "modify-onetime-test" };
+        var originalTime = DateTime.UtcNow.AddSeconds(10);
+        var newTime = DateTime.UtcNow.AddSeconds(20);
+        var jobId = await _scheduler!.ScheduleAtTimeAsync(job, originalTime);
+
+        // Act
+        var modified = await _scheduler.ModifyJobScheduleAsync(jobId, new ScheduleModificationRequest
+        {
+            ScheduledAtUtc = newTime
+        });
+
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+
+        // Assert
+        Assert.True(modified);
+        Assert.NotNull(metadata);
+        Assert.Equal(newTime, metadata.ScheduledAtUtc);
+    }
+
+    [Fact]
+    public async Task ModifyJobScheduleAsync_RecurringJob_UpdatesInterval()
+    {
+        // Arrange
+        var job = new TestJob { Name = "modify-recurring-test" };
+        var jobId = await _scheduler!.ScheduleRecurringAsync(job, intervalSeconds: 60);
+
+        // Act
+        var modified = await _scheduler.ModifyJobScheduleAsync(jobId, new ScheduleModificationRequest
+        {
+            IntervalSeconds = 120
+        });
+
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+
+        // Assert
+        Assert.True(modified);
+        Assert.NotNull(metadata);
+        Assert.Equal(120u, metadata.IntervalSeconds);
+    }
+
+    [Fact]
+    public async Task ModifyJobScheduleAsync_CronJob_UpdatesCronExpression()
+    {
+        // Arrange
+        var job = new TestJob { Name = "modify-cron-test" };
+        var jobId = await _scheduler!.ScheduleCronAsync(job, "0 0 * * *"); // Daily at midnight
+
+        // Act
+        var modified = await _scheduler.ModifyJobScheduleAsync(jobId, new ScheduleModificationRequest
+        {
+            CronExpression = "0 12 * * *" // Daily at noon
+        });
+
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+
+        // Assert
+        Assert.True(modified);
+        Assert.NotNull(metadata);
+        Assert.Equal("0 12 * * *", metadata.CronExpression);
+    }
+
+    [Fact]
+    public async Task ModifyJobScheduleAsync_EventTriggeredJob_UpdatesEventType()
+    {
+        // Arrange
+        var job = new TestJob { Name = "modify-event-test" };
+        var jobId = await _scheduler!.ScheduleOnEventAsync(job, "event.type1");
+
+        // Act
+        var modified = await _scheduler.ModifyJobScheduleAsync(jobId, new ScheduleModificationRequest
+        {
+            EventType = "event.type2"
+        });
+
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+
+        // Assert
+        Assert.True(modified);
+        Assert.NotNull(metadata);
+        Assert.Equal("event.type2", metadata.EventType);
+    }
+
+    [Fact]
+    public async Task ModifyJobScheduleAsync_WithRunningJob_ReturnsFalse()
+    {
+        // Arrange
+        var job = new TestJob { Name = "modify-running-test", DelayMs = 1000 };
+        var jobId = await _scheduler!.ScheduleImmediateAsync(job);
+        
+        // Wait for job to start running
+        await Task.Delay(200);
+
+        // Act
+        var modified = await _scheduler.ModifyJobScheduleAsync(jobId, new ScheduleModificationRequest
+        {
+            ScheduledAtUtc = DateTime.UtcNow.AddSeconds(10)
+        });
+
+        // Assert
+        Assert.False(modified); // Cannot modify a running job
+    }
+
+    [Fact]
+    public async Task ModifyJobScheduleAsync_WithInvalidCronExpression_ThrowsException()
+    {
+        // Arrange
+        var job = new TestJob { Name = "invalid-cron-modify-test" };
+        var jobId = await _scheduler!.ScheduleCronAsync(job, "0 0 * * *");
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await _scheduler.ModifyJobScheduleAsync(jobId, new ScheduleModificationRequest
+            {
+                CronExpression = "invalid expression"
+            });
+        });
+    }
+
+    [Fact]
+    public async Task ModifyJobScheduleAsync_WithInvalidJobId_ReturnsFalse()
+    {
+        // Act
+        var modified = await _scheduler!.ModifyJobScheduleAsync("invalid-job-id", new ScheduleModificationRequest
+        {
+            ScheduledAtUtc = DateTime.UtcNow.AddSeconds(10)
+        });
+
+        // Assert
+        Assert.False(modified);
+    }
+
+    [Fact]
+    public async Task PauseAndModify_WorksTogether()
+    {
+        // Arrange
+        var job = new TestJob { Name = "pause-modify-test" };
+        var originalTime = DateTime.UtcNow.AddSeconds(10);
+        var newTime = DateTime.UtcNow.AddSeconds(20);
+        var jobId = await _scheduler!.ScheduleAtTimeAsync(job, originalTime);
+
+        // Act - Pause, then modify, then resume
+        await _scheduler.PauseJobAsync(jobId);
+        await _scheduler.ModifyJobScheduleAsync(jobId, new ScheduleModificationRequest
+        {
+            ScheduledAtUtc = newTime
+        });
+        await _scheduler.ResumeJobAsync(jobId);
+
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+
+        // Assert
+        Assert.NotNull(metadata);
+        Assert.Equal(newTime, metadata.ScheduledAtUtc);
+        Assert.Equal(ScheduledJobStatus.Scheduled, metadata.Status);
+    }
+
+    [Fact]
+    public async Task PausedEventTriggeredJob_DoesNotExecuteOnEvent()
+    {
+        // Arrange
+        var job = new TestJob { Name = "paused-event-test" };
+        var eventType = "test.paused.event";
+        var jobId = await _scheduler!.ScheduleOnEventAsync(job, eventType);
+
+        // Pause the job
+        await _scheduler.PauseJobAsync(jobId);
+
+        // Act - Raise event
+        await _scheduler.RaiseEventAsync(new SchedulerEvent
+        {
+            EventType = eventType,
+            OccurredAtUtc = DateTime.UtcNow
+        });
+
+        await Task.Delay(300);
+
+        // Assert
+        Assert.False(job.ExecutedAtUtc.HasValue);
+        var metadata = await _scheduler.GetJobMetadataAsync(jobId);
+        Assert.NotNull(metadata);
+        Assert.Equal(0, metadata.ExecutionCount);
+        Assert.Equal(ScheduledJobStatus.Paused, metadata.Status);
+    }
+
+    [Fact]
+    public async Task GetJobsByStatusAsync_FiltersPausedJobs()
+    {
+        // Arrange
+        var job1 = new TestJob { Name = "paused-filter-1" };
+        var job2 = new TestJob { Name = "paused-filter-2" };
+        var job3 = new TestJob { Name = "scheduled-filter-3" };
+        
+        var futureTime = DateTime.UtcNow.AddSeconds(10);
+        var jobId1 = await _scheduler!.ScheduleAtTimeAsync(job1, futureTime);
+        var jobId2 = await _scheduler.ScheduleAtTimeAsync(job2, futureTime);
+        var jobId3 = await _scheduler.ScheduleAtTimeAsync(job3, futureTime);
+
+        await _scheduler.PauseJobAsync(jobId1);
+        await _scheduler.PauseJobAsync(jobId2);
+
+        // Act
+        var pausedJobs = await _scheduler.GetJobsByStatusAsync(ScheduledJobStatus.Paused);
+        var scheduledJobs = await _scheduler.GetJobsByStatusAsync(ScheduledJobStatus.Scheduled);
+
+        // Assert
+        Assert.Equal(2, pausedJobs.Count);
+        Assert.Contains(pausedJobs, j => j.JobId == jobId1);
+        Assert.Contains(pausedJobs, j => j.JobId == jobId2);
+        
+        Assert.Single(scheduledJobs);
+        Assert.Contains(scheduledJobs, j => j.JobId == jobId3);
+    }
+
     /// <summary>
     /// A simple test job for unit testing.
     /// </summary>

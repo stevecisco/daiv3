@@ -430,6 +430,94 @@ JOB DETAILS:
   Created: 2026-02-23 14:30:00 UTC
 ```
 
+### Pause Scheduled Job
+```bash
+.\run-cli.bat schedule pause --id "job_20260228120000_000001"
+```
+Pauses a scheduled job, preventing it from executing until resumed. The job remains in the system and can be resumed later.
+
+**Restrictions:**
+- Cannot pause jobs that are currently running
+- Cannot pause jobs that are already completed or cancelled
+
+**Output Example:**
+```
+✓ Job paused successfully
+  Job ID: job_20260228120000_000001
+
+The job will not execute while paused. Use 'schedule resume' to resume it.
+```
+
+### Resume Paused Job
+```bash
+.\run-cli.bat schedule resume --id "job_20260228120000_000001"
+```
+Resumes a paused job, allowing it to execute according to its schedule.
+
+**Output Example:**
+```
+✓ Job resumed successfully
+  Job ID: job_20260228120000_000001
+
+The job is now active and will execute according to its schedule.
+```
+
+### Modify Job Schedule
+```bash
+# Modify a one-time job's scheduled time
+.\run-cli.bat schedule modify --id "job_20260228120000_000001" --time "2026-03-02T15:30:00Z"
+
+# Modify a recurring job's interval (in seconds)
+.\run-cli.bat schedule modify --id "job_20260228120000_000002" --interval 300
+
+# Modify a cron job's expression
+.\run-cli.bat schedule modify --id "job_20260228120000_000003" --cron "0 */2 * * *"
+# or short form
+.\run-cli.bat schedule modify --id "job_20260228120000_000003" -c "0 */2 * * *"
+
+# Modify an event-triggered job's event type
+.\run-cli.bat schedule modify --id "job_20260228120000_000004" --event-type "filesystem.file_updated"
+# or short form
+.\run-cli.bat schedule modify --id "job_20260228120000_000004" -e "filesystem.file_updated"
+```
+Modifies the scheduling parameters of an existing job. The modification parameter must match the job's schedule type.
+
+**Schedule Type Requirements:**
+- **OneTime jobs:** Use `--time` (UTC, ISO 8601 format)
+- **Recurring jobs:** Use `--interval` (seconds)
+- **Cron jobs:** Use `--cron` (5-field expression)
+- **EventTriggered jobs:** Use `--event-type`
+
+**Restrictions:**
+- Cannot modify jobs that are currently running
+- Cannot modify jobs that are completed or cancelled
+- Cannot modify immediate-type jobs
+- Only one modification parameter allowed per command
+
+**Output Example:**
+```
+✓ Job schedule modified successfully
+  Job ID: job_20260228120000_000003
+  Job Name: daily-backup
+  Schedule Type: Cron
+  New Cron Expression: 0 */2 * * *
+```
+
+### Combined Workflow Example
+```bash
+# Pause a job
+.\run-cli.bat schedule pause --id "job_20260228120000_000001"
+
+# Modify while paused
+.\run-cli.bat schedule modify --id "job_20260228120000_000001" --time "2026-03-05T09:00:00Z"
+
+# Resume with new schedule
+.\run-cli.bat schedule resume --id "job_20260228120000_000001"
+
+# Verify the changes
+.\run-cli.bat schedule info --id "job_20260228120000_000001"
+```
+
 ---
 
 ## Settings Commands

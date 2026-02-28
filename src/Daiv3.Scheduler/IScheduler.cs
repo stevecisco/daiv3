@@ -116,4 +116,33 @@ public interface IScheduler
     Task<IReadOnlyList<ScheduledJobMetadata>> GetJobsByStatusAsync(
         ScheduledJobStatus status,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pauses a scheduled job. A paused job will not execute until it is resumed.
+    /// </summary>
+    /// <param name="jobId">The ID of the job to pause.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the job was found and paused, false if the job doesn't exist.</returns>
+    Task<bool> PauseJobAsync(string jobId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resumes a paused job.
+    /// </summary>
+    /// <param name="jobId">The ID of the job to resume.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the job was found and resumed, false if the job doesn't exist.</returns>
+    Task<bool> ResumeJobAsync(string jobId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Modifies the schedule of an existing job.
+    /// </summary>
+    /// <param name="jobId">The ID of the job to modify.</param>
+    /// <param name="modificationRequest">The modification parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the job was found and modified, false if the job doesn't exist.</returns>
+    /// <exception cref="ArgumentException">If the modification parameters are invalid for the job's schedule type.</exception>
+    Task<bool> ModifyJobScheduleAsync(
+        string jobId,
+        ScheduleModificationRequest modificationRequest,
+        CancellationToken cancellationToken = default);
 }

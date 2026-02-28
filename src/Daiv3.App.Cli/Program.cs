@@ -290,6 +290,62 @@ public class Program
         scheduleCommand.AddCommand(scheduleEventCommand);
         scheduleCommand.AddCommand(scheduleCancelCommand);
         scheduleCommand.AddCommand(scheduleInfoCommand);
+
+        var schedulePauseCommand = new Command("pause", "Pause a scheduled job");
+        var pauseJobIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Job ID") { IsRequired = true };
+        schedulePauseCommand.AddOption(pauseJobIdOption);
+        schedulePauseCommand.SetHandler(async (string jobId) =>
+        {
+            var host = CreateHost();
+            var exitCode = await SchedulePauseCommand(host, jobId);
+            Environment.Exit(exitCode);
+        }, pauseJobIdOption);
+
+        var scheduleResumeCommand = new Command("resume", "Resume a paused job");
+        var resumeJobIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Job ID") { IsRequired = true };
+        scheduleResumeCommand.AddOption(resumeJobIdOption);
+        scheduleResumeCommand.SetHandler(async (string jobId) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ScheduleResumeCommand(host, jobId);
+            Environment.Exit(exitCode);
+        }, resumeJobIdOption);
+
+        var scheduleModifyCommand = new Command("modify", "Modify a scheduled job");
+        var modifyJobIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Job ID") { IsRequired = true };
+        var modifyTimeOption = new Option<DateTime?>(
+            aliases: new[] { "--time", "-t" },
+            description: "New scheduled time (UTC, ISO 8601 format) for one-time jobs");
+        var modifyIntervalOption = new Option<uint?>(
+            aliases: new[] { "--interval", "-i" },
+            description: "New interval in seconds for recurring jobs");
+        var modifyCronOption = new Option<string>(
+            aliases: new[] { "--cron", "-c" },
+            description: "New cron expression for cron jobs");
+        var modifyEventTypeOption = new Option<string>(
+            aliases: new[] { "--event-type", "-e" },
+            description: "New event type for event-triggered jobs");
+        scheduleModifyCommand.AddOption(modifyJobIdOption);
+        scheduleModifyCommand.AddOption(modifyTimeOption);
+        scheduleModifyCommand.AddOption(modifyIntervalOption);
+        scheduleModifyCommand.AddOption(modifyCronOption);
+        scheduleModifyCommand.AddOption(modifyEventTypeOption);
+        scheduleModifyCommand.SetHandler(async (string jobId, DateTime? time, uint? interval, string? cron, string? eventType) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ScheduleModifyCommand(host, jobId, time, interval, cron, eventType);
+            Environment.Exit(exitCode);
+        }, modifyJobIdOption, modifyTimeOption, modifyIntervalOption, modifyCronOption, modifyEventTypeOption);
+
+        scheduleCommand.AddCommand(schedulePauseCommand);
+        scheduleCommand.AddCommand(scheduleResumeCommand);
+        scheduleCommand.AddCommand(scheduleModifyCommand);
         rootCommand.AddCommand(scheduleCommand);
 
         // Settings command
@@ -1260,6 +1316,195 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to get job info: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SchedulePauseCommand(IHost host, string jobId)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Pausing job: {JobId}", jobId);
+
+            var paused = await scheduler.PauseJobAsync(jobId);
+
+            if (paused)
+            {
+                Console.WriteLine("✓ Job paused successfully");
+                Console.WriteLine($"  Job ID: {jobId}");
+                Console.WriteLine();
+                Console.WriteLine("The job will not execute while paused. Use 'schedule resume' to resume it.");
+                return 0;
+            }
+            else
+            {
+                Console.WriteLine($"✗ Job {jobId} could not be paused. It may not exist or may be in a state that cannot be paused.");
+                return 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to pause job: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ScheduleResumeCommand(IHost host, string jobId)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Resuming job: {JobId}", jobId);
+
+            var resumed = await scheduler.ResumeJobAsync(jobId);
+
+            if (resumed)
+            {
+                Console.WriteLine("✓ Job resumed successfully");
+                Console.WriteLine($"  Job ID: {jobId}");
+                Console.WriteLine();
+                Console.WriteLine("The job is now active and will execute according to its schedule.");
+                return 0;
+            }
+            else
+            {
+                Console.WriteLine($"✗ Job {jobId} could not be resumed. It may not exist or may not be paused.");
+                return 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to resume job: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ScheduleModifyCommand(
+        IHost host, 
+        string jobId, 
+        DateTime? time, 
+        uint? interval, 
+        string? cron, 
+        string? eventType)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var scheduler = host.Services.GetRequiredService<IScheduler>();
+            logger.LogInformation("Modifying job: {JobId}", jobId);
+
+            // First get the job metadata to determine its type
+            var metadata = await scheduler.GetJobMetadataAsync(jobId);
+            if (metadata == null)
+            {
+                Console.WriteLine($"✗ Job {jobId} not found.");
+                return 1;
+            }
+
+            // Build the modification request
+            var request = new ScheduleModificationRequest();
+            int parametersProvided = 0;
+
+            if (time.HasValue)
+            {
+                if (metadata.ScheduleType != ScheduleType.OneTime)
+                {
+                    Console.WriteLine($"✗ Job {jobId} is not a one-time job. --time is only valid for one-time jobs.");
+                    return 1;
+                }
+                request.ScheduledAtUtc = time.Value.Kind == DateTimeKind.Utc ? time.Value : time.Value.ToUniversalTime();
+                parametersProvided++;
+            }
+
+            if (interval.HasValue)
+            {
+                if (metadata.ScheduleType != ScheduleType.Recurring)
+                {
+                    Console.WriteLine($"✗ Job {jobId} is not a recurring job. --interval is only valid for recurring jobs.");
+                    return 1;
+                }
+                request.IntervalSeconds = interval.Value;
+                parametersProvided++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(cron))
+            {
+                if (metadata.ScheduleType != ScheduleType.Cron)
+                {
+                    Console.WriteLine($"✗ Job {jobId} is not a cron job. --cron is only valid for cron jobs.");
+                    return 1;
+                }
+                request.CronExpression = cron;
+                parametersProvided++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(eventType))
+            {
+                if (metadata.ScheduleType != ScheduleType.EventTriggered)
+                {
+                    Console.WriteLine($"✗ Job {jobId} is not an event-triggered job. --event-type is only valid for event-triggered jobs.");
+                    return 1;
+                }
+                request.EventType = eventType;
+                parametersProvided++;
+            }
+
+            if (parametersProvided == 0)
+            {
+                Console.WriteLine("✗ No modification parameters provided. Please specify:");
+                Console.WriteLine("  --time for one-time jobs");
+                Console.WriteLine("  --interval for recurring jobs");
+                Console.WriteLine("  --cron for cron jobs");
+                Console.WriteLine("  --event-type for event-triggered jobs");
+                return 1;
+            }
+
+            if (parametersProvided > 1)
+            {
+                Console.WriteLine("✗ Multiple modification parameters provided. Please specify only one parameter for the job's schedule type.");
+                return 1;
+            }
+
+            var modified = await scheduler.ModifyJobScheduleAsync(jobId, request);
+
+            if (modified)
+            {
+                Console.WriteLine("✓ Job schedule modified successfully");
+                Console.WriteLine($"  Job ID: {jobId}");
+                Console.WriteLine($"  Job Name: {metadata.JobName}");
+                Console.WriteLine($"  Schedule Type: {metadata.ScheduleType}");
+                
+                if (request.ScheduledAtUtc.HasValue)
+                {
+                    Console.WriteLine($"  New Scheduled Time: {request.ScheduledAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC");
+                }
+                if (request.IntervalSeconds.HasValue)
+                {
+                    Console.WriteLine($"  New Interval: {request.IntervalSeconds.Value} seconds");
+                }
+                if (!string.IsNullOrWhiteSpace(request.CronExpression))
+                {
+                    Console.WriteLine($"  New Cron Expression: {request.CronExpression}");
+                }
+                if (!string.IsNullOrWhiteSpace(request.EventType))
+                {
+                    Console.WriteLine($"  New Event Type: {request.EventType}");
+                }
+
+                return 0;
+            }
+            else
+            {
+                Console.WriteLine($"✗ Job {jobId} could not be modified.");
+                return 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to modify job: {ex.Message}");
             return 1;
         }
     }

@@ -33,5 +33,10 @@ public enum ScheduledJobStatus
     /// <summary>
     /// The job is scheduled to run at a future time (not yet in pending queue).
     /// </summary>
-    Scheduled = 5
+    Scheduled = 5,
+
+    /// <summary>
+    /// The job has been paused and will not execute until resumed.
+    /// </summary>
+    Paused = 6
 }

@@ -371,6 +371,12 @@ public class SchedulerHostedService : BackgroundService, IScheduler
                 continue;
             }
 
+            if (entry.Status == ScheduledJobStatus.Paused)
+            {
+                _logger.LogDebug("Job {JobId} is paused, skipping event trigger", jobId);
+                continue;
+            }
+
             // Respect concurrency limit
             if (!await _concurrencySemaphore.WaitAsync(0))
             {
@@ -468,6 +474,252 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         return Task.FromResult<IReadOnlyList<ScheduledJobMetadata>>(metadata);
     }
 
+    public Task<bool> PauseJobAsync(string jobId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(jobId))
+        {
+            throw new ArgumentNullException(nameof(jobId));
+        }
+
+        if (!_jobs.TryGetValue(jobId, out var entry))
+        {
+            _logger.LogWarning("Job not found: {JobId}", jobId);
+            return Task.FromResult(false);
+        }
+
+        if (entry.Status == ScheduledJobStatus.Paused)
+        {
+            _logger.LogInformation("Job already paused: {JobId}", jobId);
+            return Task.FromResult(true);
+        }
+
+        if (entry.Status == ScheduledJobStatus.Running)
+        {
+            _logger.LogWarning("Cannot pause running job: {JobId}", jobId);
+            return Task.FromResult(false);
+        }
+
+        if (entry.Status == ScheduledJobStatus.Completed || entry.Status == ScheduledJobStatus.Cancelled)
+        {
+            _logger.LogWarning("Cannot pause job in terminal state: {JobId} (status={Status})", jobId, entry.Status);
+            return Task.FromResult(false);
+        }
+
+        var oldStatus = entry.Status;
+        entry.Status = ScheduledJobStatus.Paused;
+
+        _logger.LogInformation(
+            "Job paused: {JobId} ({JobName}), previous status={PreviousStatus}",
+            jobId, entry.Job.Name, oldStatus);
+
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> ResumeJobAsync(string jobId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(jobId))
+        {
+            throw new ArgumentNullException(nameof(jobId));
+        }
+
+        if (!_jobs.TryGetValue(jobId, out var entry))
+        {
+            _logger.LogWarning("Job not found: {JobId}", jobId);
+            return Task.FromResult(false);
+        }
+
+        if (entry.Status != ScheduledJobStatus.Paused)
+        {
+            _logger.LogWarning("Job is not paused: {JobId} (status={Status})", jobId, entry.Status);
+            return Task.FromResult(false);
+        }
+
+        // Determine the appropriate status to resume to
+        ScheduledJobStatus newStatus;
+        if (entry.ScheduleType == ScheduleType.EventTriggered)
+        {
+            newStatus = ScheduledJobStatus.Pending;
+        }
+        else if (entry.ScheduledAtUtc.HasValue && entry.ScheduledAtUtc.Value > DateTime.UtcNow)
+        {
+            newStatus = ScheduledJobStatus.Scheduled;
+        }
+        else
+        {
+            newStatus = ScheduledJobStatus.Pending;
+        }
+
+        entry.Status = newStatus;
+
+        _logger.LogInformation(
+            "Job resumed: {JobId} ({JobName}), new status={NewStatus}",
+            jobId, entry.Job.Name, newStatus);
+
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> ModifyJobScheduleAsync(
+        string jobId,
+        ScheduleModificationRequest modificationRequest,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(jobId))
+        {
+            throw new ArgumentNullException(nameof(jobId));
+        }
+
+        ArgumentNullException.ThrowIfNull(modificationRequest);
+
+        if (!_jobs.TryGetValue(jobId, out var entry))
+        {
+            _logger.LogWarning("Job not found: {JobId}", jobId);
+            return Task.FromResult(false);
+        }
+
+        if (entry.Status == ScheduledJobStatus.Running)
+        {
+            _logger.LogWarning("Cannot modify running job: {JobId}", jobId);
+            return Task.FromResult(false);
+        }
+
+        if (entry.Status == ScheduledJobStatus.Completed || entry.Status == ScheduledJobStatus.Cancelled)
+        {
+            _logger.LogWarning("Cannot modify job in terminal state: {JobId} (status={Status})", jobId, entry.Status);
+            return Task.FromResult(false);
+        }
+
+        // Validate and apply modifications based on schedule type
+        switch (entry.ScheduleType)
+        {
+            case ScheduleType.OneTime:
+                if (modificationRequest.ScheduledAtUtc.HasValue)
+                {
+                    if (modificationRequest.ScheduledAtUtc.Value.Kind != DateTimeKind.Utc)
+                    {
+                        throw new ArgumentException("Scheduled time must be in UTC", nameof(modificationRequest));
+                    }
+
+                    entry.ScheduledAtUtc = modificationRequest.ScheduledAtUtc.Value;
+                    entry.Status = modificationRequest.ScheduledAtUtc.Value > DateTime.UtcNow
+                        ? ScheduledJobStatus.Scheduled
+                        : ScheduledJobStatus.Pending;
+
+                    _logger.LogInformation(
+                        "Modified one-time job schedule: {JobId} ({JobName}), new time={NewTime:O}",
+                        jobId, entry.Job.Name, entry.ScheduledAtUtc);
+                }
+                else
+                {
+                    throw new ArgumentException("ScheduledAtUtc is required for one-time jobs", nameof(modificationRequest));
+                }
+                break;
+
+            case ScheduleType.Recurring:
+                if (modificationRequest.IntervalSeconds.HasValue)
+                {
+                    if (modificationRequest.IntervalSeconds.Value == 0)
+                    {
+                        throw new ArgumentException("Interval must be greater than 0", nameof(modificationRequest));
+                    }
+
+                    entry.IntervalSeconds = modificationRequest.IntervalSeconds.Value;
+
+                    // Reschedule next run based on new interval
+                    entry.ScheduledAtUtc = DateTime.UtcNow.AddSeconds(entry.IntervalSeconds.Value);
+
+                    _logger.LogInformation(
+                        "Modified recurring job interval: {JobId} ({JobName}), new interval={Interval}s, next run={NextRun:O}",
+                        jobId, entry.Job.Name, entry.IntervalSeconds, entry.ScheduledAtUtc);
+                }
+                else
+                {
+                    throw new ArgumentException("IntervalSeconds is required for recurring jobs", nameof(modificationRequest));
+                }
+                break;
+
+            case ScheduleType.Cron:
+                if (!string.IsNullOrWhiteSpace(modificationRequest.CronExpression))
+                {
+                    // Validate and parse the cron expression
+                    CronExpression cron;
+                    try
+                    {
+                        cron = new CronExpression(modificationRequest.CronExpression);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Invalid cron expression: {CronExpression}", modificationRequest.CronExpression);
+                        throw new ArgumentException(
+                            $"Invalid cron expression: {modificationRequest.CronExpression}",
+                            nameof(modificationRequest), ex);
+                    }
+
+                    var nextRun = cron.GetNextOccurrence(DateTime.UtcNow);
+                    if (nextRun == null)
+                    {
+                        throw new ArgumentException(
+                            $"Cron expression '{modificationRequest.CronExpression}' has no future occurrences",
+                            nameof(modificationRequest));
+                    }
+
+                    entry.CronExpression = modificationRequest.CronExpression;
+                    entry.ScheduledAtUtc = nextRun;
+                    entry.Status = ScheduledJobStatus.Scheduled;
+
+                    _logger.LogInformation(
+                        "Modified cron job expression: {JobId} ({JobName}), new expression={Expression}, next run={NextRun:O}",
+                        jobId, entry.Job.Name, entry.CronExpression, entry.ScheduledAtUtc);
+                }
+                else
+                {
+                    throw new ArgumentException("CronExpression is required for cron jobs", nameof(modificationRequest));
+                }
+                break;
+
+            case ScheduleType.EventTriggered:
+                if (!string.IsNullOrWhiteSpace(modificationRequest.EventType))
+                {
+                    // Remove from old event type registry
+                    if (entry.EventType != null && _eventTriggeredJobs.TryGetValue(entry.EventType, out var oldJobIds))
+                    {
+                        lock (oldJobIds)
+                        {
+                            oldJobIds.Remove(jobId);
+                        }
+                    }
+
+                    // Add to new event type registry
+                    var newJobIds = _eventTriggeredJobs.GetOrAdd(modificationRequest.EventType, _ => new List<string>());
+                    lock (newJobIds)
+                    {
+                        if (!newJobIds.Contains(jobId))
+                        {
+                            newJobIds.Add(jobId);
+                        }
+                    }
+
+                    _logger.LogInformation(
+                        "Modified event-triggered job: {JobId} ({JobName}), old event={OldEvent}, new event={NewEvent}",
+                        jobId, entry.Job.Name, entry.EventType, modificationRequest.EventType);
+
+                    entry.EventType = modificationRequest.EventType;
+                }
+                else
+                {
+                    throw new ArgumentException("EventType is required for event-triggered jobs", nameof(modificationRequest));
+                }
+                break;
+
+            case ScheduleType.Immediate:
+                throw new ArgumentException("Cannot modify immediate jobs", nameof(modificationRequest));
+
+            default:
+                throw new InvalidOperationException($"Unsupported schedule type: {entry.ScheduleType}");
+        }
+
+        return Task.FromResult(true);
+    }
+
     /// <summary>
     /// Checks for jobs that are ready to execute and executes them.
     /// This method is called periodically by the check timer.
@@ -478,7 +730,9 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         {
             var now = DateTime.UtcNow;
             var jobsToExecute = _jobs.Values
-                .Where(j => j.ScheduledAtUtc <= now && (j.Status == ScheduledJobStatus.Scheduled || j.Status == ScheduledJobStatus.Pending))
+                .Where(j => j.ScheduledAtUtc <= now 
+                    && (j.Status == ScheduledJobStatus.Scheduled || j.Status == ScheduledJobStatus.Pending)
+                    && j.Status != ScheduledJobStatus.Paused)  // Skip paused jobs
                 .ToList();
 
             if (jobsToExecute.Any())
@@ -668,9 +922,9 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         public TimeSpan? LastExecutionDuration { get; set; }
         public int ExecutionCount { get; set; }
         public string? LastErrorMessage { get; set; }
-        public uint? IntervalSeconds { get; init; }
-        public string? CronExpression { get; init; }
-        public string? EventType { get; init; }
+        public uint? IntervalSeconds { get; set; }  // Changed from init to set for ModifyJobScheduleAsync
+        public string? CronExpression { get; set; }  // Changed from init to set for ModifyJobScheduleAsync
+        public string? EventType { get; set; }  // Changed from init to set for ModifyJobScheduleAsync
         public required CancellationTokenSource CancellationTokenSource { get; init; }
         public Task? ExecutionTask { get; set; }
     }
