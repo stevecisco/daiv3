@@ -262,6 +262,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 2,
                 Description = "Add task scheduling timestamps: next_run_at, last_run_at",
                 Sql = SchemaScripts.Migration002_TaskSchedulingTimestamps
+            },
+            new Migration
+            {
+                Version = 3,
+                Description = "Add agents table for agent definitions with user-editable JSON config",
+                Sql = SchemaScripts.Migration003_AgentDefinitions
             }
         };
     }

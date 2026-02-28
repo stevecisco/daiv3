@@ -148,4 +148,27 @@ ALTER TABLE tasks ADD COLUMN last_run_at INTEGER;
 CREATE INDEX IF NOT EXISTS idx_tasks_next_run_at ON tasks(next_run_at);
 CREATE INDEX IF NOT EXISTS idx_tasks_last_run_at ON tasks(last_run_at);
 ";
+
+    /// <summary>
+    /// Migration 003: Agent definitions and configuration
+    /// Adds agents table for storing agent definitions in user-editable JSON format.
+    /// </summary>
+    public const string Migration003_AgentDefinitions = @"
+-- Agents: Agent definitions stored in user-editable config format
+CREATE TABLE IF NOT EXISTS agents (
+    agent_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    enabled_skills_json TEXT,
+    config_json TEXT,
+    status TEXT NOT NULL CHECK(status IN ('active', 'archived', 'deleted')) DEFAULT 'active',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
+CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
+CREATE INDEX IF NOT EXISTS idx_agents_created_at ON agents(created_at);
+";
+
 }

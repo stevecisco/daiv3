@@ -103,3 +103,51 @@ public class ModelQueueEntry
     public long? CompletedAt { get; set; }
     public string? ErrorMessage { get; set; }
 }
+
+/// <summary>
+/// Represents an agent definition.
+/// Stores agent configuration in user-editable JSON format.
+/// </summary>
+public class Agent
+{
+    /// <summary>
+    /// Agent unique identifier (UUID as string).
+    /// </summary>
+    public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Agent name.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Agent purpose/description.
+    /// </summary>
+    public string Purpose { get; set; } = string.Empty;
+
+    /// <summary>
+    /// List of enabled skill names (stored as JSON array).
+    /// </summary>
+    public string? EnabledSkillsJson { get; set; }
+
+    /// <summary>
+    /// Agent-specific configuration (stored as JSON object).
+    /// User-editable configuration parameters.
+    /// </summary>
+    public string? ConfigJson { get; set; }
+
+    /// <summary>
+    /// Agent status: active, archived, deleted.
+    /// </summary>
+    public string Status { get; set; } = "active";
+
+    /// <summary>
+    /// When the agent was created (Unix timestamp).
+    /// </summary>
+    public long CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the agent was last updated (Unix timestamp).
+    /// </summary>
+    public long UpdatedAt { get; set; }
+}

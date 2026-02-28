@@ -38,6 +38,7 @@ public static class PersistenceServiceExtensions
         services.AddScoped<DocumentRepository>();
         services.AddScoped<ProjectRepository>();
         services.AddScoped<TaskRepository>();
+        services.AddScoped<AgentRepository>();
         
         // MQ-REQ-013: Model queue repository for offline queueing
         services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
