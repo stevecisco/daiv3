@@ -24,6 +24,7 @@ public class AgentManager : IAgentManager
     private readonly IToolRegistry _toolRegistry;
     private readonly IToolInvoker _toolInvoker;
     private readonly OrchestrationOptions _options;
+    private readonly AgentExecutionMetricsCollector _metricsCollector;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
     private readonly ConcurrentDictionary<string, Guid> _taskTypeAgentIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly AgentExecutionRegistry _executionRegistry = new();
@@ -35,7 +36,8 @@ public class AgentManager : IAgentManager
         ISuccessCriteriaEvaluator successCriteriaEvaluator,
         IToolRegistry toolRegistry,
         IToolInvoker toolInvoker,
-        IOptions<OrchestrationOptions> options)
+        IOptions<OrchestrationOptions> options,
+        AgentExecutionMetricsCollector metricsCollector)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _agentRepository = agentRepository ?? throw new ArgumentNullException(nameof(agentRepository));
@@ -44,6 +46,7 @@ public class AgentManager : IAgentManager
         _toolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
         _toolInvoker = toolInvoker ?? throw new ArgumentNullException(nameof(toolInvoker));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _metricsCollector = metricsCollector ?? throw new ArgumentNullException(nameof(metricsCollector));
     }
 
     /// <inheritdoc />
@@ -391,9 +394,15 @@ public class AgentManager : IAgentManager
             }
         }
 
+        // Initialize metrics collection
+        var metrics = _metricsCollector.CreateMetrics(result.ExecutionId, agent.Id);
+
         _logger.LogInformation(
             "Starting agent execution for Agent {AgentId} '{AgentName}'. ExecutionId: {ExecutionId}, Goal: {Goal}, MaxIterations: {MaxIterations}, Timeout: {Timeout}s, TokenBudget: {Budget}",
             agent.Id, agent.Name, result.ExecutionId, request.TaskGoal, options.MaxIterations, options.TimeoutSeconds, options.TokenBudget);
+
+        // Notify observers of execution start
+        await _metricsCollector.OnExecutionStartedAsync(result.ExecutionId, agent.Id, request.TaskGoal).ConfigureAwait(false);
 
         var stopwatch = Stopwatch.StartNew();
         var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(options.TimeoutSeconds));
@@ -418,6 +427,11 @@ public class AgentManager : IAgentManager
 
                 linkedCts.Token.ThrowIfCancellationRequested();
 
+                // Notify iteration start
+                await _metricsCollector.OnIterationStartedAsync(result.ExecutionId, iteration).ConfigureAwait(false);
+
+                var iterationStopwatch = Stopwatch.StartNew();
+
                 _logger.LogDebug("Agent {AgentId} starting iteration {Iteration}/{MaxIterations}",
                     agent.Id, iteration, options.MaxIterations);
 
@@ -435,6 +449,36 @@ public class AgentManager : IAgentManager
                 result.Steps.Add(step);
                 result.TokensConsumed += step.TokensConsumed;
                 result.IterationsExecuted = iteration;
+
+                iterationStopwatch.Stop();
+
+                // Record step metrics
+                if (_metricsCollector is not null)
+                {
+                    var stepMetrics = new AgentExecutionMetrics.StepMetrics
+                    {
+                        StepNumber = iteration,
+                        StepType = step.StepType,
+                        Duration = iterationStopwatch.Elapsed,
+                        TokensConsumed = step.TokensConsumed,
+                        Success = step.Success,
+                        StartedAt = step.StartedAt,
+                        EndedAt = step.CompletedAt,
+                        ErrorMessage = step.Success ? null : "Step execution resulted in non-success state"
+                    };
+
+                    await _metricsCollector.OnStepCompletedAsync(result.ExecutionId, stepMetrics).ConfigureAwait(false);
+                }
+
+                // Update metrics
+                metrics.TotalIterations = iteration;
+                metrics.TotalTokensConsumed = result.TokensConsumed;
+                metrics.TotalDuration = stopwatch.Elapsed;
+                metrics.ExecutionStatus = control?.IsPaused == true ? "Paused" : "Running";
+
+                // Notify iteration completion
+                var metricsSnapshot = metrics.CreateSnapshot();
+                await _metricsCollector.OnIterationCompletedAsync(result.ExecutionId, iteration, metricsSnapshot).ConfigureAwait(false);
 
                 // Check token budget
                 if (result.TokensConsumed >= options.TokenBudget)
@@ -528,12 +572,22 @@ public class AgentManager : IAgentManager
         catch (OperationCanceledException)
         {
             result.Success = false;
-            result.TerminationReason = "Cancelled";
-            result.ErrorMessage = "Execution cancelled by user";
+            
+            // Determine if it was a user stop or other cancellation
+            if (control?.IsStopped == true)
+            {
+                result.TerminationReason = "UserStopped";
+                result.ErrorMessage = "Execution stopped by user";
+            }
+            else
+            {
+                result.TerminationReason = "Cancelled";
+                result.ErrorMessage = "Execution cancelled by user";
+            }
             
             _logger.LogInformation(
-                "Agent {AgentId} execution cancelled by user",
-                agent.Id);
+                "Agent {AgentId} execution cancelled (reason: {Reason})",
+                agent.Id, result.TerminationReason);
         }
         catch (Exception ex)
         {
@@ -554,8 +608,16 @@ public class AgentManager : IAgentManager
             if (control != null)
             {
                 result.PausedDuration = control.TotalPausedDuration;
+                metrics.TotalPausedDuration = control.TotalPausedDuration;
             }
             
+            // Update final metrics
+            metrics.TotalDuration = stopwatch.Elapsed;
+            metrics.ExecutionStatus = "Completed";
+            metrics.TerminationReason = result.TerminationReason;
+            metrics.CompletedAt = result.CompletedAt;
+            metrics.ErrorMessage = result.ErrorMessage;
+
             timeoutCts.Dispose();
             linkedCts.Dispose();
 
@@ -563,6 +625,10 @@ public class AgentManager : IAgentManager
                 "Agent {AgentId} execution completed. ExecutionId: {ExecutionId}, Success: {Success}, Reason: {Reason}, Iterations: {Iterations}, Tokens: {Tokens}, Duration: {Duration}ms, PausedDuration: {PausedDuration}ms",
                 agent.Id, result.ExecutionId, result.Success, result.TerminationReason,
                 result.IterationsExecuted, result.TokensConsumed, stopwatch.ElapsedMilliseconds, result.PausedDuration.TotalMilliseconds);
+
+            // Report completion metrics
+            var finalMetricsSnapshot = metrics.CreateSnapshot();
+            await _metricsCollector.OnExecutionCompletedAsync(result.ExecutionId, finalMetricsSnapshot, result.TerminationReason!).ConfigureAwait(false);
 
             // Publish execution completion message
             try
