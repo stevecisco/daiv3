@@ -38,5 +38,13 @@ public enum ToolBackendType
     /// public APIs, internal enterprise APIs, third-party SaaS platforms.
     /// Moderate context overhead (HTTP headers and JSON payload).
     /// </summary>
-    RestAPI = 3
+    RestAPI = 3,
+
+    /// <summary>
+    /// Tool is invoked via Windows UI automation. Used for automating external applications
+    /// that do not expose APIs or for scenarios where API access is not available.
+    /// Moderate context overhead (UI interaction sequences and screenshots).
+    /// Windows-only capability.
+    /// </summary>
+    UiAutomation = 4
 }

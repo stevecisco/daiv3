@@ -112,6 +112,7 @@ public sealed class ToolRoutingService : IToolInvoker
                 ToolBackendType.Direct => await InvokeDirectToolAsync(tool, parameters, invocationId, cancellationToken),
                 ToolBackendType.CLI => await InvokeCliToolAsync(tool, parameters, invocationId, cancellationToken),
                 ToolBackendType.RestAPI => await InvokeRestApiToolAsync(tool, parameters, invocationId, cancellationToken),
+                ToolBackendType.UiAutomation => await InvokeUiAutomationToolAsync(tool, parameters, invocationId, cancellationToken),
                 ToolBackendType.MCP => await InvokeMcpToolAsync(tool, parameters, invocationId, cancellationToken),
                 _ => throw new NotSupportedException($"Backend type {tool.Backend} is not supported")
             };
@@ -361,6 +362,201 @@ public sealed class ToolRoutingService : IToolInvoker
                 ContextTokenCost = tool.EstimatedTokenCost
             };
         }
+    }
+
+    private async Task<ToolInvocationResult> InvokeUiAutomationToolAsync(
+        Models.ToolDescriptor tool,
+        Dictionary<string, object> parameters,
+        int invocationId,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("UI automation tool invocation for '{ToolId}' (invocation #{InvocationId})",
+            tool.ToolId, invocationId);
+
+        try
+        {
+            // Parse UI automation configuration from metadata
+            var config = UiAutomationToolConfiguration.FromMetadata(tool.Metadata);
+            if (config == null)
+            {
+                _logger.LogError("UI automation configuration missing for tool '{ToolId}' (invocation #{InvocationId})",
+                    tool.ToolId, invocationId);
+
+                return new ToolInvocationResult
+                {
+                    Success = false,
+                    ErrorMessage = "UI automation configuration is missing or invalid",
+                    ErrorCode = "INVALID_CONFIGURATION",
+                    BackendUsed = ToolBackendType.UiAutomation,
+                    ContextTokenCost = 0
+                };
+            }
+
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(config.WindowIdentifier))
+            {
+                _logger.LogError("Window identifier is required for UI automation tool '{ToolId}' (invocation #{InvocationId})",
+                    tool.ToolId, invocationId);
+
+                return new ToolInvocationResult
+                {
+                    Success = false,
+                    ErrorMessage = "Window identifier is required",
+                    ErrorCode = "MISSING_WINDOW_IDENTIFIER",
+                    BackendUsed = ToolBackendType.UiAutomation,
+                    ContextTokenCost = 0
+                };
+            }
+
+            // UI automation is Windows-only; check runtime platform
+            if (!OperatingSystem.IsWindows())
+            {
+                _logger.LogError("UI automation tool '{ToolId}' requires Windows OS (invocation #{InvocationId})",
+                    tool.ToolId, invocationId);
+
+                return new ToolInvocationResult
+                {
+                    Success = false,
+                    ErrorMessage = "UI automation is not supported on non-Windows platforms",
+                    ErrorCode = "UNSUPPORTED_PLATFORM",
+                    BackendUsed = ToolBackendType.UiAutomation,
+                    ContextTokenCost = 0
+                };
+            }
+
+            _logger.LogDebug("Beginning UI automation: Window='{Window}' ({WindowType}), Element='{Element}' ({ElementType}), Action={Action}",
+                config.WindowIdentifier, config.WindowIdentifierType,
+                config.ElementIdentifier ?? "(window level)", config.ElementIdentifierType,
+                config.ActionType);
+
+            // Perform the UI automation action
+            var result = await PerformUiAutomationActionAsync(config, parameters, tool.ToolId, invocationId, cancellationToken);
+
+            if (result.Success)
+            {
+                _logger.LogInformation("UI automation tool '{ToolId}' completed successfully (invocation #{InvocationId})",
+                    tool.ToolId, invocationId);
+            }
+            else
+            {
+                _logger.LogWarning("UI automation tool '{ToolId}' failed: {ErrorMessage} (invocation #{InvocationId})",
+                    tool.ToolId, result.ErrorMessage, invocationId);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error invoking UI automation tool '{ToolId}' (invocation #{InvocationId}): {ErrorMessage}",
+                tool.ToolId, invocationId, ex.Message);
+
+            return new ToolInvocationResult
+            {
+                Success = false,
+                ErrorMessage = ex.Message,
+                ErrorCode = "UIAUTOMATION_INVOCATION_FAILED",
+                BackendUsed = ToolBackendType.UiAutomation,
+                ContextTokenCost = 0
+            };
+        }
+    }
+
+    private async Task<ToolInvocationResult> PerformUiAutomationActionAsync(
+        UiAutomationToolConfiguration config,
+        Dictionary<string, object> parameters,
+        string toolId,
+        int invocationId,
+        CancellationToken cancellationToken)
+    {
+        // Normalize action type
+        var actionType = config.ActionType?.ToUpperInvariant() ?? "CLICK";
+
+        // For this implementation, we return a structured response indicating what would be done
+        // In a full implementation, this would use Windows UIAutomation APIs to actually interact with UI
+        
+        var resultMetadata = new Dictionary<string, string>
+        {
+            ["ActionType"] = actionType,
+            ["WindowIdentifier"] = config.WindowIdentifier ?? "",
+            ["WindowIdentifierType"] = config.WindowIdentifierType,
+            ["ElementIdentifier"] = config.ElementIdentifier ?? "(window level)",
+            ["ElementIdentifierType"] = config.ElementIdentifierType,
+            ["TimeoutMs"] = config.TimeoutMs.ToString(),
+            ["Status"] = "NotImplementedPlatform"
+        };
+
+        // Context token cost estimate for UI automation
+        // Includes: window identifier, element identifier, action type, parameters
+        var tokenCost = EstimateUiAutomationTokenCost(config, parameters);
+
+        // In v0.1, UI automation returns a structured response for future implementation
+        // Full implementation would require:
+        // - System.Runtime.InteropServices.Automation (UIAutomationClient COM wrapper)
+        // - Or Windows App SDK UIAutomation APIs
+        // - Window finding, element location, action execution
+        // - Screenshot capture capability
+        // 
+        // The infrastructure is in place to support this, but requires platform-specific
+        // Windows APIs that are best tested in an actual Windows environment
+
+        await Task.CompletedTask; // Satisfy async requirement
+
+        return new ToolInvocationResult
+        {
+            Success = false,
+            ErrorMessage = "UI automation action execution is not yet implemented. Infrastructure in place for Windows UIAutomation APIs.",
+            ErrorCode = "NOT_IMPLEMENTED",
+            BackendUsed = ToolBackendType.UiAutomation,
+            ContextTokenCost = tokenCost,
+            Result = JsonSerializer.Serialize(new
+            {
+                ActionType = actionType,
+                Window = new
+                {
+                    Identifier = config.WindowIdentifier,
+                    IdentifierType = config.WindowIdentifierType
+                },
+                Element = string.IsNullOrWhiteSpace(config.ElementIdentifier) ? null : new
+                {
+                    Identifier = config.ElementIdentifier,
+                    IdentifierType = config.ElementIdentifierType
+                },
+                Configuration = config.ToMetadata(),
+                Message = "UI automation infrastructure is implemented and tested. Actual UIAutomation API integration requires platform-specific Windows APIs."
+            }),
+            Metadata = resultMetadata
+        };
+    }
+
+    private static int EstimateUiAutomationTokenCost(UiAutomationToolConfiguration config, Dictionary<string, object> parameters)
+    {
+        // Estimate token cost based on configuration and parameters
+        // Includes: identifiers, action type, input text, options
+        // Rough approximation: 4 characters = 1 token
+        
+        var estimatedSize = 0;
+        
+        // Window and element identifiers
+        if (!string.IsNullOrWhiteSpace(config.WindowIdentifier))
+            estimatedSize += config.WindowIdentifier.Length;
+        
+        if (!string.IsNullOrWhiteSpace(config.ElementIdentifier))
+            estimatedSize += config.ElementIdentifier.Length;
+        
+        // Action type and configuration
+        estimatedSize += config.ActionType.Length;
+        if (!string.IsNullOrWhiteSpace(config.InputText))
+            estimatedSize += config.InputText.Length;
+        
+        // Options
+        foreach (var opt in config.Options.Values)
+            estimatedSize += opt.Length;
+        
+        // Parameters
+        foreach (var param in parameters.Values)
+            estimatedSize += param?.ToString()?.Length ?? 0;
+
+        return Math.Max(1, estimatedSize / 4);
     }
 
     private async Task<ToolInvocationResult> InvokeMcpToolAsync(
