@@ -21,6 +21,8 @@ public class AgentManager : IAgentManager
     private readonly AgentRepository _agentRepository;
     private readonly IMessageBroker _messageBroker;
     private readonly ISuccessCriteriaEvaluator _successCriteriaEvaluator;
+    private readonly IToolRegistry _toolRegistry;
+    private readonly IToolInvoker _toolInvoker;
     private readonly OrchestrationOptions _options;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
     private readonly ConcurrentDictionary<string, Guid> _taskTypeAgentIds = new(StringComparer.OrdinalIgnoreCase);
@@ -30,12 +32,16 @@ public class AgentManager : IAgentManager
         AgentRepository agentRepository,
         IMessageBroker messageBroker,
         ISuccessCriteriaEvaluator successCriteriaEvaluator,
+        IToolRegistry toolRegistry,
+        IToolInvoker toolInvoker,
         IOptions<OrchestrationOptions> options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _agentRepository = agentRepository ?? throw new ArgumentNullException(nameof(agentRepository));
         _messageBroker = messageBroker ?? throw new ArgumentNullException(nameof(messageBroker));
         _successCriteriaEvaluator = successCriteriaEvaluator ?? throw new ArgumentNullException(nameof(successCriteriaEvaluator));
+        _toolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
+        _toolInvoker = toolInvoker ?? throw new ArgumentNullException(nameof(toolInvoker));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -533,18 +539,13 @@ public class AgentManager : IAgentManager
     {
         var stepStartTime = DateTimeOffset.UtcNow;
 
-        // TODO: Replace with actual model inference and skill execution
-        // For now, simulate a multi-step task completion
-
+        // Determine step type based on iteration number
         var stepType = iteration switch
         {
             1 => "Planning",
-            var i when i < 5 => "Execution",
+            var i when i < 5 => "ToolExecution",
             _ => "Completion"
         };
-
-        // Simulate processing delay
-        await Task.Delay(50, ct);
 
         var stepDescription = $"Iteration {iteration}: {stepType} step for goal: {taskGoal}";
         if (!string.IsNullOrEmpty(failureContext))
@@ -552,23 +553,134 @@ public class AgentManager : IAgentManager
             stepDescription += $"\nSelf-correcting based on: {failureContext}";
         }
 
+        var tokensConsumed = 0;
+        var output = string.Empty;
+        var success = true;
+        string? errorMessage = null;
+
+        // Execute iteration based on step type
+        try
+        {
+            switch (stepType)
+            {
+                case "Planning":
+                    // Planning step: analyze task and determine tools needed
+                    var availableTools = await _toolRegistry.GetAvailableToolsAsync(ct);
+                    tokensConsumed = Math.Min(availableTools.Count * 10, 100);
+                    output = $"Analyzed task and identified {availableTools.Count} available tools";
+                    break;
+
+                case "ToolExecution":
+                    // Tool execution step: invoke appropriate tools
+                    (tokensConsumed, output) = await ExecuteToolsForTaskAsync(taskGoal, context, ct);
+                    break;
+
+                case "Completion":
+                    // Completion step: finalize results
+                    tokensConsumed = 50;
+                    output = $"Task completion step for: {taskGoal}";
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            success = false;
+            errorMessage = ex.Message;
+            tokensConsumed = 50;
+            output = $"Step failed: {ex.Message}";
+            _logger.LogError(ex, "Agent {AgentId} iteration {Iteration} ({StepType}) failed", agent.Id, iteration, stepType);
+        }
+
         var step = new AgentExecutionStep
         {
             StepNumber = iteration,
             StepType = stepType,
             Description = stepDescription,
-            Output = $"Step {iteration} output (placeholder)",
-            TokensConsumed = 100, // Placeholder token count
+            Output = output,
+            TokensConsumed = tokensConsumed,
             StartedAt = stepStartTime,
             CompletedAt = DateTimeOffset.UtcNow,
-            Success = true
+            Success = success
         };
 
-        _logger.LogDebug(
-            "Agent {AgentId} completed step {StepNumber} ({StepType}): {Description}",
-            agent.Id, step.StepNumber, step.StepType, step.Description);
+        _logger.LogInformation(
+            "Agent {AgentId} completed iteration {Iteration} ({StepType}): Success={Success}, Tokens={Tokens}, Output={Output}",
+            agent.Id, iteration, stepType, success, tokensConsumed, output);
 
         return step;
+    }
+
+    /// <summary>
+    /// Executes tool invocations for the given task goal.
+    /// </summary>
+    /// <remarks>
+    /// This method demonstrates agent tool invocation with intelligent routing.
+    /// In a production system, a language model would determine which tools to invoke
+    /// based on the task goal and available tools.
+    /// </remarks>
+    private async Task<(int TokensUsed, string Output)> ExecuteToolsForTaskAsync(
+        string taskGoal,
+        Dictionary<string, string> context,
+        CancellationToken ct)
+    {
+        var tools = await _toolRegistry.GetAvailableToolsAsync(ct);
+        var totalTokens = 0;
+        var outputs = new List<string>();
+
+        // Select and invoke appropriate tools based on task goal
+        // For demonstration, we attempt to invoke the first available tool
+        if (tools.Count > 0)
+        {
+            var selectedTool = tools.First();
+            
+            _logger.LogInformation("Agent attempting to invoke tool '{ToolId}' ({Backend} backend) for task: {Goal}",
+                selectedTool.ToolId, selectedTool.Backend, taskGoal);
+
+            try
+            {
+                // Build parameters from task goal and context
+                var parameters = new Dictionary<string, object> { ["goal"] = taskGoal };
+                foreach (var kvp in context)
+                {
+                    parameters[kvp.Key] = kvp.Value;
+                }
+
+                // Invoke the tool with intelligent routing
+                var result = await _toolInvoker.InvokeToolAsync(
+                    selectedTool.ToolId,
+                    parameters,
+                    new ToolInvocationPreferences { PreferLowOverhead = true },
+                    ct);
+
+                totalTokens += result.ContextTokenCost;
+
+                if (result.Success)
+                {
+                    outputs.Add($"Tool '{selectedTool.ToolId}' ({result.BackendUsed}): {result.Result}");
+                    _logger.LogInformation("Tool '{ToolId}' invocation succeeded via {Backend} backend ({Duration}ms, {Tokens} tokens)",
+                        selectedTool.ToolId, result.BackendUsed, result.DurationMs, result.ContextTokenCost);
+                }
+                else
+                {
+                    outputs.Add($"Tool '{selectedTool.ToolId}' failed: {result.ErrorMessage}");
+                    _logger.LogWarning("Tool '{ToolId}' invocation failed: {ErrorCode} - {ErrorMessage}",
+                        selectedTool.ToolId, result.ErrorCode, result.ErrorMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                outputs.Add($"Tool invocation error: {ex.Message}");
+                _logger.LogError(ex, "Unexpected error invoking tool '{ToolId}'", selectedTool.ToolId);
+            }
+        }
+        else
+        {
+            outputs.Add("No tools available for task execution");
+            _logger.LogInformation("No tools available for task execution");
+        }
+
+        var output = outputs.Count > 0 ? string.Join("; ", outputs) : "No tools executed";
+        return (totalTokens, output);
     }
 
     /// <summary>

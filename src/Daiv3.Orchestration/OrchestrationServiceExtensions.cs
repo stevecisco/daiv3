@@ -1,3 +1,4 @@
+using Daiv3.Mcp.Integration;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,9 @@ public static class OrchestrationServiceExtensions
     public static IServiceCollection AddOrchestrationServices(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // Register MCP integration services (required by ToolRoutingService)
+        services.AddMcpIntegration();
 
         // Register messaging services (required by AgentManager)
         services.AddMessageBroker();
