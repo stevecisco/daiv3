@@ -1406,6 +1406,7 @@ HW-REQ-012 - Add NPU acceleration detection and fallback mechanism
    - Update requirement document with completion status and test traceability
    - Update `./Docs/Build-Warnings-Errors-Tracker.md` with post-requirement delta and disposition
    - Update Master-Implementation-Tracker.md to "Complete" with all details
+   - Run `git status --short` and remove untracked temporary artifacts generated during testing/development (for example `*_output.txt`, transient logs, scratch debug files) unless explicitly required by the requirement
 
 2. **Create requirement-scoped commit (changed files only):**
    ```bash
@@ -1413,6 +1414,7 @@ HW-REQ-012 - Add NPU acceleration detection and fallback mechanism
    git commit -m "REQ-XXX - Brief description of requirement"
    ```
    - Do **NOT** use `git add .` for multi-requirement sessions.
+   - Do **NOT** stage disposable temporary files; keep commit scope limited to requirement artifacts only.
    - Verify staged scope before commit: `git diff --staged --name-only`.
 
 3. **Proceed to next requirement:**

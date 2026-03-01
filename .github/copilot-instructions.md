@@ -91,6 +91,7 @@ A comprehensive distributed AI system with support for:
 - Create **one commit per completed requirement** (not one commit at end)
 - Commit **immediately** after requirement completion (do not batch)
 - Stage **only requirement-related files** (avoid `git add .` in multi-requirement work)
+- Before staging, run `git status --short` and remove untracked temporary artifacts created during testing/development (for example `*_output.txt`, scratch logs, ad-hoc debug files) unless the requirement explicitly says to keep them
 - Use format: `<REQ-ID> - Brief description`
 - See [AI-Instructions.md](../Docs/AI-Instructions.md) § Git Commits for Multi-Requirement Work for complete workflow
 
