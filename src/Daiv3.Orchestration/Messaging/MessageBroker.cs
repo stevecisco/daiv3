@@ -305,7 +305,7 @@ public class MessageBroker : IMessageBroker, IAsyncDisposable
 
         foreach (var sub in _subscriptions.Values)
         {
-            if (!MatchesTopic(message.Topic, sub.Topic))
+            if (sub.Topic == null || !MatchesTopic(message.Topic, sub.Topic))
                 continue;
 
             if (sub.Handler == null)

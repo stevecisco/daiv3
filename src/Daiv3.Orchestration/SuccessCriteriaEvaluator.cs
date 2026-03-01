@@ -135,8 +135,8 @@ public class SuccessCriteriaEvaluator : ISuccessCriteriaEvaluator
             return EvaluateNegationCriteria(criteria, output, lowerCriteria, lowerOutput, context);
         }
 
-        // Check for keyword/phrase presence
-        if (lowerCriteria.Contains("contains") || lowerCriteria.Contains("include"))
+        // Check for keyword/phrase presence (before other checks to avoid false positives)
+        if (lowerCriteria.Contains("contain") || lowerCriteria.Contains("include"))
         {
             return EvaluateKeywordPresenceCriteria(criteria, lowerOutput, context);
         }
@@ -156,9 +156,8 @@ public class SuccessCriteriaEvaluator : ISuccessCriteriaEvaluator
             return EvaluateValidationCriteria(output, context);
         }
 
-        // Check for length/size constraints
-        if (lowerCriteria.Contains("length") || lowerCriteria.Contains("character") || 
-            lowerCriteria.Contains("word") || lowerCriteria.Contains("line"))
+        // Check for length/size constraints using regex (matches numeric patterns like "50 characters" or "10 words")
+        if (Regex.IsMatch(criteria, @"\d+\s*(character|word|line)", RegexOptions.IgnoreCase))
         {
             return EvaluateLengthCriteria(criteria, output, context);
         }
@@ -189,7 +188,7 @@ public class SuccessCriteriaEvaluator : ISuccessCriteriaEvaluator
     private SuccessEvaluationResult EvaluateKeywordPresenceCriteria(
         string criteria, string lowerOutput, SuccessCriteriaContext context)
     {
-        var keywords = ExtractKeywords(criteria);
+        var keywords = ExtractKeywordsForPresenceCriteria(criteria);
         var presentKeywords = keywords.Where(kw => lowerOutput.Contains(kw.ToLowerInvariant())).ToList();
         var missingKeywords = keywords.Except(presentKeywords, StringComparer.OrdinalIgnoreCase).ToList();
 
@@ -349,6 +348,59 @@ public class SuccessCriteriaEvaluator : ISuccessCriteriaEvaluator
             .ToList();
 
         return words;
+    }
+
+    private List<string> ExtractKeywordsForPresenceCriteria(string criteria)
+    {
+        if (string.IsNullOrWhiteSpace(criteria))
+            return new List<string>();
+
+        var keywords = new List<string>();
+
+        // Try to extract quoted phrases first (e.g., "Output must contain the word 'success'" -> "success")
+        // Pattern matches text within single or double quotes
+        var quotedMatches = Regex.Matches(criteria, "(['\"])([^'\"]*?)\\1");
+        if (quotedMatches.Count > 0)
+        {
+            foreach (Match match in quotedMatches)
+            {
+                if (match.Groups.Count > 2)
+                {
+                    var quoted = match.Groups[2].Value.Trim();
+                    if (!string.IsNullOrWhiteSpace(quoted) && quoted.Length > 0)
+                    {
+                        keywords.Add(quoted);
+                    }
+                }
+            }
+        }
+
+        // If no quoted phrases, extract meaningful words that typically come after "contain" or "include"
+        if (keywords.Count == 0)
+        {
+            // Look for patterns like "must contain X" or "must include Y"
+            var containMatch = Regex.Match(criteria, @"(?:contain|include)(?:s)?\s+([^,\.!?]+)", RegexOptions.IgnoreCase);
+            if (containMatch.Success)
+            {
+                var phrase = containMatch.Groups[1].Value.Trim();
+                // Extract meaningful words (length > 3 for more meaningful keywords)
+                var words = Regex.Matches(phrase, @"\b[a-z]+\b", RegexOptions.IgnoreCase)
+                    .Cast<Match>()
+                    .Select(m => m.Value)
+                    .Where(w => w.Length > 2 && !new[] { "the", "and", "or", "but", "for", "the" }.Contains(w.ToLowerInvariant()))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                keywords.AddRange(words);
+            }
+        }
+
+        // Fall back to general keyword extraction if nothing found
+        if (keywords.Count == 0)
+        {
+            keywords = ExtractKeywords(criteria);
+        }
+
+        return keywords;
     }
 
     private bool TryParseAsJson(string text)
