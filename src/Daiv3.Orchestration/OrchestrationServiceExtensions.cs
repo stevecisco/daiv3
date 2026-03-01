@@ -1,4 +1,5 @@
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Orchestration.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -17,6 +18,9 @@ public static class OrchestrationServiceExtensions
     public static IServiceCollection AddOrchestrationServices(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // Register messaging services (required by AgentManager)
+        services.AddMessageBroker();
 
         // Register options
         services.AddOptions<OrchestrationOptions>();
