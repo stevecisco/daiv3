@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Daiv3.Orchestration\Daiv3.Orchestration.csproj" />
     <ProjectReference Include="..\..\..\src\Daiv3.Persistence\Daiv3.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\src\Daiv3.Mcp.Integration\Daiv3.Mcp.Integration.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,6 +33,8 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
+    <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
   </ItemGroup>
 
 </Project>
