@@ -26,6 +26,7 @@ public class AgentManager : IAgentManager
     private readonly OrchestrationOptions _options;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
     private readonly ConcurrentDictionary<string, Guid> _taskTypeAgentIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly AgentExecutionRegistry _executionRegistry = new();
 
     public AgentManager(
         ILogger<AgentManager> logger,
@@ -301,12 +302,68 @@ public class AgentManager : IAgentManager
     }
 
     /// <inheritdoc />
+    public (AgentExecutionControl Control, Task<AgentExecutionResult> ExecutionTask) StartExecutionWithControl(
+        AgentExecutionRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TaskGoal);
+
+        var control = new AgentExecutionControl(Guid.NewGuid(), request.AgentId);
+        _executionRegistry.RegisterExecution(control);
+
+        _logger.LogInformation(
+            "Starting execution with control for Agent {AgentId}. ExecutionId: {ExecutionId}",
+            request.AgentId, control.ExecutionId);
+
+        // Start execution as a background task
+        var executionTask = Task.Run(async () =>
+        {
+            try
+            {
+                return await ExecuteTaskInternalAsync(request, control, ct);
+            }
+            finally
+            {
+                _executionRegistry.UnregisterExecution(control.ExecutionId);
+            }
+        }, ct);
+
+        return (control, executionTask);
+    }
+
+    /// <inheritdoc />
+    public AgentExecutionControl? GetExecutionControl(Guid executionId)
+    {
+        return _executionRegistry.GetExecution(executionId);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<AgentExecutionControl> GetActiveExecutions()
+    {
+        return _executionRegistry.GetActiveExecutions();
+    }
+
+    /// <inheritdoc />
     public async Task<AgentExecutionResult> ExecuteTaskAsync(
         AgentExecutionRequest request,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TaskGoal);
+
+        // Execute without control object (backward compatibility)
+        return await ExecuteTaskInternalAsync(request, null, ct);
+    }
+
+    /// <summary>
+    /// Internal method that performs the actual execution with optional pause/resume control.
+    /// </summary>
+    private async Task<AgentExecutionResult> ExecuteTaskInternalAsync(
+        AgentExecutionRequest request,
+        AgentExecutionControl? control,
+        CancellationToken ct = default)
+    {
 
         // Retrieve agent
         var agent = await GetAgentAsync(request.AgentId, ct);
@@ -324,13 +381,27 @@ public class AgentManager : IAgentManager
             StartedAt = DateTimeOffset.UtcNow
         };
 
+        // Use control's ExecutionId if provided
+        if (control != null)
+        {
+            var executionIdField = typeof(AgentExecutionResult).GetProperty(nameof(AgentExecutionResult.ExecutionId));
+            if (executionIdField != null)
+            {
+                executionIdField.SetValue(result, control.ExecutionId);
+            }
+        }
+
         _logger.LogInformation(
-            "Starting agent execution for Agent {AgentId} '{AgentName}'. Goal: {Goal}, MaxIterations: {MaxIterations}, Timeout: {Timeout}s, TokenBudget: {Budget}",
-            agent.Id, agent.Name, request.TaskGoal, options.MaxIterations, options.TimeoutSeconds, options.TokenBudget);
+            "Starting agent execution for Agent {AgentId} '{AgentName}'. ExecutionId: {ExecutionId}, Goal: {Goal}, MaxIterations: {MaxIterations}, Timeout: {Timeout}s, TokenBudget: {Budget}",
+            agent.Id, agent.Name, result.ExecutionId, request.TaskGoal, options.MaxIterations, options.TimeoutSeconds, options.TokenBudget);
 
         var stopwatch = Stopwatch.StartNew();
         var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(options.TimeoutSeconds));
-        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+        
+        // Link cancellation tokens: user token, timeout token, and control stop token if available
+        var linkedCts = control != null
+            ? CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token, control.StopToken)
+            : CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
         try
         {
@@ -339,6 +410,12 @@ public class AgentManager : IAgentManager
             
             for (int iteration = 1; iteration <= options.MaxIterations; iteration++)
             {
+                // Check for pause before each iteration
+                if (control != null)
+                {
+                    control.WaitIfPaused();
+                }
+
                 linkedCts.Token.ThrowIfCancellationRequested();
 
                 _logger.LogDebug("Agent {AgentId} starting iteration {Iteration}/{MaxIterations}",
@@ -472,13 +549,20 @@ public class AgentManager : IAgentManager
         {
             stopwatch.Stop();
             result.CompletedAt = DateTimeOffset.UtcNow;
+            
+            // Capture paused duration if control was used
+            if (control != null)
+            {
+                result.PausedDuration = control.TotalPausedDuration;
+            }
+            
             timeoutCts.Dispose();
             linkedCts.Dispose();
 
             _logger.LogInformation(
-                "Agent {AgentId} execution completed. ExecutionId: {ExecutionId}, Success: {Success}, Reason: {Reason}, Iterations: {Iterations}, Tokens: {Tokens}, Duration: {Duration}ms",
+                "Agent {AgentId} execution completed. ExecutionId: {ExecutionId}, Success: {Success}, Reason: {Reason}, Iterations: {Iterations}, Tokens: {Tokens}, Duration: {Duration}ms, PausedDuration: {PausedDuration}ms",
                 agent.Id, result.ExecutionId, result.Success, result.TerminationReason,
-                result.IterationsExecuted, result.TokensConsumed, stopwatch.ElapsedMilliseconds);
+                result.IterationsExecuted, result.TokensConsumed, stopwatch.ElapsedMilliseconds, result.PausedDuration.TotalMilliseconds);
 
             // Publish execution completion message
             try

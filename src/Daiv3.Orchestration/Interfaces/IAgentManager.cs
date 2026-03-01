@@ -55,6 +55,30 @@ public interface IAgentManager
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The execution result including all steps, iterations, and final output.</returns>
     Task<AgentExecutionResult> ExecuteTaskAsync(AgentExecutionRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Starts execution of a task and returns an execution control object for pause/resume/stop operations.
+    /// The execution runs in the background and the control object must be used to monitor or control it.
+    /// </summary>
+    /// <param name="request">The agent execution request containing task details and options.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A tuple containing the execution control and a task that completes when execution finishes.</returns>
+    (AgentExecutionControl Control, Task<AgentExecutionResult> ExecutionTask) StartExecutionWithControl(
+        AgentExecutionRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets the execution control for a running execution by its execution ID.
+    /// </summary>
+    /// <param name="executionId">The execution ID.</param>
+    /// <returns>The execution control, or null if the execution is not found or has completed.</returns>
+    AgentExecutionControl? GetExecutionControl(Guid executionId);
+
+    /// <summary>
+    /// Gets all active executions.
+    /// </summary>
+    /// <returns>A collection of all active execution controls.</returns>
+    IReadOnlyCollection<AgentExecutionControl> GetActiveExecutions();
 }
 
 /// <summary>
@@ -257,6 +281,11 @@ public class AgentExecutionResult
     /// When execution completed.
     /// </summary>
     public DateTimeOffset? CompletedAt { get; set; }
+    
+    /// <summary>
+    /// Total duration the execution was paused (if pause/resume was used).
+    /// </summary>
+    public TimeSpan PausedDuration { get; set; }
     
     /// <summary>
     /// Termination reason (MaxIterations, Success, Timeout, TokenBudgetExceeded, Error, Cancelled).
