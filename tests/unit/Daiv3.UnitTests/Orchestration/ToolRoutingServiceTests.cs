@@ -4,6 +4,7 @@ using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Models;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System.Net.Http;
 using Xunit;
 
 namespace Daiv3.UnitTests.Orchestration;
@@ -16,6 +17,7 @@ public class ToolRoutingServiceTests
     private readonly Mock<ILogger<ToolRoutingService>> _mockLogger;
     private readonly Mock<IToolRegistry> _mockRegistry;
     private readonly Mock<IMcpToolProvider> _mockMcpProvider;
+    private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
     private readonly ToolRoutingService _routingService;
 
     public ToolRoutingServiceTests()
@@ -23,10 +25,17 @@ public class ToolRoutingServiceTests
         _mockLogger = new Mock<ILogger<ToolRoutingService>>();
         _mockRegistry = new Mock<IToolRegistry>();
         _mockMcpProvider = new Mock<IMcpToolProvider>();
+        _mockHttpClientFactory = new Mock<IHttpClientFactory>();
+        
+        // Setup a basic HttpClient for the mock factory
+        _mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(new HttpClient());
+        
         _routingService = new ToolRoutingService(
             _mockLogger.Object,
             _mockRegistry.Object,
-            _mockMcpProvider.Object);
+            _mockMcpProvider.Object,
+            _mockHttpClientFactory.Object);
     }
 
     [Fact]

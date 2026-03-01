@@ -8,6 +8,7 @@ namespace Daiv3.Mcp.Integration;
 /// <list type="number">
 /// <item><description>Direct - C# interface invocation (lowest overhead, highest performance)</description></item>
 /// <item><description>CLI - Command-line execution (minimal overhead, local execution)</description></item>
+/// <item><description>RestAPI - HTTP REST API calls (moderate overhead, external services)</description></item>
 /// <item><description>MCP - Model Context Protocol (highest overhead, for remote services)</description></item>
 /// </list>
 /// </remarks>
@@ -30,5 +31,12 @@ public enum ToolBackendType
     /// Tool is invoked via Model Context Protocol. Used for persistent remote services
     /// such as GitHub API, AWS, external SaaS integrations. Highest context overhead.
     /// </summary>
-    MCP = 2
+    MCP = 2,
+
+    /// <summary>
+    /// Tool is invoked via REST API HTTP calls. Used for external web services,
+    /// public APIs, internal enterprise APIs, third-party SaaS platforms.
+    /// Moderate context overhead (HTTP headers and JSON payload).
+    /// </summary>
+    RestAPI = 3
 }

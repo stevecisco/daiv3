@@ -29,6 +29,13 @@ public static class OrchestrationServiceExtensions
         // Register options
         services.AddOptions<OrchestrationOptions>();
 
+        // Register HttpClient for REST API tool invocation
+        services.AddHttpClient("RestApiTool", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30); // Default timeout
+            client.DefaultRequestHeaders.Add("User-Agent", "Daiv3-RestApiTool/1.0");
+        });
+
         // Register core orchestration services
         services.TryAddScoped<ITaskOrchestrator, TaskOrchestrator>();
         services.TryAddScoped<IIntentResolver, IntentResolver>();
