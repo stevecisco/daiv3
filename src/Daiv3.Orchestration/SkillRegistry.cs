@@ -6,11 +6,13 @@ namespace Daiv3.Orchestration;
 
 /// <summary>
 /// Registry for managing and executing skills.
+/// Supports tracking skill sources (built-in, user-defined, imported).
 /// </summary>
 public class SkillRegistry : ISkillRegistry
 {
     private readonly ILogger<SkillRegistry> _logger;
     private readonly ConcurrentDictionary<string, ISkill> _skills = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SkillSource> _skillSources = new(StringComparer.OrdinalIgnoreCase);
 
     public SkillRegistry(ILogger<SkillRegistry> logger)
     {
@@ -20,20 +22,32 @@ public class SkillRegistry : ISkillRegistry
     /// <inheritdoc />
     public void RegisterSkill(ISkill skill)
     {
+        RegisterSkill(skill, SkillSource.BuiltIn);
+    }
+
+    /// <summary>
+    /// Registers a skill with a specified source.
+    /// </summary>
+    /// <param name="skill">The skill to register.</param>
+    /// <param name="source">The skill source (built-in, user-defined, or imported).</param>
+    public void RegisterSkill(ISkill skill, SkillSource source)
+    {
         ArgumentNullException.ThrowIfNull(skill);
         ArgumentException.ThrowIfNullOrWhiteSpace(skill.Name);
 
         if (_skills.TryAdd(skill.Name, skill))
         {
+            _skillSources[skill.Name] = source;
             _logger.LogInformation(
-                "Registered skill '{SkillName}': {Description}",
-                skill.Name, skill.Description);
+                "Registered {SourceType} skill '{SkillName}': {Description}",
+                source, skill.Name, skill.Description);
         }
         else
         {
+            _skillSources[skill.Name] = source;
             _logger.LogWarning(
-                "Skill '{SkillName}' already registered, replacing with new implementation",
-                skill.Name);
+                "Skill '{SkillName}' already registered, replacing with {SourceType} implementation",
+                skill.Name, source);
             
             _skills[skill.Name] = skill;
         }
@@ -58,6 +72,23 @@ public class SkillRegistry : ISkillRegistry
         return skill;
     }
 
+    /// <summary>
+    /// Gets the source of a registered skill.
+    /// </summary>
+    /// <param name="skillName">The skill name.</param>
+    /// <returns>The skill source, or null if skill is not registered.</returns>
+    public SkillSource? GetSkillSource(string skillName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(skillName);
+
+        if (_skillSources.TryGetValue(skillName, out var source))
+        {
+            return source;
+        }
+
+        return null;
+    }
+
     /// <inheritdoc />
     public List<SkillMetadata> ListSkills()
     {
@@ -67,6 +98,7 @@ public class SkillRegistry : ISkillRegistry
                 Name = skill.Name,
                 Description = skill.Description,
                 Category = skill.Category,
+                Source = GetSkillSource(skill.Name) ?? SkillSource.BuiltIn,
                 Inputs = new List<ParameterMetadata>(skill.Inputs),
                 Outputs = skill.OutputSchema,
                 Permissions = new List<string>(skill.Permissions)

@@ -1,6 +1,21 @@
 namespace Daiv3.Orchestration.Interfaces;
 
 /// <summary>
+/// Skill source enumeration indicating where a skill originates.
+/// </summary>
+public enum SkillSource
+{
+    /// <summary>Built-in skill that comes with the system.</summary>
+    BuiltIn,
+    
+    /// <summary>User-defined skill created by the user.</summary>
+    UserDefined,
+    
+    /// <summary>Imported skill from an external source.</summary>
+    Imported
+}
+
+/// <summary>
 /// Skill category enumeration.
 /// </summary>
 public enum SkillCategory
@@ -142,6 +157,11 @@ public class SkillMetadata
     /// Skill category.
     /// </summary>
     public SkillCategory Category { get; set; }
+    
+    /// <summary>
+    /// Skill source (Built-in, User-Defined, or Imported).
+    /// </summary>
+    public SkillSource Source { get; set; } = SkillSource.BuiltIn;
     
     /// <summary>
     /// List of input parameters this skill accepts.
