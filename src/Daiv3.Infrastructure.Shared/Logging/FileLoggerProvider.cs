@@ -31,7 +31,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
 				Directory.CreateDirectory(_logDirectory);
 			}
 		}
-		catch (Exception ex)
+		catch (Exception)
 		{
 			// If we can't create the log directory, fall back to temp directory
 			_logDirectory = Path.Combine(Path.GetTempPath(), "daiv3_logs");

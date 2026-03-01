@@ -67,7 +67,7 @@ public class SkillRegistry : ISkillRegistry
                 Name = skill.Name,
                 Description = skill.Description,
                 Category = skill.Category,
-                Inputs = new List<ParameterMetadata>(),  // TODO: Extract from skill attributes or reflection
+                Inputs = new List<ParameterMetadata>(skill.Inputs),
                 Outputs = skill.OutputSchema,
                 Permissions = new List<string>(skill.Permissions)
             })

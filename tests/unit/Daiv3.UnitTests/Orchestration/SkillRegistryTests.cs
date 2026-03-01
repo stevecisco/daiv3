@@ -312,11 +312,13 @@ public class SkillRegistryTests
             string description,
             SkillCategory category = SkillCategory.Unspecified,
             OutputSchema? outputSchema = null,
-            List<string>? permissions = null)
+            List<string>? permissions = null,
+            List<ParameterMetadata>? inputs = null)
         {
             Name = name;
             Description = description;
             Category = category;
+            Inputs = inputs ?? new List<ParameterMetadata>();
             OutputSchema = outputSchema ?? new OutputSchema { Type = "string", Description = "Default output" };
             Permissions = permissions ?? new List<string>();
         }
@@ -324,6 +326,7 @@ public class SkillRegistryTests
         public string Name { get; }
         public string Description { get; }
         public SkillCategory Category { get; }
+        public List<ParameterMetadata> Inputs { get; }
         public OutputSchema OutputSchema { get; }
         public List<string> Permissions { get; }
 

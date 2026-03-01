@@ -100,6 +100,11 @@ public interface ISkill
     SkillCategory Category { get; }
     
     /// <summary>
+    /// List of input parameters this skill accepts.
+    /// </summary>
+    List<ParameterMetadata> Inputs { get; }
+    
+    /// <summary>
     /// Output schema describing what the skill produces.
     /// </summary>
     OutputSchema OutputSchema { get; }

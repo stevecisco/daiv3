@@ -36,6 +36,9 @@ public static class OrchestrationServiceExtensions
         // Register skill registry as singleton (shared across all scopes)
         services.TryAddSingleton<ISkillRegistry, SkillRegistry>();
 
+        // Register skill executor for direct and agent-integrated skill execution
+        services.TryAddScoped<ISkillExecutor, SkillExecutor>();
+
         // Register tool registry as singleton (shared across all scopes)
         services.TryAddSingleton<IToolRegistry, ToolRegistry>();
 
