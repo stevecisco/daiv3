@@ -20,6 +20,7 @@ public class AgentManager : IAgentManager
     private readonly ILogger<AgentManager> _logger;
     private readonly AgentRepository _agentRepository;
     private readonly IMessageBroker _messageBroker;
+    private readonly ISuccessCriteriaEvaluator _successCriteriaEvaluator;
     private readonly OrchestrationOptions _options;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
     private readonly ConcurrentDictionary<string, Guid> _taskTypeAgentIds = new(StringComparer.OrdinalIgnoreCase);
@@ -28,11 +29,13 @@ public class AgentManager : IAgentManager
         ILogger<AgentManager> logger,
         AgentRepository agentRepository,
         IMessageBroker messageBroker,
+        ISuccessCriteriaEvaluator successCriteriaEvaluator,
         IOptions<OrchestrationOptions> options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _agentRepository = agentRepository ?? throw new ArgumentNullException(nameof(agentRepository));
         _messageBroker = messageBroker ?? throw new ArgumentNullException(nameof(messageBroker));
+        _successCriteriaEvaluator = successCriteriaEvaluator ?? throw new ArgumentNullException(nameof(successCriteriaEvaluator));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -326,6 +329,8 @@ public class AgentManager : IAgentManager
         try
         {
             // Execute iteration loop
+            string? lastFailureContext = null;
+            
             for (int iteration = 1; iteration <= options.MaxIterations; iteration++)
             {
                 linkedCts.Token.ThrowIfCancellationRequested();
@@ -341,6 +346,7 @@ public class AgentManager : IAgentManager
                     request.SuccessCriteria,
                     iteration,
                     result.Steps,
+                    lastFailureContext,
                     linkedCts.Token);
 
                 result.Steps.Add(step);
@@ -360,39 +366,69 @@ public class AgentManager : IAgentManager
                     break;
                 }
 
-                // Check if task completed successfully
-                if (step.Success && step.StepType == "Completion")
+                // Evaluate success criteria
+                var evaluationContext = new SuccessCriteriaContext
+                {
+                    TaskGoal = request.TaskGoal,
+                    IterationNumber = iteration,
+                    PreviousStepOutputs = result.Steps.Select(s => s.Output).ToList(),
+                    FailureContext = lastFailureContext
+                };
+
+                var criteriaEvaluation = await _successCriteriaEvaluator.EvaluateAsync(
+                    request.SuccessCriteria,
+                    step.Output,
+                    evaluationContext,
+                    linkedCts.Token);
+
+                // If criteria are met, task is successful
+                if (criteriaEvaluation.MeetsCriteria)
                 {
                     result.Success = true;
                     result.TerminationReason = "Success";
                     result.Output = step.Output;
                     
                     _logger.LogInformation(
-                        "Agent {AgentId} completed task successfully after {Iterations} iterations",
-                        agent.Id, iteration);
+                        "Agent {AgentId} completed task successfully after {Iterations} iterations. SuccessCriteria met with {Confidence:P} confidence",
+                        agent.Id, iteration, criteriaEvaluation.ConfidenceScore);
                     break;
                 }
 
-                // Handle failure with optional self-correction
-                if (!step.Success && options.EnableSelfCorrection && iteration < options.MaxIterations)
+                // If criteria not met, check if we should attempt self-correction
+                if (!criteriaEvaluation.MeetsCriteria && options.EnableSelfCorrection && iteration < options.MaxIterations)
                 {
+                    lastFailureContext = $"Iteration {iteration} failed criteria evaluation: {criteriaEvaluation.EvaluationMessage ?? "Unknown failure"}";
+                    
+                    if (!string.IsNullOrEmpty(criteriaEvaluation.SuggestedCorrection))
+                    {
+                        lastFailureContext += $"\nSuggested correction: {criteriaEvaluation.SuggestedCorrection}";
+                    }
+
                     _logger.LogDebug(
-                        "Agent {AgentId} step failed, attempting self-correction on next iteration",
-                        agent.Id);
-                    // Self-correction context is passed via result.Steps history to next iteration
+                        "Agent {AgentId} criteria evaluation failed (confidence: {Confidence:P}). Attempting self-correction on iteration {NextIteration}. Reason: {Reason}",
+                        agent.Id,
+                        criteriaEvaluation.ConfidenceScore,
+                        iteration + 1,
+                        criteriaEvaluation.EvaluationMessage);
+                    
+                    // Continue to next iteration with failure context
+                    continue;
                 }
 
-                // Check if max iterations reached
-                if (iteration == options.MaxIterations)
+                // If criteria not met but self-correction disabled or at max iterations
+                if (!criteriaEvaluation.MeetsCriteria)
                 {
                     result.Success = false;
-                    result.TerminationReason = "MaxIterations";
-                    result.ErrorMessage = $"Maximum iterations ({options.MaxIterations}) reached without completion";
-                    result.Output = step.Output; // Partial output
-                    
+                    result.TerminationReason = iteration == options.MaxIterations ? "MaxIterations" : "SuccessCriteriaNotMet";
+                    result.ErrorMessage = criteriaEvaluation.EvaluationMessage ?? "Output did not meet success criteria";
+                    result.Output = step.Output;
+
                     _logger.LogWarning(
-                        "Agent {AgentId} reached max iterations ({MaxIterations}) without completing task",
-                        agent.Id, options.MaxIterations);
+                        "Agent {AgentId} failed to meet criteria (self-correction: {SelfCorrectionEnabled}, max iterations: {MaxIterations})",
+                        agent.Id,
+                        options.EnableSelfCorrection,
+                        options.MaxIterations);
+                    break;
                 }
             }
         }
@@ -492,6 +528,7 @@ public class AgentManager : IAgentManager
         string? successCriteria,
         int iteration,
         List<AgentExecutionStep> previousSteps,
+        string? failureContext,
         CancellationToken ct)
     {
         var stepStartTime = DateTimeOffset.UtcNow;
@@ -509,11 +546,17 @@ public class AgentManager : IAgentManager
         // Simulate processing delay
         await Task.Delay(50, ct);
 
+        var stepDescription = $"Iteration {iteration}: {stepType} step for goal: {taskGoal}";
+        if (!string.IsNullOrEmpty(failureContext))
+        {
+            stepDescription += $"\nSelf-correcting based on: {failureContext}";
+        }
+
         var step = new AgentExecutionStep
         {
             StepNumber = iteration,
             StepType = stepType,
-            Description = $"Iteration {iteration}: {stepType} step for goal: {taskGoal}",
+            Description = stepDescription,
             Output = $"Step {iteration} output (placeholder)",
             TokensConsumed = 100, // Placeholder token count
             StartedAt = stepStartTime,

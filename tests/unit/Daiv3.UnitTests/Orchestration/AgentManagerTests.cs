@@ -35,10 +35,11 @@ public class AgentManagerTests
         // Setup a test service provider with persistence
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddPersistence(options =>
+        services.AddPersistenceServices(options =>
         {
             options.DatabasePath = _dbPath;
         });
+        services.AddOrchestrationServices();
 
         var serviceProvider = services.BuildServiceProvider();
         
@@ -46,11 +47,7 @@ public class AgentManagerTests
         serviceProvider.InitializeDatabaseAsync().GetAwaiter().GetResult();
         _repository = serviceProvider.GetRequiredService<AgentRepository>();
         
-        _manager = new AgentManager(
-            _mockLogger.Object,
-            _repository,
-            _mockMessageBroker.Object,
-            Options.Create(_options));
+        _manager = serviceProvider.GetRequiredService<IAgentManager>();
     }
 
     [Fact]
