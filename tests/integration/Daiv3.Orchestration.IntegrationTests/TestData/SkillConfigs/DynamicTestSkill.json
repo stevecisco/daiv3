@@ -1,0 +1,21 @@
+{
+  "name": "DynamicTestSkill",
+  "description": "A test skill that demonstrates dynamic loading without recompilation",
+  "category": "Testing",
+  "source": "UserDefined",
+  "inputs": [
+    {
+      "name": "message",
+      "type": "string",
+      "required": true,
+      "description": "Message to process"
+    }
+  ],
+  "output": {
+    "type": "string",
+    "description": "Processed message"
+  },
+  "permissions": [
+    "Logging.Write"
+  ]
+}

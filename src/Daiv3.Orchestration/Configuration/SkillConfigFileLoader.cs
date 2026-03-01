@@ -88,6 +88,23 @@ public class SkillConfigFileLoader
     }
 
     /// <summary>
+    /// Parses JSON content into a skill configuration object.
+    /// Useful for programmatic configuration loading and testing.
+    /// </summary>
+    /// <param name="jsonContent">JSON content as a string.</param>
+    /// <returns>The parsed skill configuration.</returns>
+    /// <exception cref="InvalidOperationException">Content is not valid JSON or is malformed.</exception>
+    public SkillConfigurationFile LoadSkillConfigFromJson(string jsonContent)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(jsonContent);
+        
+        _logger.LogInformation("Parsing skill configuration from JSON content");
+        var config = ParseJsonConfiguration(jsonContent);
+        _logger.LogInformation("Parsed skill configuration: {SkillName}", config.Name);
+        return config;
+    }
+
+    /// <summary>
     /// Validates a skill configuration against the system's current state.
     /// </summary>
     /// <param name="config">The configuration to validate.</param>

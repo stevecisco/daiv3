@@ -1,0 +1,27 @@
+{
+  "name": "JsonParsingSkill",
+  "description": "A skill for parsing JSON without recompilation",
+  "category": "Document",
+  "source": "UserDefined",
+  "inputs": [
+    {
+      "name": "jsonString",
+      "type": "string",
+      "required": true,
+      "description": "JSON string to parse"
+    },
+    {
+      "name": "path",
+      "type": "string",
+      "required": false,
+      "description": "Optional JSON path to extract"
+    }
+  ],
+  "output": {
+    "type": "string",
+    "description": "Parsed or extracted JSON content"
+  },
+  "permissions": [
+    "Document.Read"
+  ]
+}

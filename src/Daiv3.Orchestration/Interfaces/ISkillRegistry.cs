@@ -75,10 +75,24 @@ public class OutputSchema
 public interface ISkillRegistry
 {
     /// <summary>
-    /// Registers a skill in the registry.
+    /// Registers a skill in the registry with default (BuiltIn) source.
     /// </summary>
     /// <param name="skill">The skill to register.</param>
     void RegisterSkill(ISkill skill);
+    
+    /// <summary>
+    /// Registers a skill in the registry with a specified source.
+    /// </summary>
+    /// <param name="skill">The skill to register.</param>
+    /// <param name="source">The skill source (built-in, user-defined, or imported).</param>
+    void RegisterSkill(ISkill skill, SkillSource source);
+    
+    /// <summary>
+    /// Gets the source of a registered skill.
+    /// </summary>
+    /// <param name="skillName">The skill name.</param>
+    /// <returns>The skill source, or null if skill is not registered.</returns>
+    SkillSource? GetSkillSource(string skillName);
     
     /// <summary>
     /// Resolves a skill by name.
