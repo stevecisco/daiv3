@@ -803,6 +803,68 @@ NOTE: Settings persistence integration pending.
 
 ## Learning Management Commands
 
+### Create a Manual Learning
+```bash
+# Minimal: Create with required fields
+.\run-cli.bat learning create --title "My Learning" --description "Description of what was learned"
+
+# With all options
+.\run-cli.bat learning create --title "Testing Best Practice" \
+  --description "Always use arrange-act-assert pattern in unit tests" \
+  --scope Project \
+  --confidence 0.95 \
+  --tags "testing,quality,best-practice" \
+  --source-agent my-skill \
+  --source-task task-123
+
+# Short form with common options
+.\run-cli.bat learning create -t "DI Pattern" -d "Constructor injection enables better testing" \
+  -s Global -c 0.9 -g "architecture,di"
+```
+
+Creates a new learning manually (triggered with type "Explicit" and created by "user"). This allows users to capture patterns, techniques, and best practices that should be available to agents in future tasks.
+
+**Input Options:**
+- `--title, -t` (required): Short human-readable summary of the learning
+- `--description, -d` (required): Full explanation of what was learned
+- `--scope, -s`: Scope where this applies: Global, Agent, Skill, Project, Domain (default: Global)
+- `--confidence, -c`: Confidence score 0.0-1.0 (default: 0.7)
+- `--tags, -g`: Comma-separated tags for filtering (e.g., "csharp,file-io")
+- `--source-agent, -a`: Agent identifier that should benefit from this learning
+- `--source-task`: Task ID for provenance tracking
+
+**Output Example:**
+```
+✓ Learning created successfully!
+
+Learning ID: lm-abc12345-6789-1011-1213-141516171819
+  Title: Testing Best Practice
+  Scope: Project
+  Status: Active
+  Confidence: 0.950
+  Trigger Type: Explicit
+  Created: 2026-03-01 14:22:30 UTC
+  Tags: testing,quality,best-practice
+  Source Agent: my-skill
+
+The learning can be injected into prompts for similar tasks. Use 'learning view --id lm-abc12345...' to view details.
+```
+
+**Use Cases:**
+- Capture effective patterns and techniques you've discovered
+- Document workarounds and edge cases found during development
+- Share quality standards and best practices with agents
+- Create domain-specific knowledge for repeated problem patterns
+- Build project-specific guidelines agents should follow
+
+**Confidence Levels:**
+- `0.9-1.0`: High confidence - automatically inject into similar tasks
+- `0.7-0.9`: Normal confidence - inject as reinforcement for related work
+- `0.5-0.7`: Low confidence - inject as a suggested approach
+- `<0.5`: Experimental - inject only when explicitly requested
+
+---
+
 ### List Learnings
 ```bash
 # List all learnings

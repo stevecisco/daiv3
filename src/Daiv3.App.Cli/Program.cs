@@ -10,6 +10,7 @@ using Daiv3.Knowledge.Embedding;
 using Daiv3.Scheduler;
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Configuration;
+using Daiv3.Orchestration.Models;
 
 namespace Daiv3.App.Cli;
 
@@ -524,6 +525,44 @@ public class Program
             Environment.Exit(exitCode);
         }, learningStatusOption, learningScopeOption, learningAgentOption, learningMinConfidenceOption);
 
+        var learningCreateCommand = new Command("create", "Manually create a new learning");
+        var learningCreateTitleOption = new Option<string>(
+            aliases: new[] { "--title", "-t" },
+            description: "Short summary of the learning") { IsRequired = true };
+        var learningCreateDescOption = new Option<string>(
+            aliases: new[] { "--description", "-d" },
+            description: "Full explanation of what was learned") { IsRequired = true };
+        var learningCreateScopeOption = new Option<string>(
+            aliases: new[] { "--scope", "-s" },
+            description: "Scope where this applies: Global, Agent, Skill, Project, Domain",
+            getDefaultValue: () => "Global");
+        var learningCreateConfidenceOption = new Option<double>(
+            aliases: new[] { "--confidence", "-c" },
+            description: "Confidence score (0.0-1.0)",
+            getDefaultValue: () => 0.7);
+        var learningCreateTagsOption = new Option<string?>(
+            aliases: new[] { "--tags", "-g" },
+            description: "Comma-separated tags for filtering");
+        var learningCreateSourceAgentOption = new Option<string?>(
+            aliases: new[] { "--source-agent", "-a" },
+            description: "Source agent ID that should benefit from this learning");
+        var learningCreateSourceTaskOption = new Option<string?>(
+            aliases: new[] { "--source-task" },
+            description: "Source task ID for provenance tracking");
+        learningCreateCommand.AddOption(learningCreateTitleOption);
+        learningCreateCommand.AddOption(learningCreateDescOption);
+        learningCreateCommand.AddOption(learningCreateScopeOption);
+        learningCreateCommand.AddOption(learningCreateConfidenceOption);
+        learningCreateCommand.AddOption(learningCreateTagsOption);
+        learningCreateCommand.AddOption(learningCreateSourceAgentOption);
+        learningCreateCommand.AddOption(learningCreateSourceTaskOption);
+        learningCreateCommand.SetHandler(async (string title, string description, string scope, double confidence, string? tags, string? sourceAgent, string? sourceTask) =>
+        {
+            var host = CreateHost();
+            var exitCode = await LearningCreateCommand(host, title, description, scope, confidence, tags, sourceAgent, sourceTask);
+            Environment.Exit(exitCode);
+        }, learningCreateTitleOption, learningCreateDescOption, learningCreateScopeOption, learningCreateConfidenceOption, learningCreateTagsOption, learningCreateSourceAgentOption, learningCreateSourceTaskOption);
+
         var learningViewCommand = new Command("view", "View detailed information about a specific learning");
         var learningIdViewOption = new Option<string>(
             aliases: new[] { "--id" },
@@ -617,6 +656,7 @@ public class Program
         }, learningIdSupersedeOption);
 
         learningCommand.AddCommand(learningListCommand);
+        learningCommand.AddCommand(learningCreateCommand);
         learningCommand.AddCommand(learningViewCommand);
         learningCommand.AddCommand(learningEditCommand);
         learningCommand.AddCommand(learningStatsCommand);
@@ -2270,6 +2310,88 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to list learnings: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LearningCreateCommand(IHost host, string title, string description, string scope, double confidence, string? tags, string? sourceAgent, string? sourceTask)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var learningOrchService = host.Services.GetRequiredService<LearningService>();
+            
+            logger.LogInformation("Creating manual learning: {Title}", title);
+
+            // Validate inputs
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                Console.WriteLine("✗ Title is required and cannot be empty.");
+                return 1;
+            }
+
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                Console.WriteLine("✗ Description is required and cannot be empty.");
+                return 1;
+            }
+
+            if (confidence < 0.0 || confidence > 1.0)
+            {
+                Console.WriteLine("✗ Confidence must be between 0.0 and 1.0.");
+                return 1;
+            }
+
+            // Validate scope
+            var validScopes = new[] { "Global", "Agent", "Skill", "Project", "Domain" };
+            if (!validScopes.Contains(scope, StringComparer.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"✗ Invalid scope '{scope}'. Must be one of: {string.Join(", ", validScopes)}");
+                return 1;
+            }
+
+            // Create explicit trigger context for manual creation
+            var context = new ExplicitTriggerContext
+            {
+                Title = title,
+                Description = description,
+                Scope = scope,
+                Confidence = confidence,
+                Tags = tags,
+                SourceAgent = sourceAgent,
+                SourceTaskId = sourceTask,
+                CreatedBy = "user",
+                AgentReasoning = "Manually created by user"
+            };
+
+            // Create the learning
+            var learning = await learningOrchService.CreateExplicitLearningAsync(context, CancellationToken.None).ConfigureAwait(false);
+
+            Console.WriteLine("✓ Learning created successfully!");
+            Console.WriteLine();
+            Console.WriteLine($"Learning ID: {learning.LearningId}");
+            Console.WriteLine($"  Title: {learning.Title}");
+            Console.WriteLine($"  Scope: {learning.Scope}");
+            Console.WriteLine($"  Status: {learning.Status}");
+            Console.WriteLine($"  Confidence: {learning.Confidence:F3}");
+            Console.WriteLine($"  Trigger Type: {learning.TriggerType}");
+            Console.WriteLine($"  Created: {DateTimeOffset.FromUnixTimeSeconds(learning.CreatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+            if (!string.IsNullOrEmpty(tags))
+            {
+                Console.WriteLine($"  Tags: {tags}");
+            }
+            if (!string.IsNullOrEmpty(sourceAgent))
+            {
+                Console.WriteLine($"  Source Agent: {sourceAgent}");
+            }
+            Console.WriteLine();
+            Console.WriteLine($"The learning can be injected into prompts for similar tasks. Use 'learning view --id {learning.LearningId}' to view details.");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to create learning: {ex.Message}");
             return 1;
         }
     }
