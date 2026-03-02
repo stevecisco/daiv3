@@ -64,6 +64,9 @@ public static class OrchestrationServiceExtensions
         // Register tool invoker as scoped (per-request tool routing)
         services.TryAddScoped<IToolInvoker, ToolRoutingService>();
 
+        // Register learning service for learning memory management (LM-REQ-001)
+        services.TryAddScoped<ILearningService, LearningService>();
+
         return services;
     }
 

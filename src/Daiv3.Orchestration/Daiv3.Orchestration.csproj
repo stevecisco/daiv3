@@ -16,6 +16,7 @@
     <ProjectReference Include="..\Daiv3.Core\Daiv3.Core.csproj" />
     <ProjectReference Include="..\Daiv3.ModelExecution\Daiv3.ModelExecution.csproj" />
     <ProjectReference Include="..\Daiv3.Knowledge\Daiv3.Knowledge.csproj" />
+    <ProjectReference Include="..\Daiv3.Knowledge.Embedding\Daiv3.Knowledge.Embedding.csproj" />
     <ProjectReference Include="..\Daiv3.Persistence\Daiv3.Persistence.csproj" />
     <ProjectReference Include="..\Daiv3.Scheduler\Daiv3.Scheduler.csproj" />
     <ProjectReference Include="..\Daiv3.WebFetch.Crawl\Daiv3.WebFetch.Crawl.csproj" />
@@ -23,7 +24,6 @@
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework.Contains('windows'))">
-    <ProjectReference Include="..\Daiv3.Knowledge.Embedding\Daiv3.Knowledge.Embedding.csproj" />
   </ItemGroup>
 
   <ItemGroup>
