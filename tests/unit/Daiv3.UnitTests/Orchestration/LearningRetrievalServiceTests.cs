@@ -16,7 +16,7 @@ namespace Daiv3.UnitTests.Orchestration;
 public class LearningRetrievalServiceTests
 {
     private readonly Mock<ILogger<LearningRetrievalService>> _mockLogger;
-    private readonly Mock<LearningStorageService> _mockStorageService;
+    private readonly Mock<ILearningStorageService> _mockStorageService;
     private readonly Mock<IEmbeddingGenerator> _mockEmbeddingGenerator;
     private readonly SimpleVectorSimilarityStubForLearnings _vectorSimilarity;
     private readonly LearningRetrievalService _service;
@@ -24,9 +24,7 @@ public class LearningRetrievalServiceTests
     public LearningRetrievalServiceTests()
     {
         _mockLogger = new Mock<ILogger<LearningRetrievalService>>();
-        _mockStorageService = new Mock<LearningStorageService>(
-            MockBehavior.Strict,
-            null!, null!); // Mock constructor parameters
+        _mockStorageService = new Mock<ILearningStorageService>(MockBehavior.Strict);
         _mockEmbeddingGenerator = new Mock<IEmbeddingGenerator>();
         _vectorSimilarity = new SimpleVectorSimilarityStubForLearnings();
 
@@ -133,6 +131,45 @@ public class LearningRetrievalServiceTests
         {
             TaskGoal = "Test task",
             MaxResults = 0
+        };
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _service.RetrieveLearningsAsync(context));
+    }
+
+    [Fact]
+    public async Task RetrieveLearningsAsync_ThrowsArgumentOutOfRangeException_WhenMaxRetrievalTimeMsIsZero()
+    {
+        var context = new LearningRetrievalContext
+        {
+            TaskGoal = "Test task",
+            MaxRetrievalTimeMs = 0
+        };
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _service.RetrieveLearningsAsync(context));
+    }
+
+    [Fact]
+    public async Task RetrieveLearningsAsync_ThrowsArgumentOutOfRangeException_WhenSlowRetrievalWarningMsIsZero()
+    {
+        var context = new LearningRetrievalContext
+        {
+            TaskGoal = "Test task",
+            SlowRetrievalWarningMs = 0
+        };
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _service.RetrieveLearningsAsync(context));
+    }
+
+    [Fact]
+    public async Task RetrieveLearningsAsync_ThrowsArgumentOutOfRangeException_WhenMaxCandidatesToScoreIsZero()
+    {
+        var context = new LearningRetrievalContext
+        {
+            TaskGoal = "Test task",
+            MaxCandidatesToScore = 0
         };
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
@@ -384,7 +421,7 @@ public class LearningRetrievalServiceTests
         {
             CreateLearning("1", "Agent-specific", "Active", 0.8, 384, sourceAgent: "agent-123"),
             CreateLearning("2", "Global learning", "Active", 0.9, 384, scope: "Global"),
-            CreateLearning("3", "Other agent", "Active", 0.85, 384, sourceAgent: "agent-456")
+            CreateLearning("3", "Other agent", "Active", 0.85, 384, scope: "Agent", sourceAgent: "agent-456")
         };
 
         _mockStorageService
@@ -405,6 +442,80 @@ public class LearningRetrievalServiceTests
         Assert.Contains(result, r => r.Learning.LearningId == "1");
         Assert.Contains(result, r => r.Learning.LearningId == "2");
         Assert.DoesNotContain(result, r => r.Learning.LearningId == "3");
+    }
+
+    [Fact]
+    public async Task RetrieveLearningsAsync_ReturnsEmpty_WhenRetrievalTimesOut()
+    {
+        // Arrange
+        var context = new LearningRetrievalContext
+        {
+            TaskGoal = "Timeout task",
+            MaxRetrievalTimeMs = 25,
+            SlowRetrievalWarningMs = 10
+        };
+
+        var learnings = new List<Learning>
+        {
+            CreateLearning("1", "Slow retrieval learning", "Active", 0.9, 384)
+        };
+
+        _mockStorageService
+            .Setup(x => x.GetEmbeddedLearningsAsync(It.IsAny<CancellationToken>()))
+            .Returns(async (CancellationToken token) =>
+            {
+                await Task.Delay(250, token);
+                return learnings;
+            });
+
+        // Act
+        var result = await _service.RetrieveLearningsAsync(context);
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task RetrieveLearningsAsync_CapsCandidatesForSimilarityCalculation()
+    {
+        // Arrange
+        var context = new LearningRetrievalContext
+        {
+            TaskGoal = "Candidate cap task",
+            MinConfidence = 0.5,
+            MinSimilarity = 0.2,
+            MaxCandidatesToScore = 2,
+            MaxResults = 2
+        };
+
+        var learnings = new List<Learning>
+        {
+            CreateLearning("1", "Learning 1", "Active", 0.95, 384),
+            CreateLearning("2", "Learning 2", "Active", 0.90, 384),
+            CreateLearning("3", "Learning 3", "Active", 0.85, 384)
+        };
+
+        _mockStorageService
+            .Setup(x => x.GetEmbeddedLearningsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(learnings);
+
+        _mockEmbeddingGenerator
+            .Setup(x => x.GenerateEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new float[384]);
+
+        _vectorSimilarity.BatchScoreGenerator = i => i switch
+        {
+            0 => 0.9f,
+            1 => 0.8f,
+            _ => 0.7f
+        };
+
+        // Act
+        var result = await _service.RetrieveLearningsAsync(context);
+
+        // Assert
+        Assert.Equal(2, _vectorSimilarity.LastBatchVectorCount);
+        Assert.Equal(2, result.Count);
     }
 
     #endregion
@@ -458,6 +569,7 @@ public class LearningRetrievalServiceTests
 public class SimpleVectorSimilarityStubForLearnings : IVectorSimilarityService
 {
     public Func<int, float>? BatchScoreGenerator { get; set; }
+    public int LastBatchVectorCount { get; private set; }
 
     public float CosineSimilarity(ReadOnlySpan<float> vector1, ReadOnlySpan<float> vector2)
     {
@@ -471,6 +583,8 @@ public class SimpleVectorSimilarityStubForLearnings : IVectorSimilarityService
         int dimensions,
         Span<float> results)
     {
+        LastBatchVectorCount = vectorCount;
+
         for (int i = 0; i < vectorCount; i++)
         {
             results[i] = BatchScoreGenerator != null ? BatchScoreGenerator(i) : 0.8f;

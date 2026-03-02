@@ -66,6 +66,27 @@ public class LearningRetrievalContext
     public int MaxResults { get; init; } = 5;
 
     /// <summary>
+    /// Maximum allowed retrieval latency in milliseconds.
+    /// Retrieval that exceeds this budget is cancelled to avoid blocking foreground flows.
+    /// Default: 150ms
+    /// </summary>
+    public int MaxRetrievalTimeMs { get; init; } = 150;
+
+    /// <summary>
+    /// Warning threshold for retrieval latency in milliseconds.
+    /// Retrievals above this threshold are logged for observability.
+    /// Default: 75ms
+    /// </summary>
+    public int SlowRetrievalWarningMs { get; init; } = 75;
+
+    /// <summary>
+    /// Maximum number of candidate learnings scored for similarity.
+    /// This limits CPU work and keeps retrieval latency bounded.
+    /// Default: 256
+    /// </summary>
+    public int MaxCandidatesToScore { get; init; } = 256;
+
+    /// <summary>
     /// Optional additional context for semantic search.
     /// Appended to TaskGoal when generating query embedding.
     /// </summary>

@@ -48,6 +48,7 @@ public static class PersistenceServiceExtensions
 
         // Register services
         // LM-REQ-003: Learning storage service for managing learning persistence
+        services.AddScoped<ILearningStorageService, LearningStorageService>();
         services.AddScoped<LearningStorageService>();
 
         return services;

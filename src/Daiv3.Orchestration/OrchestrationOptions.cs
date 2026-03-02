@@ -76,5 +76,25 @@ public class OrchestrationOptions
     /// The dictionary key is the normalized task type.
     /// </summary>
     public Dictionary<string, List<string>> DynamicAgentSkillsByTaskType { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Maximum allowed latency for learning retrieval before graceful fallback.
+    /// </summary>
+    public int LearningRetrievalTimeoutMs { get; set; } = 150;
+
+    /// <summary>
+    /// Warning threshold for learning retrieval latency.
+    /// </summary>
+    public int LearningRetrievalWarningThresholdMs { get; set; } = 75;
+
+    /// <summary>
+    /// Maximum number of learning candidates to score per retrieval.
+    /// </summary>
+    public int LearningRetrievalMaxCandidatesToScore { get; set; } = 256;
+
+    /// <summary>
+    /// Maximum number of learnings to inject into agent context.
+    /// </summary>
+    public int LearningRetrievalMaxResults { get; set; } = 3;
 }
 

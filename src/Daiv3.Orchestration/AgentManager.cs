@@ -1007,7 +1007,10 @@ public class AgentManager : IAgentManager
                 Scope = null, // Allow all scopes (Global, Agent, Skill, Project, Domain)
                 MinConfidence = 0.6, // Only high-confidence learnings
                 MinSimilarity = 0.4, // Reasonable similarity threshold
-                MaxResults = 3, // Top 3 most relevant learnings
+                MaxResults = _options.LearningRetrievalMaxResults,
+                MaxRetrievalTimeMs = _options.LearningRetrievalTimeoutMs,
+                SlowRetrievalWarningMs = _options.LearningRetrievalWarningThresholdMs,
+                MaxCandidatesToScore = _options.LearningRetrievalMaxCandidatesToScore,
                 AdditionalContext = context
             };
 

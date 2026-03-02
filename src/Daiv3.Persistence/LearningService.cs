@@ -10,7 +10,7 @@ namespace Daiv3.Persistence;
 /// Implements LM-REQ-003: Storage of learnings in dedicated SQLite table.
 /// Note: For learning creation with embeddings, use Orchestration.LearningService (LM-REQ-001).
 /// </summary>
-public class LearningStorageService
+public class LearningStorageService : ILearningStorageService
 {
     private readonly LearningRepository _repository;
     private readonly ILogger<LearningStorageService> _logger;
