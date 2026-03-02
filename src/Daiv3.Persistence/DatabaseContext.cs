@@ -286,6 +286,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 6,
                 Description = "Add agent_promotion_proposals table for agent-proposed promotions requiring confirmation (KBP-REQ-003)",
                 Sql = SchemaScripts.Migration006_AgentPromotionProposals
+            },
+            new Migration
+            {
+                Version = 7,
+                Description = "Add revert_promotions and promotion_metrics tables for reversible, transparent promotions (KBP-NFR-001)",
+                Sql = SchemaScripts.Migration007_PromotionRevertAndMetrics
             }
         };
     }

@@ -15,6 +15,8 @@ public class LearningStorageService : ILearningStorageService
 {
     private readonly LearningRepository _repository;
     private readonly PromotionRepository? _promotionRepository;
+    private readonly RevertPromotionRepository? _revertPromotionRepository;
+    private readonly PromotionMetricRepository? _promotionMetricRepository;
     private readonly ILogger<LearningStorageService> _logger;
     private readonly ILearningObserver? _metricsCollector;
 
@@ -22,12 +24,16 @@ public class LearningStorageService : ILearningStorageService
         LearningRepository repository,
         ILogger<LearningStorageService> logger,
         ILearningObserver? metricsCollector = null,
-        PromotionRepository? promotionRepository = null)
+        PromotionRepository? promotionRepository = null,
+        RevertPromotionRepository? revertPromotionRepository = null,
+        PromotionMetricRepository? promotionMetricRepository = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metricsCollector = metricsCollector;
         _promotionRepository = promotionRepository;
+        _revertPromotionRepository = revertPromotionRepository;
+        _promotionMetricRepository = promotionMetricRepository;
     }
 
     /// <summary>
@@ -472,6 +478,102 @@ public class LearningStorageService : ILearningStorageService
             result.SuccessfulPromotions.Count, result.FailedPromotions.Count);
 
         return result;
+    }
+
+    /// <summary>
+    /// Reverts a promotion, restoring the learning to its previous scope.
+    /// Implements KBP-NFR-001: Promotions SHOULD be reversible.
+    /// </summary>
+    /// <param name="promotionId">The promotion ID to revert.</param>
+    /// <param name="revertedBy">User or agent performing the revert (default: 'user').</param>
+    /// <param name="notes">Optional notes about why the promotion was reverted.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>True if successfully reverted, false if promotion not found or already reverted.</returns>
+    public async Task<bool> RevertPromotionAsync(
+        string promotionId,
+        string revertedBy = "user",
+        string? notes = null,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(promotionId);
+
+        if (_promotionRepository == null || _revertPromotionRepository == null)
+        {
+            _logger.LogWarning("Revert promotion requested but repositories not configured");
+            return false;
+        }
+
+        // Get the promotion record
+        var promotion = await _promotionRepository.GetByIdAsync(promotionId, ct).ConfigureAwait(false);
+        if (promotion == null)
+        {
+            _logger.LogWarning("Attempted to revert non-existent promotion {PromotionId}", promotionId);
+            return false;
+        }
+
+        // Check if already reverted
+        var existingRevert = await _revertPromotionRepository.GetByPromotionIdAsync(promotionId, ct).ConfigureAwait(false);
+        if (existingRevert != null)
+        {
+            _logger.LogWarning("Promotion {PromotionId} has already been reverted (Revert ID: {RevertId})", promotionId, existingRevert.RevertId);
+            return false;
+        }
+
+        // Get the learning
+        var learning = await _repository.GetByIdAsync(promotion.LearningId, ct).ConfigureAwait(false);
+        if (learning == null)
+        {
+            _logger.LogError("Learning {LearningId} not found when reverting promotion {PromotionId}", promotion.LearningId, promotionId);
+            return false;
+        }
+
+        // Restore learning to previous scope
+        var previousScope = learning.Scope;
+        learning.Scope = promotion.FromScope;
+        var revertedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        learning.UpdatedAt = revertedAtUnix;
+        await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
+
+        // Record the revert
+        var revert = new RevertPromotion
+        {
+            RevertId = Guid.NewGuid().ToString(),
+            PromotionId = promotionId,
+            LearningId = promotion.LearningId,
+            RevertedAt = revertedAtUnix,
+            RevertedBy = revertedBy,
+            RevertedFromScope = previousScope,
+            RevertedToScope = promotion.FromScope,
+            Notes = notes
+        };
+
+        await _revertPromotionRepository.AddAsync(revert, ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Reverted promotion {PromotionId} for learning {LearningId} from {FromScope} to {ToScope}",
+            promotionId, promotion.LearningId, previousScope, promotion.FromScope);
+
+        // Record revert metric
+        if (_promotionMetricRepository != null)
+        {
+            var metric = new PromotionMetric
+            {
+                MetricId = Guid.NewGuid().ToString(),
+                MetricName = "revert_events",
+                MetricValue = 1.0,
+                RecordedAt = revertedAtUnix,
+                Context = $"promotion:{promotionId}"
+            };
+            await _promotionMetricRepository.AddAsync(metric, ct).ConfigureAwait(false);
+        }
+
+        // Fire observability event
+        if (_metricsCollector != null)
+        {
+            await _metricsCollector.OnLearningPromotedAsync(promotion.LearningId, previousScope, promotion.FromScope, revertedAtUnix).ConfigureAwait(false);
+        }
+
+        return true;
     }
 
     /// <summary>

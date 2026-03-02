@@ -380,3 +380,94 @@ public class AgentPromotionProposal
     /// </summary>
     public string? RejectionReason { get; set; }
 }
+/// <summary>
+/// Represents a reverted promotion (undo of a learning promotion).
+/// Tracks when promotions are undone for reversibility and audit trail.
+/// Implements KBP-NFR-001: Promotions SHOULD be transparent and reversible.
+/// </summary>
+public class RevertPromotion
+{
+    /// <summary>
+    /// Unique identifier for the revert action (UUID as string).
+    /// </summary>
+    public string RevertId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The promotion that was reverted (foreign key to promotions table).
+    /// </summary>
+    public string PromotionId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The learning that was affected by the revert.
+    /// </summary>
+    public string LearningId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the revert occurred (Unix timestamp).
+    /// Implements transparency requirement of KBP-NFR-001.
+    /// </summary>
+    public long RevertedAt { get; set; }
+
+    /// <summary>
+    /// User or agent who performed the revert.
+    /// </summary>
+    public string RevertedBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The scope the learning had after the original promotion (what it was reverted FROM).
+    /// </summary>
+    public string RevertedFromScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The scope the learning was restored to (the FromScope of the original promotion).
+    /// </summary>
+    public string RevertedToScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional notes about why the promotion was reverted (nullable).
+    /// </summary>
+    public string? Notes { get; set; }
+}
+
+/// <summary>
+/// Represents instrumentation metrics for promotion operations.
+/// Tracks performance and usage metrics for transparency (KBP-NFR-001).
+/// </summary>
+public class PromotionMetric
+{
+    /// <summary>
+    /// Unique identifier for the metric record (UUID as string).
+    /// </summary>
+    public string MetricId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Name of the metric (e.g., 'promotion_latency_ms', 'total_promotions', 'revert_count').
+    /// </summary>
+    public string MetricName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The measured value for this metric.
+    /// </summary>
+    public double MetricValue { get; set; }
+
+    /// <summary>
+    /// When the metric was recorded (Unix timestamp).
+    /// </summary>
+    public long RecordedAt { get; set; }
+
+    /// <summary>
+    /// Optional start of the period this metric covers (for aggregates).
+    /// </summary>
+    public long? PeriodStart { get; set; }
+
+    /// <summary>
+    /// Optional end of the period this metric covers (for aggregates).
+    /// </summary>
+    public long? PeriodEnd { get; set; }
+
+    /// <summary>
+    /// Optional context/tags for the metric (nullable).
+    /// Example: "gauge:promotion_queue_depth" or "histogram:promotion_duration".
+    /// </summary>
+    public string? Context { get; set; }
+}

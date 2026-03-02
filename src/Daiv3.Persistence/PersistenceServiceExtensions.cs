@@ -58,6 +58,12 @@ public static class PersistenceServiceExtensions
         // KBP-DATA-001/002: Promotion repository for learning promotion tracking
         services.AddScoped<PromotionRepository>();
         
+        // KBP-NFR-001: Revert promotion repository for reversible promotions
+        services.AddScoped<RevertPromotionRepository>();
+        
+        // KBP-NFR-001: Promotion metrics repository for transparency/instrumentation
+        services.AddScoped<PromotionMetricRepository>();
+        
         // KBP-REQ-003: Agent promotion proposal repository for agent-proposed promotions requiring confirmation
         services.AddScoped<AgentPromotionProposalRepository>();
         
@@ -76,13 +82,18 @@ public static class PersistenceServiceExtensions
         // Register services
         // LM-REQ-003: Learning storage service for managing learning persistence
         // KBP-DATA-001/002: With promotion tracking
+        // KBP-NFR-001: With revert and metrics support
         services.AddScoped<ILearningStorageService>(serviceProvider =>
         {
             var repository = serviceProvider.GetRequiredService<LearningRepository>();
             var logger = serviceProvider.GetRequiredService<ILogger<LearningStorageService>>();
             var metricsCollector = serviceProvider.GetRequiredService<ILearningObserver>();
             var promotionRepository = serviceProvider.GetRequiredService<PromotionRepository>();
-            return new LearningStorageService(repository, logger, metricsCollector, promotionRepository);
+            var revertPromotionRepository = serviceProvider.GetRequiredService<RevertPromotionRepository>();
+            var promotionMetricRepository = serviceProvider.GetRequiredService<PromotionMetricRepository>();
+            return new LearningStorageService(
+                repository, logger, metricsCollector, promotionRepository,
+                revertPromotionRepository, promotionMetricRepository);
         });
         services.AddScoped<LearningStorageService>(serviceProvider =>
         {
@@ -90,7 +101,11 @@ public static class PersistenceServiceExtensions
             var logger = serviceProvider.GetRequiredService<ILogger<LearningStorageService>>();
             var metricsCollector = serviceProvider.GetRequiredService<ILearningObserver>();
             var promotionRepository = serviceProvider.GetRequiredService<PromotionRepository>();
-            return new LearningStorageService(repository, logger, metricsCollector, promotionRepository);
+            var revertPromotionRepository = serviceProvider.GetRequiredService<RevertPromotionRepository>();
+            var promotionMetricRepository = serviceProvider.GetRequiredService<PromotionMetricRepository>();
+            return new LearningStorageService(
+                repository, logger, metricsCollector, promotionRepository,
+                revertPromotionRepository, promotionMetricRepository);
         });
 
         return services;

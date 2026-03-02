@@ -279,4 +279,47 @@ CREATE INDEX IF NOT EXISTS idx_agent_promotion_proposals_created_at ON agent_pro
 CREATE INDEX IF NOT EXISTS idx_agent_promotion_proposals_status_created_at ON agent_promotion_proposals(status, created_at DESC);
 ";
 
+    /// <summary>
+    /// Migration 007: Promotion revert tracking and metrics
+    /// Adds revert_promotions table for reversibility (KBP-NFR-001) and promotion_metrics for instrumentation.
+    /// Implements KBP-NFR-001: Promotions SHOULD be transparent and reversible.
+    /// </summary>
+    public const string Migration007_PromotionRevertAndMetrics = @"
+-- Promotion Reverts: Track when promotions are undone (reversibility - KBP-NFR-001)
+CREATE TABLE IF NOT EXISTS revert_promotions (
+    revert_id TEXT PRIMARY KEY,
+    promotion_id TEXT NOT NULL UNIQUE,
+    learning_id TEXT NOT NULL,
+    reverted_at INTEGER NOT NULL,
+    reverted_by TEXT NOT NULL,
+    reverted_from_scope TEXT NOT NULL,
+    reverted_to_scope TEXT NOT NULL,
+    notes TEXT,
+    FOREIGN KEY (promotion_id) REFERENCES promotions(promotion_id) ON DELETE CASCADE,
+    FOREIGN KEY (learning_id) REFERENCES learnings(learning_id) ON DELETE CASCADE
+);
+
+-- Performance indexes for revert queries
+CREATE INDEX IF NOT EXISTS idx_revert_promotions_promotion_id ON revert_promotions(promotion_id);
+CREATE INDEX IF NOT EXISTS idx_revert_promotions_learning_id ON revert_promotions(learning_id);
+CREATE INDEX IF NOT EXISTS idx_revert_promotions_reverted_at ON revert_promotions(reverted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_revert_promotions_reverted_by ON revert_promotions(reverted_by);
+
+-- Promotion Metrics: Instrumentation for transparency (KBP-NFR-001)
+CREATE TABLE IF NOT EXISTS promotion_metrics (
+    metric_id TEXT PRIMARY KEY,
+    metric_name TEXT NOT NULL,
+    metric_value REAL NOT NULL,
+    recorded_at INTEGER NOT NULL,
+    period_start INTEGER,
+    period_end INTEGER,
+    context TEXT
+);
+
+-- Performance indexes for metric queries
+CREATE INDEX IF NOT EXISTS idx_promotion_metrics_name ON promotion_metrics(metric_name);
+CREATE INDEX IF NOT EXISTS idx_promotion_metrics_recorded_at ON promotion_metrics(recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_promotion_metrics_name_recorded_at ON promotion_metrics(metric_name, recorded_at DESC);
+";
+
 }
