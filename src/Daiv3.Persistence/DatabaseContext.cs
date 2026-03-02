@@ -268,6 +268,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 3,
                 Description = "Add agents table for agent definitions with user-editable JSON config",
                 Sql = SchemaScripts.Migration003_AgentDefinitions
+            },
+            new Migration
+            {
+                Version = 4,
+                Description = "Add learnings table for learning memory with provenance tracking (LM-DATA-001)",
+                Sql = SchemaScripts.Migration004_LearningMemory
             }
         };
     }

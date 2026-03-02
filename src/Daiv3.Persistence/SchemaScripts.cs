@@ -171,4 +171,45 @@ CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
 CREATE INDEX IF NOT EXISTS idx_agents_created_at ON agents(created_at);
 ";
 
+    /// <summary>
+    /// Migration 004: Learning memory table
+    /// Adds learnings table for storing agent learnings with provenance and timestamps.
+    /// Supports semantic retrieval, filtering by scope, and user visibility/control.
+    /// </summary>
+    public const string Migration004_LearningMemory = @"
+-- Learnings: AI learning records with provenance tracking
+CREATE TABLE IF NOT EXISTS learnings (
+    learning_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    trigger_type TEXT NOT NULL CHECK(trigger_type IN ('UserFeedback', 'SelfCorrection', 'CompilationError', 'ToolFailure', 'KnowledgeConflict', 'Explicit')),
+    scope TEXT NOT NULL CHECK(scope IN ('Global', 'Agent', 'Skill', 'Project', 'Domain')),
+    source_agent TEXT,
+    source_task_id TEXT,
+    embedding_blob BLOB,
+    embedding_dimensions INTEGER,
+    tags TEXT,
+    confidence REAL NOT NULL CHECK(confidence >= 0.0 AND confidence <= 1.0),
+    status TEXT NOT NULL CHECK(status IN ('Active', 'Suppressed', 'Superseded', 'Archived')) DEFAULT 'Active',
+    times_applied INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    created_by TEXT NOT NULL
+);
+
+-- Performance indexes for semantic search and filtering
+CREATE INDEX IF NOT EXISTS idx_learnings_status ON learnings(status);
+CREATE INDEX IF NOT EXISTS idx_learnings_scope ON learnings(scope);
+CREATE INDEX IF NOT EXISTS idx_learnings_trigger_type ON learnings(trigger_type);
+CREATE INDEX IF NOT EXISTS idx_learnings_source_agent ON learnings(source_agent);
+CREATE INDEX IF NOT EXISTS idx_learnings_source_task_id ON learnings(source_task_id);
+CREATE INDEX IF NOT EXISTS idx_learnings_confidence ON learnings(confidence DESC);
+CREATE INDEX IF NOT EXISTS idx_learnings_times_applied ON learnings(times_applied DESC);
+CREATE INDEX IF NOT EXISTS idx_learnings_created_at ON learnings(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_learnings_created_by ON learnings(created_by);
+
+-- Composite index for active learnings by scope (most common query pattern)
+CREATE INDEX IF NOT EXISTS idx_learnings_status_scope ON learnings(status, scope);
+";
+
 }

@@ -151,3 +151,97 @@ public class Agent
     /// </summary>
     public long UpdatedAt { get; set; }
 }
+
+/// <summary>
+/// Represents a learning record in the learning memory system.
+/// Learnings capture corrections, improvements, and insights for future agent execution.
+/// Includes provenance tracking and timestamps per LM-DATA-001.
+/// </summary>
+public class Learning
+{
+    /// <summary>
+    /// Unique identifier for the learning (UUID as string).
+    /// </summary>
+    public string LearningId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Short human-readable summary of what was learned.
+    /// </summary>
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Full explanation: what happened, what was wrong, what the correct approach is.
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Trigger type: UserFeedback, SelfCorrection, CompilationError, ToolFailure, KnowledgeConflict, Explicit.
+    /// </summary>
+    public string TriggerType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Scope where this applies: Global, Agent, Skill, Project, Domain.
+    /// </summary>
+    public string Scope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The agent or skill that generated this learning (nullable).
+    /// Provenance field per LM-DATA-001.
+    /// </summary>
+    public string? SourceAgent { get; set; }
+
+    /// <summary>
+    /// The task or session in which the learning occurred (nullable).
+    /// Provenance field per LM-DATA-001 for traceability.
+    /// </summary>
+    public string? SourceTaskId { get; set; }
+
+    /// <summary>
+    /// Vector embedding of the description for semantic retrieval (nullable until generated).
+    /// </summary>
+    public byte[]? EmbeddingBlob { get; set; }
+
+    /// <summary>
+    /// Dimensionality of the embedding vector (e.g., 384, 768).
+    /// </summary>
+    public int? EmbeddingDimensions { get; set; }
+
+    /// <summary>
+    /// Comma-separated tags for filtering (e.g., 'csharp', 'file-io', 'prompt-format').
+    /// </summary>
+    public string? Tags { get; set; }
+
+    /// <summary>
+    /// Confidence score 0.0-1.0.
+    /// High confidence = injected automatically, low confidence = injected as suggestion.
+    /// </summary>
+    public double Confidence { get; set; }
+
+    /// <summary>
+    /// Status: Active, Suppressed, Superseded, Archived.
+    /// </summary>
+    public string Status { get; set; } = "Active";
+
+    /// <summary>
+    /// Retrieval count. Surfaces high-value learnings and identifies stale ones.
+    /// </summary>
+    public int TimesApplied { get; set; }
+
+    /// <summary>
+    /// When the learning was created (Unix timestamp).
+    /// Timestamp field per LM-DATA-001.
+    /// </summary>
+    public long CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the learning was last updated (Unix timestamp).
+    /// Timestamp field per LM-DATA-001.
+    /// </summary>
+    public long UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Agent ID or 'user' if manually entered.
+    /// Provenance field per LM-DATA-001.
+    /// </summary>
+    public string CreatedBy { get; set; } = string.Empty;
+}
