@@ -274,6 +274,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 4,
                 Description = "Add learnings table for learning memory with provenance tracking (LM-DATA-001)",
                 Sql = SchemaScripts.Migration004_LearningMemory
+            },
+            new Migration
+            {
+                Version = 5,
+                Description = "Add promotions table for learning scope promotion tracking (KBP-DATA-001, KBP-DATA-002)",
+                Sql = SchemaScripts.Migration005_LearningPromotions
             }
         };
     }

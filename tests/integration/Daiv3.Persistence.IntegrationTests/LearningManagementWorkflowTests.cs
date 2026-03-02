@@ -66,13 +66,30 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         var context = new DatabaseContext(_loggerFactory.CreateLogger<DatabaseContext>(), options);
         await context.InitializeAsync();
         
-        var repository = new Daiv3.Persistence.Repositories.LearningRepository(
+        var learningRepository = new Daiv3.Persistence.Repositories.LearningRepository(
             context,
             _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.LearningRepository>());
 
+        var promotionRepository = new Daiv3.Persistence.Repositories.PromotionRepository(
+            context,
+            _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.PromotionRepository>());
+
         return new LearningStorageService(
-            repository,
-            _loggerFactory.CreateLogger<LearningStorageService>());
+            learningRepository,
+            _loggerFactory.CreateLogger<LearningStorageService>(),
+            metricsCollector: null,
+            promotionRepository: promotionRepository);
+    }
+
+    private async Task<Daiv3.Persistence.Repositories.PromotionRepository> CreatePromotionRepositoryAsync(string existingDbPath)
+    {
+        var options = Options.Create(new PersistenceOptions { DatabasePath = existingDbPath });
+        var context = new DatabaseContext(_loggerFactory.CreateLogger<DatabaseContext>(), options);
+        await context.InitializeAsync();
+        
+        return new Daiv3.Persistence.Repositories.PromotionRepository(
+            context,
+            _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.PromotionRepository>());
     }
 
     [Fact]
@@ -583,4 +600,212 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         Assert.Equal(1, stats.SuppressedCount);
         Assert.Equal(1, stats.SupersededCount);
     }
+
+    // ===== KBP-DATA-001/002: Promotion History Tracking Integration Tests =====
+
+    [Fact]
+    public async Task PromoteLearning_RecordsPromotionHistory()
+    {
+        // Arrange - KBP-DATA-001/002: Create learning and promote it
+        var learningService = await CreateServiceAsync();
+        var learningId = await learningService.CreateLearningAsync(
+            "Important Pattern", "Always use async/await", "UserFeedback", "Skill", 0.9);
+
+        var testDbPath = _testDbPaths.Last();
+        var promotionRepo = await CreatePromotionRepositoryAsync(testDbPath);
+
+        // Act: Promote learning (Skill → Agent)
+        var newScope = await learningService.PromoteLearningAsync(
+            learningId,
+            promotedBy: "integration-test-user",
+            sourceTaskId: "task-12345",
+            sourceAgent: "test-agent",
+            notes: "High confidence and frequent usage");
+
+        // Assert: Promotion was recorded
+        Assert.Equal("Agent", newScope);
+        
+        var promotions = await promotionRepo.GetByLearningIdAsync(learningId);
+        Assert.Single(promotions);
+        
+        var promotion = promotions[0];
+        Assert.Equal(learningId, promotion.LearningId);
+        Assert.Equal("Skill", promotion.FromScope);
+        Assert.Equal("Agent", promotion.ToScope);
+        Assert.Equal("integration-test-user", promotion.PromotedBy);
+        Assert.Equal("task-12345", promotion.SourceTaskId);
+        Assert.Equal("test-agent", promotion.SourceAgent);
+        Assert.Equal("High confidence and frequent usage", promotion.Notes);
+        Assert.True(promotion.PromotedAt > 0);
+    }
+
+    [Fact]
+    public async Task PromoteLearningMultipleTimes_RecordsFullHistory()
+    {
+        // Arrange
+        var learningService = await CreateServiceAsync();
+        var learningId = await learningService.CreateLearningAsync(
+            "Evolving Pattern", "Pattern description", "UserFeedback", "Skill", 0.8);
+
+        var testDbPath = _testDbPaths.Last();
+        var promotionRepo = await CreatePromotionRepositoryAsync(testDbPath);
+
+        // Act: Promote through hierarchy (Skill → Agent → Project → Domain)
+        await learningService.PromoteLearningAsync(learningId, "user", "task-1"); // Skill → Agent
+        await Task.Delay(100); // Ensure different timestamps
+        await learningService.PromoteLearningAsync(learningId, "user", "task-2"); // Agent → Project
+        await Task.Delay(100);
+        await learningService.PromoteLearningAsync(learningId, "user", "task-3"); // Project → Domain
+
+        // Assert: All promotions recorded
+        var promotions = await promotionRepo.GetByLearningIdAsync(learningId);
+        Assert.Equal(3, promotions.Count);
+        
+        // Verify we have all three scope transitions (order may vary due to timing)
+        var scopeTransitions = promotions.Select(p => $"{p.FromScope}→{p.ToScope}").ToHashSet();
+        Assert.Contains("Skill→Agent", scopeTransitions);
+        Assert.Contains("Agent→Project", scopeTransitions);
+        Assert.Contains("Project→Domain", scopeTransitions);
+        
+        // Verify timestamps are in descending order (most recent first)
+        for (int i = 0; i < promotions.Count - 1; i++)
+        {
+            Assert.True(promotions[i].PromotedAt >= promotions[i + 1].PromotedAt,
+                $"Promotions should be ordered by timestamp DESC");
+        }
+    }
+
+    [Fact]
+    public async Task GetBySourceTaskId_ReturnsPromotionsFromTask()
+    {
+        // Arrange - KBP-DATA-001: Query promotions by source task
+        var learningService = await CreateServiceAsync();
+        var taskId = Guid.NewGuid().ToString();
+        
+        var learning1Id = await learningService.CreateLearningAsync(
+            "Pattern 1", "Description 1", "UserFeedback", "Skill", 0.9);
+        var learning2Id = await learningService.CreateLearningAsync(
+            "Pattern 2", "Description 2", "UserFeedback", "Agent", 0.85);
+
+        var testDbPath = _testDbPaths.Last();
+        var promotionRepo = await CreatePromotionRepositoryAsync(testDbPath);
+
+        // Act: Promote both learnings with same task ID
+        await learningService.PromoteLearningAsync(learning1Id, "user", taskId);
+        await learningService.PromoteLearningAsync(learning2Id, "user", taskId);
+
+        // Assert: Can retrieve all promotions from that task
+        var taskPromotions = await promotionRepo.GetBySourceTaskIdAsync(taskId);
+        Assert.Equal(2, taskPromotions.Count);
+        Assert.All(taskPromotions, p => Assert.Equal(taskId, p.SourceTaskId));
+    }
+
+    [Fact]
+    public async Task GetByToScope_ReturnsPromotionsToTargetScope()
+    {
+        // Arrange - KBP-DATA-002: Query by target scope
+        var learningService = await CreateServiceAsync();
+        
+        var learning1Id = await learningService.CreateLearningAsync(
+            "Global Pattern 1", "Desc 1", "UserFeedback", "Domain", 0.95);
+        var learning2Id = await learningService.CreateLearningAsync(
+            "Global Pattern 2", "Desc 2", "UserFeedback", "Domain", 0.92);
+        var learning3Id = await learningService.CreateLearningAsync(
+            "Project Pattern", "Desc 3", "UserFeedback", "Agent", 0.8);
+
+        var testDbPath = _testDbPaths.Last();
+        var promotionRepo = await CreatePromotionRepositoryAsync(testDbPath);
+
+        // Act: Promote first two to Global, third to Project
+        await learningService.PromoteLearningAsync(learning1Id); // Domain → Global
+        await learningService.PromoteLearningAsync(learning2Id); // Domain → Global
+        await learningService.PromoteLearningAsync(learning3Id); // Agent → Project
+
+        // Assert: Can query by target scope
+        var globalPromotions = await promotionRepo.GetByToScopeAsync("Global");
+        Assert.Equal(2, globalPromotions.Count);
+        Assert.All(globalPromotions, p => Assert.Equal("Global", p.ToScope));
+
+        var projectPromotions = await promotionRepo.GetByToScopeAsync("Project");
+        Assert.Single(projectPromotions);
+        Assert.Equal("Project", projectPromotions[0].ToScope);
+    }
+
+    [Fact]
+    public async Task PromotionHistory_PersistsAcrossSessions()
+    {
+        // Arrange: Create learning and promote across multiple service instances
+        var testDbPath = Path.Combine(Path.GetTempPath(), $"daiv3_promotion_persist_{Guid.NewGuid():N}.db");
+        _testDbPaths.Add(testDbPath);
+
+        string learningId;
+        
+        // Session 1: Create and promote
+        {
+            var options = Options.Create(new PersistenceOptions { DatabasePath = testDbPath });
+            var context = new DatabaseContext(_loggerFactory.CreateLogger<DatabaseContext>(), options);
+            await context.InitializeAsync();
+            
+            var learningRepo = new Daiv3.Persistence.Repositories.LearningRepository(
+                context, _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.LearningRepository>());
+            var promotionRepo = new Daiv3.Persistence.Repositories.PromotionRepository(
+                context, _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.PromotionRepository>());
+            
+            var service = new LearningStorageService(
+                learningRepo,
+                _loggerFactory.CreateLogger<LearningStorageService>(),
+                null,
+                promotionRepo);
+
+            learningId = await service.CreateLearningAsync(
+                "Persistent Pattern", "Description", "UserFeedback", "Skill", 0.9);
+            await service.PromoteLearningAsync(learningId, "user1", "task-1");
+            
+            await context.DisposeAsync();
+        }
+
+        // Session 2: Verify and promote again
+        {
+            var options = Options.Create(new PersistenceOptions { DatabasePath = testDbPath });
+            var context = new DatabaseContext(_loggerFactory.CreateLogger<DatabaseContext>(), options);
+            await context.InitializeAsync();
+            
+            var promotionRepo = new Daiv3.Persistence.Repositories.PromotionRepository(
+                context, _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.PromotionRepository>());
+
+            // Assert: First promotion persisted
+            var promotions = await promotionRepo.GetByLearningIdAsync(learningId);
+            Assert.Single(promotions);
+            Assert.Equal("Skill", promotions[0].FromScope);
+            Assert.Equal("Agent", promotions[0].ToScope);
+            
+            await context.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task PromotionWithOptionalFields_WorksCorrectly()
+    {
+        // Arrange - Test that optional fields (source task/agent/notes) work when null
+        var learningService = await CreateServiceAsync();
+        var learningId = await learningService.CreateLearningAsync(
+            "Simple Pattern", "Description", "UserFeedback", "Skill", 0.8);
+
+        var testDbPath = _testDbPaths.Last();
+        var promotionRepo = await CreatePromotionRepositoryAsync(testDbPath);
+
+        // Act: Promote without optional fields
+        await learningService.PromoteLearningAsync(learningId);
+
+        // Assert: Promotion recorded with null optional fields
+        var promotions = await promotionRepo.GetByLearningIdAsync(learningId);
+        Assert.Single(promotions);
+        
+        var promotion = promotions[0];
+        Assert.Null(promotion.SourceTaskId);
+        Assert.Null(promotion.SourceAgent);
+        Assert.Null(promotion.Notes);
+        Assert.Equal("user", promotion.PromotedBy); // Default value
+    }
 }
+

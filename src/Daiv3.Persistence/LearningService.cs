@@ -14,17 +14,20 @@ namespace Daiv3.Persistence;
 public class LearningStorageService : ILearningStorageService
 {
     private readonly LearningRepository _repository;
+    private readonly PromotionRepository? _promotionRepository;
     private readonly ILogger<LearningStorageService> _logger;
     private readonly ILearningObserver? _metricsCollector;
 
     public LearningStorageService(
         LearningRepository repository,
         ILogger<LearningStorageService> logger,
-        ILearningObserver? metricsCollector = null)
+        ILearningObserver? metricsCollector = null,
+        PromotionRepository? promotionRepository = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metricsCollector = metricsCollector;
+        _promotionRepository = promotionRepository;
     }
 
     /// <summary>
@@ -245,11 +248,23 @@ public class LearningStorageService : ILearningStorageService
     /// Scope hierarchy: Skill → Agent → Project → Domain → Global.
     /// If already at Global scope, no change is made.
     /// Implements LM-REQ-008: Users SHALL promote learnings.
+    /// Implements KBP-DATA-001: Records promotion with source task/session.
+    /// Implements KBP-DATA-002: Records target scope and timestamp.
     /// </summary>
     /// <param name="learningId">The learning ID to promote.</param>
+    /// <param name="promotedBy">User or agent performing the promotion (default: 'user').</param>
+    /// <param name="sourceTaskId">Optional task/session ID triggering the promotion.</param>
+    /// <param name="sourceAgent">Optional agent triggering the promotion.</param>
+    /// <param name="notes">Optional notes about why the promotion occurred.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The new scope after promotion, or null if learning not found or already at Global.</returns>
-    public async Task<string?> PromoteLearningAsync(string learningId, CancellationToken ct = default)
+    public async Task<string?> PromoteLearningAsync(
+        string learningId,
+        string promotedBy = "user",
+        string? sourceTaskId = null,
+        string? sourceAgent = null,
+        string? notes = null,
+        CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(learningId);
         
@@ -283,6 +298,25 @@ public class LearningStorageService : ILearningStorageService
         var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         learning.UpdatedAt = updatedAtUnix;
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
+        
+        // KBP-DATA-001/002: Record promotion history with source task/session, target scope, and timestamp
+        if (_promotionRepository != null)
+        {
+            var promotion = new Promotion
+            {
+                PromotionId = Guid.NewGuid().ToString(),
+                LearningId = learningId,
+                FromScope = oldScope,
+                ToScope = newScope,
+                PromotedAt = updatedAtUnix,
+                PromotedBy = promotedBy,
+                SourceTaskId = sourceTaskId,
+                SourceAgent = sourceAgent,
+                Notes = notes
+            };
+
+            await _promotionRepository.AddAsync(promotion, ct).ConfigureAwait(false);
+        }
         
         _logger.LogInformation(
             "Promoted learning {LearningId} from {OldScope} to {NewScope}",

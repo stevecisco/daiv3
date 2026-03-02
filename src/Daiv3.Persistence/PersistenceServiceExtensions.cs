@@ -55,6 +55,9 @@ public static class PersistenceServiceExtensions
         // LM-REQ-003: Learning repository for learning memory persistence
         services.AddScoped<LearningRepository>();
         
+        // KBP-DATA-001/002: Promotion repository for learning promotion tracking
+        services.AddScoped<PromotionRepository>();
+        
         // MQ-REQ-013: Model queue repository for offline queueing
         services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
 
@@ -69,19 +72,22 @@ public static class PersistenceServiceExtensions
 
         // Register services
         // LM-REQ-003: Learning storage service for managing learning persistence
+        // KBP-DATA-001/002: With promotion tracking
         services.AddScoped<ILearningStorageService>(serviceProvider =>
         {
             var repository = serviceProvider.GetRequiredService<LearningRepository>();
             var logger = serviceProvider.GetRequiredService<ILogger<LearningStorageService>>();
             var metricsCollector = serviceProvider.GetRequiredService<ILearningObserver>();
-            return new LearningStorageService(repository, logger, metricsCollector);
+            var promotionRepository = serviceProvider.GetRequiredService<PromotionRepository>();
+            return new LearningStorageService(repository, logger, metricsCollector, promotionRepository);
         });
         services.AddScoped<LearningStorageService>(serviceProvider =>
         {
             var repository = serviceProvider.GetRequiredService<LearningRepository>();
             var logger = serviceProvider.GetRequiredService<ILogger<LearningStorageService>>();
             var metricsCollector = serviceProvider.GetRequiredService<ILearningObserver>();
-            return new LearningStorageService(repository, logger, metricsCollector);
+            var promotionRepository = serviceProvider.GetRequiredService<PromotionRepository>();
+            return new LearningStorageService(repository, logger, metricsCollector, promotionRepository);
         });
 
         return services;

@@ -245,3 +245,59 @@ public class Learning
     /// </summary>
     public string CreatedBy { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Represents a learning promotion record in the knowledge back-propagation system.
+/// Tracks when learnings are promoted across hierarchical scopes for audit trail and provenance.
+/// Implements KBP-DATA-001 (source task/session IDs) and KBP-DATA-002 (target scope and timestamps).
+/// </summary>
+public class Promotion
+{
+    /// <summary>
+    /// Unique identifier for the promotion action (UUID as string).
+    /// </summary>
+    public string PromotionId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The learning that was promoted.
+    /// </summary>
+    public string LearningId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The scope before promotion (e.g., 'Skill', 'Agent').
+    /// </summary>
+    public string FromScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The scope after promotion (e.g., 'Agent', 'Project', 'Domain', 'Global').
+    /// Implements KBP-DATA-002.
+    /// </summary>
+    public string ToScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the promotion occurred (Unix timestamp).
+    /// Implements KBP-DATA-002.
+    /// </summary>
+    public long PromotedAt { get; set; }
+
+    /// <summary>
+    /// Agent ID or 'user' who performed the promotion.
+    /// </summary>
+    public string PromotedBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The task or session in which the promotion was triggered (nullable).
+    /// Implements KBP-DATA-001 for traceability.
+    /// </summary>
+    public string? SourceTaskId { get; set; }
+
+    /// <summary>
+    /// The agent that triggered or requested the promotion (nullable).
+    /// </summary>
+    public string? SourceAgent { get; set; }
+
+    /// <summary>
+    /// Optional human-readable notes about why the promotion occurred (nullable).
+    /// </summary>
+    public string? Notes { get; set; }
+}

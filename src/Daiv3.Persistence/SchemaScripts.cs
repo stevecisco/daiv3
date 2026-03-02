@@ -212,4 +212,35 @@ CREATE INDEX IF NOT EXISTS idx_learnings_created_by ON learnings(created_by);
 CREATE INDEX IF NOT EXISTS idx_learnings_status_scope ON learnings(status, scope);
 ";
 
+    /// <summary>
+    /// Migration 005: Learning promotions tracking
+    /// Adds promotions table for tracking learning scope promotions with provenance.
+    /// Implements KBP-DATA-001 (source task/session IDs) and KBP-DATA-002 (target scope and timestamps).
+    /// </summary>
+    public const string Migration005_LearningPromotions = @"
+-- Promotions: Track learning scope promotions for audit trail
+CREATE TABLE IF NOT EXISTS promotions (
+    promotion_id TEXT PRIMARY KEY,
+    learning_id TEXT NOT NULL,
+    from_scope TEXT NOT NULL CHECK(from_scope IN ('Global', 'Agent', 'Skill', 'Project', 'Domain')),
+    to_scope TEXT NOT NULL CHECK(to_scope IN ('Global', 'Agent', 'Skill', 'Project', 'Domain')),
+    promoted_at INTEGER NOT NULL,
+    promoted_by TEXT NOT NULL,
+    source_task_id TEXT,
+    source_agent TEXT,
+    notes TEXT,
+    FOREIGN KEY (learning_id) REFERENCES learnings(learning_id) ON DELETE CASCADE
+);
+
+-- Performance indexes for promotion history queries
+CREATE INDEX IF NOT EXISTS idx_promotions_learning_id ON promotions(learning_id);
+CREATE INDEX IF NOT EXISTS idx_promotions_promoted_at ON promotions(promoted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_promotions_source_task_id ON promotions(source_task_id);
+CREATE INDEX IF NOT EXISTS idx_promotions_promoted_by ON promotions(promoted_by);
+CREATE INDEX IF NOT EXISTS idx_promotions_to_scope ON promotions(to_scope);
+
+-- Composite index for learning promotion history (most common query pattern)
+CREATE INDEX IF NOT EXISTS idx_promotions_learning_promoted_at ON promotions(learning_id, promoted_at DESC);
+";
+
 }
