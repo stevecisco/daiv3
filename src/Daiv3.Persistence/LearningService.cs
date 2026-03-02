@@ -332,6 +332,117 @@ public class LearningStorageService : ILearningStorageService
     }
 
     /// <summary>
+    /// Promotes multiple learnings from a completed task to specified target scopes in batch.
+    /// Implements KBP-REQ-002: Allow users to select promotion targets when task completes.
+    /// </summary>
+    /// <param name="taskId">The task ID whose learnings are being promoted.</param>
+    /// <param name="promotions">List of learning IDs and their target scopes.</param>
+    /// <param name="promotedBy">User or agent performing the promotions (default: 'user').</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Result containing successful and failed promotion counts.</returns>
+    public async Task<PromotionBatchResult> PromoteLearningsFromTaskAsync(
+        string taskId,
+        IReadOnlyList<LearningPromotionSelection> promotions,
+        string promotedBy = "user",
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+        ArgumentNullException.ThrowIfNull(promotions);
+
+        var result = new PromotionBatchResult();
+
+        if (promotions.Count == 0)
+        {
+            _logger.LogInformation("No promotions requested for task {TaskId}", taskId);
+            return result;
+        }
+
+        // Get all learnings from this task
+        var learnings = await GetLearningsBySourceTaskAsync(taskId, ct).ConfigureAwait(false);
+        var learningMap = learnings.ToDictionary(l => l.LearningId);
+
+        _logger.LogInformation(
+            "Processing {PromotionCount} promotions from task {TaskId}",
+            promotions.Count, taskId);
+
+        foreach (var selection in promotions)
+        {
+            try
+            {
+                // Skip invalid learning IDs
+                if (!learningMap.TryGetValue(selection.LearningId, out var learning))
+                {
+                    _logger.LogWarning(
+                        "Learning {LearningId} not found from task {TaskId}, skipping promotion",
+                        selection.LearningId, taskId);
+                    result.FailedPromotions.Add(
+                        selection,
+                        new PromotionError(
+                            "LearningNotFound",
+                            $"Learning {selection.LearningId} not found from task {taskId}"));
+                    continue;
+                }
+
+                // Validate target scope
+                var validScopes = new[] { "Skill", "Agent", "Project", "Domain", "Global" };
+                if (!validScopes.Contains(selection.TargetScope, StringComparer.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "Invalid target scope '{Scope}' for learning {LearningId}",
+                        selection.TargetScope, selection.LearningId);
+                    result.FailedPromotions.Add(
+                        selection,
+                        new PromotionError(
+                            "InvalidTargetScope",
+                            $"Target scope '{selection.TargetScope}' is not valid"));
+                    continue;
+                }
+
+                // Promote the learning
+                var newScope = await PromoteLearningAsync(
+                    selection.LearningId,
+                    promotedBy,
+                    taskId,
+                    null,
+                    selection.Notes,
+                    ct).ConfigureAwait(false);
+
+                if (newScope != null)
+                {
+                    result.SuccessfulPromotions.Add(selection);
+                    _logger.LogInformation(
+                        "Promoted learning {LearningId} from {OldScope} to {NewScope} as part of task {TaskId}",
+                        selection.LearningId, learning.Scope, newScope, taskId);
+                }
+                else
+                {
+                    result.FailedPromotions.Add(
+                        selection,
+                        new PromotionError(
+                            "PromotionFailed",
+                            $"Learning is already at the highest scope or not found"));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error promoting learning {LearningId} from task {TaskId}",
+                    selection.LearningId, taskId);
+                result.FailedPromotions.Add(
+                    selection,
+                    new PromotionError("PromotionException", ex.Message));
+            }
+        }
+
+        _logger.LogInformation(
+            "Promotion batch completed: {SuccessCount} successful, {FailureCount} failed",
+            result.SuccessfulPromotions.Count, result.FailedPromotions.Count);
+
+        return result;
+    }
+
+    /// <summary>
     /// Archives a learning (soft delete via status change).
     /// </summary>
     public async Task ArchiveLearningAsync(string learningId, CancellationToken ct = default)
@@ -420,4 +531,74 @@ public class LearningStatistics
     public int EmbeddedCount { get; set; }
     public double AverageConfidence { get; set; }
     public int TotalTimesApplied { get; set; }
+}
+/// <summary>
+/// Represents a user's selection to promote a learning to a specific scope.
+/// Used in batch promotion workflows (KBP-REQ-002).
+/// </summary>
+public class LearningPromotionSelection
+{
+    /// <summary>
+    /// The learning ID to promote.
+    /// </summary>
+    public required string LearningId { get; set; }
+
+    /// <summary>
+    /// The target scope to promote to (e.g., 'Project', 'Global').
+    /// </summary>
+    public required string TargetScope { get; set; }
+
+    /// <summary>
+    /// Optional notes about why this learning is being promoted.
+    /// </summary>
+    public string? Notes { get; set; }
+}
+
+/// <summary>
+/// Result of a batch promotion operation.
+/// Tracks successful and failed promotions.
+/// </summary>
+public class PromotionBatchResult
+{
+    /// <summary>
+    /// Selections that were successfully promoted.
+    /// </summary>
+    public List<LearningPromotionSelection> SuccessfulPromotions { get; } = new();
+
+    /// <summary>
+    /// Selections that failed and their error details.
+    /// </summary>
+    public Dictionary<LearningPromotionSelection, PromotionError> FailedPromotions { get; } = new();
+
+    /// <summary>
+    /// Total count of promotions requested.
+    /// </summary>
+    public int TotalCount => SuccessfulPromotions.Count + FailedPromotions.Count;
+
+    /// <summary>
+    /// Whether all promotions succeeded.
+    /// </summary>
+    public bool AllSucceeded => FailedPromotions.Count == 0;
+}
+
+/// <summary>
+/// Error details for a failed promotion.
+/// </summary>
+public class PromotionError
+{
+    public PromotionError(string errorCode, string message)
+    {
+        ErrorCode = errorCode;
+        Message = message;
+    }
+
+    /// <summary>
+    /// Error classification code (e.g., 'LearningNotFound', 'InvalidTargetScope').
+    /// </summary>
+    public string ErrorCode { get; }
+
+    /// <summary>
+    /// Human-readable error message.
+    /// </summary>
+    public string Message { get; }
 }

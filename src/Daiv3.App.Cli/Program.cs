@@ -731,6 +731,54 @@ public class Program
         ocrCommand.AddCommand(ocrTestCommand);
         rootCommand.AddCommand(ocrCommand);
 
+        // Learning promotion commands (KBP-REQ-002)
+        var learningPromotionCommand = new Command("learning-promote", "Learning promotion commands");
+        
+        var listTaskLearningsCommand = new Command("list-from-task", "List learnings from a completed task");
+        var taskIdArgument = new Argument<string>("taskId", "The task ID to list learnings from");
+        listTaskLearningsCommand.AddArgument(taskIdArgument);
+        listTaskLearningsCommand.SetHandler(async (string taskId) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ListTaskLearningsCommand(host, taskId);
+            Environment.Exit(exitCode);
+        }, taskIdArgument);
+
+        var promoteFromTaskCommand = new Command("from-task", "Promote learnings from a completed task");
+        var promoteTaskIdArgument = new Argument<string>("taskId", "The task ID whose learnings to promote");
+        var learningIdsOption = new Option<string[]>(
+            aliases: new[] { "--learning-ids", "-l" },
+            description: "Learning IDs to promote (repeat option for multiple)")
+        {
+            IsRequired = true,
+            Arity = ArgumentArity.OneOrMore
+        };
+        var targetScopesOption = new Option<string[]>(
+            aliases: new[] { "--target-scopes", "-s" },
+            description: "Target scope for each learning (must match count of learning-ids)")
+        {
+            IsRequired = true,
+            Arity = ArgumentArity.OneOrMore
+        };
+        var promotionNotesOption = new Option<string?>(
+            aliases: new[] { "--notes", "-n" },
+            description: "Optional notes about the promotion");
+
+        promoteFromTaskCommand.AddArgument(promoteTaskIdArgument);
+        promoteFromTaskCommand.AddOption(learningIdsOption);
+        promoteFromTaskCommand.AddOption(targetScopesOption);
+        promoteFromTaskCommand.AddOption(promotionNotesOption);
+        promoteFromTaskCommand.SetHandler(async (string taskId, string[] learningIds, string[] targetScopes, string? notes) =>
+        {
+            var host = CreateHost();
+            var exitCode = await PromoteLearningsFromTaskCommand(host, taskId, learningIds, targetScopes, notes);
+            Environment.Exit(exitCode);
+        }, promoteTaskIdArgument, learningIdsOption, targetScopesOption, promotionNotesOption);
+
+        learningPromotionCommand.AddCommand(listTaskLearningsCommand);
+        learningPromotionCommand.AddCommand(promoteFromTaskCommand);
+        rootCommand.AddCommand(learningPromotionCommand);
+
         return await rootCommand.InvokeAsync(args);
     }
 
@@ -2966,6 +3014,148 @@ public class Program
             Console.WriteLine($"✗ Failed to test OCR: {ex.Message}");
             var logger = host.Services.GetRequiredService<ILogger<Program>>();
             logger.LogError(ex, "OCR test failed");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Lists learnings from a completed task for promotion selection (KBP-REQ-002).
+    /// </summary>
+    private static async Task<int> ListTaskLearningsCommand(IHost host, string taskId)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var service = host.Services.GetRequiredService<LearningStorageService>();
+
+            logger.LogInformation("Listing learnings from task {TaskId}", taskId);
+
+            Console.WriteLine("LEARNINGS FROM TASK");
+            Console.WriteLine("===================");
+            Console.WriteLine($"Task ID: {taskId}");
+            Console.WriteLine();
+
+            var learnings = await service.GetLearningsBySourceTaskAsync(taskId);
+
+            if (learnings.Count == 0)
+            {
+                Console.WriteLine("No learnings found from this task.");
+                return 0;
+            }
+
+            Console.WriteLine($"Found {learnings.Count} learnings:");
+            Console.WriteLine();
+
+            foreach (var learning in learnings.OrderByDescending(l => l.Confidence))
+            {
+                Console.WriteLine($"ID: {learning.LearningId}");
+                Console.WriteLine($"  Title: {learning.Title}");
+                Console.WriteLine($"  Description: {learning.Description}");
+                Console.WriteLine($"  Trigger Type: {learning.TriggerType}");
+                Console.WriteLine($"  Current Scope: {learning.Scope}");
+                Console.WriteLine($"  Confidence: {learning.Confidence:P0}");
+                Console.WriteLine($"  Status: {learning.Status}");
+                Console.WriteLine($"  Created: {DateTimeOffset.FromUnixTimeSeconds(learning.CreatedAt):u}");
+
+                if (!string.IsNullOrEmpty(learning.Tags))
+                {
+                    Console.WriteLine($"  Tags: {learning.Tags}");
+                }
+
+                Console.WriteLine();
+            }
+
+            Console.WriteLine("To promote learnings, use: learning-promote from-task <taskId> -l <learningId1> <learningId2> ... -s <scope1> <scope2> ...");
+            logger.LogInformation("✓ Listed {Count} learnings from task {TaskId}", learnings.Count, taskId);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list learnings: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to list learnings from task");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Promotes selected learnings from a completed task (KBP-REQ-002).
+    /// </summary>
+    private static async Task<int> PromoteLearningsFromTaskCommand(
+        IHost host,
+        string taskId,
+        string[] learningIds,
+        string[] targetScopes,
+        string? notes)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var service = host.Services.GetRequiredService<LearningStorageService>();
+
+            logger.LogInformation(
+                "Promoting {Count} learnings from task {TaskId}",
+                learningIds.Length, taskId);
+
+            // Validate input
+            if (learningIds.Length != targetScopes.Length)
+            {
+                Console.WriteLine("✗ Error: The number of learning IDs must match the number of target scopes.");
+                Console.WriteLine($"  Provided {learningIds.Length} learning IDs but {targetScopes.Length} target scopes");
+                return 1;
+            }
+
+            // Create promotion selections
+            var promotions = learningIds.Zip(targetScopes, (id, scope) => new LearningPromotionSelection
+            {
+                LearningId = id,
+                TargetScope = scope,
+                Notes = notes
+            }).ToList();
+
+            // Execute batch promotion
+            var result = await service.PromoteLearningsFromTaskAsync(taskId, promotions.AsReadOnly());
+
+            Console.WriteLine("LEARNING PROMOTIONS");
+            Console.WriteLine("==================");
+            Console.WriteLine($"Task ID: {taskId}");
+            Console.WriteLine($"Total Promotions: {result.TotalCount}");
+            Console.WriteLine();
+
+            // Show successful promotions
+            if (result.SuccessfulPromotions.Count > 0)
+            {
+                Console.WriteLine($"✓ Successful Promotions ({result.SuccessfulPromotions.Count}):");
+                foreach (var promo in result.SuccessfulPromotions)
+                {
+                    Console.WriteLine($"  • Learning {promo.LearningId} → {promo.TargetScope}");
+                }
+                Console.WriteLine();
+            }
+
+            // Show failed promotions
+            if (result.FailedPromotions.Count > 0)
+            {
+                Console.WriteLine($"✗ Failed Promotions ({result.FailedPromotions.Count}):");
+                foreach (var (promo, error) in result.FailedPromotions)
+                {
+                    Console.WriteLine($"  • Learning {promo.LearningId} → {promo.TargetScope}");
+                    Console.WriteLine($"    Error: {error.Message}");
+                }
+                Console.WriteLine();
+            }
+
+            logger.LogInformation(
+                "✓ Promotion completed: {SuccessCount} successful, {FailureCount} failed",
+                result.SuccessfulPromotions.Count, result.FailedPromotions.Count);
+
+            return result.FailedPromotions.Count > 0 ? 1 : 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to promote learnings: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to promote learnings from task");
             return 1;
         }
     }
