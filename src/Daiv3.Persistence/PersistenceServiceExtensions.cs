@@ -58,6 +58,9 @@ public static class PersistenceServiceExtensions
         // KBP-DATA-001/002: Promotion repository for learning promotion tracking
         services.AddScoped<PromotionRepository>();
         
+        // KBP-REQ-003: Agent promotion proposal repository for agent-proposed promotions requiring confirmation
+        services.AddScoped<AgentPromotionProposalRepository>();
+        
         // MQ-REQ-013: Model queue repository for offline queueing
         services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
 

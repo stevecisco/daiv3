@@ -80,6 +80,17 @@ public static class OrchestrationServiceExtensions
             return new LearningRetrievalService(logger, storageService, embeddingGenerator, vectorSimilarity, metricsCollector);
         });
 
+        // Register agent promotion proposal service for agent-proposed promotions requiring confirmation (KBP-REQ-003)
+        services.TryAddScoped<IAgentPromotionProposalService>(serviceProvider =>
+        {
+            var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AgentPromotionProposalService>>();
+            var proposalRepository = serviceProvider.GetRequiredService<Daiv3.Persistence.Repositories.AgentPromotionProposalRepository>();
+            var learningRepository = serviceProvider.GetRequiredService<Daiv3.Persistence.Repositories.LearningRepository>();
+            var promotionRepository = serviceProvider.GetRequiredService<Daiv3.Persistence.Repositories.PromotionRepository>();
+            var learningService = serviceProvider.GetRequiredService<Daiv3.Persistence.LearningStorageService>();
+            return new AgentPromotionProposalService(logger, proposalRepository, learningRepository, promotionRepository, learningService);
+        });
+
         return services;
     }
 

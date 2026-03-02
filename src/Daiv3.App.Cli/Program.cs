@@ -665,6 +665,76 @@ public class Program
         learningCommand.AddCommand(learningSupersedeCommand);
         rootCommand.AddCommand(learningCommand);
 
+        // Agent promotion proposal commands (KBP-REQ-003)
+        var agentProposalCommand = new Command("agent-proposal", "Agent-proposed learning promotions requiring confirmation");
+        
+        var agentProposalListCommand = new Command("list", "List pending agent-proposed promotions");
+        var proposalStatusOption = new Option<string?>(
+            aliases: new[] { "--status", "-s" },
+            description: "Filter by status (Pending, Approved, Rejected)");
+        agentProposalListCommand.AddOption(proposalStatusOption);
+        agentProposalListCommand.SetHandler(async (string? status) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentProposalListCommand(host, status);
+            Environment.Exit(exitCode);
+        }, proposalStatusOption);
+
+        var agentProposalViewCommand = new Command("view", "View detailed information about a proposal");
+        var proposalIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Proposal ID") { IsRequired = true };
+        agentProposalViewCommand.AddOption(proposalIdOption);
+        agentProposalViewCommand.SetHandler(async (string id) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentProposalViewCommand(host, id);
+            Environment.Exit(exitCode);
+        }, proposalIdOption);
+
+        var agentProposalApproveCommand = new Command("approve", "Approve an agent-proposed promotion");
+        var approveProposalIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Proposal ID") { IsRequired = true };
+        agentProposalApproveCommand.AddOption(approveProposalIdOption);
+        agentProposalApproveCommand.SetHandler(async (string id) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentProposalApproveCommand(host, id);
+            Environment.Exit(exitCode);
+        }, approveProposalIdOption);
+
+        var agentProposalRejectCommand = new Command("reject", "Reject an agent-proposed promotion");
+        var rejectProposalIdOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Proposal ID") { IsRequired = true };
+        var rejectReasonOption = new Option<string?>(
+            aliases: new[] { "--reason", "-r" },
+            description: "Optional reason for rejection");
+        agentProposalRejectCommand.AddOption(rejectProposalIdOption);
+        agentProposalRejectCommand.AddOption(rejectReasonOption);
+        agentProposalRejectCommand.SetHandler(async (string id, string? reason) =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentProposalRejectCommand(host, id, reason);
+            Environment.Exit(exitCode);
+        }, rejectProposalIdOption, rejectReasonOption);
+
+        var agentProposalStatsCommand = new Command("stats", "Show statistics about agent promotion proposals");
+        agentProposalStatsCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await AgentProposalStatsCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        agentProposalCommand.AddCommand(agentProposalListCommand);
+        agentProposalCommand.AddCommand(agentProposalViewCommand);
+        agentProposalCommand.AddCommand(agentProposalApproveCommand);
+        agentProposalCommand.AddCommand(agentProposalRejectCommand);
+        agentProposalCommand.AddCommand(agentProposalStatsCommand);
+        rootCommand.AddCommand(agentProposalCommand);
+
         // Settings command
         var settingsCommand = new Command("settings", "Configuration management");
         
@@ -3708,6 +3778,255 @@ public class Program
             Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Executing scheduled job: {Name}");
             await Task.Delay(100, cancellationToken);
             Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Completed scheduled job: {Name}");
+        }
+    }
+
+    // Agent Promotion Proposal Command Handlers (KBP-REQ-003)
+
+    private static async Task<int> AgentProposalListCommand(IHost host, string? status)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var proposalService = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentPromotionProposalService>();
+            logger.LogInformation("Listing agent promotion proposals with status filter: {Status}", status ?? "all");
+
+            IReadOnlyList<Daiv3.Persistence.Entities.AgentPromotionProposal> proposals;
+
+            if (string.IsNullOrEmpty(status))
+            {
+                proposals = await proposalService.GetPendingProposalsAsync();
+                Console.WriteLine("PENDING PROMOTION PROPOSALS:");
+            }
+            else
+            {
+                proposals = await proposalService.GetPendingProposalsAsync();
+                proposals = proposals.Where(p => p.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+                Console.WriteLine($"PROMOTION PROPOSALS ({status}):");
+            }
+
+            if (!proposals.Any())
+            {
+                Console.WriteLine("  No proposals found.");
+                return 0;
+            }
+
+            foreach (var proposal in proposals)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"  ID: {proposal.ProposalId}");
+                Console.WriteLine($"  Agent: {proposal.ProposingAgent}");
+                Console.WriteLine($"  Learning: {proposal.LearningId}");
+                Console.WriteLine($"  Scope: {proposal.FromScope} → {proposal.SuggestedTargetScope}");
+                Console.WriteLine($"  Confidence: {proposal.ConfidenceScore:P}");
+                Console.WriteLine($"  Status: {proposal.Status}");
+                if (!string.IsNullOrEmpty(proposal.Justification))
+                {
+                    Console.WriteLine($"  Justification: {proposal.Justification}");
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"Total: {proposals.Count} proposal(s)");
+            Console.WriteLine();
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list proposals: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentProposalViewCommand(IHost host, string id)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var proposalService = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentPromotionProposalService>();
+            logger.LogInformation("Viewing agent promotion proposal {ProposalId}", id);
+
+            var proposal = await proposalService.GetProposalAsync(id);
+            if (proposal == null)
+            {
+                Console.WriteLine($"✗ Proposal not found: {id}");
+                return 1;
+            }
+
+            Console.WriteLine("PROMOTION PROPOSAL DETAILS:");
+            Console.WriteLine($"  ID: {proposal.ProposalId}");
+            Console.WriteLine($"  Status: {proposal.Status}");
+            Console.WriteLine();
+            Console.WriteLine("PROPOSING AGENT:");
+            Console.WriteLine($"  Agent ID: {proposal.ProposingAgent}");
+            if (!string.IsNullOrEmpty(proposal.SourceTaskId))
+            {
+                Console.WriteLine($"  Source Task: {proposal.SourceTaskId}");
+            }
+            Console.WriteLine();
+            Console.WriteLine("LEARNING:");
+            Console.WriteLine($"  ID: {proposal.LearningId}");
+            Console.WriteLine($"  Current Scope: {proposal.FromScope}");
+            Console.WriteLine($"  Proposed Target Scope: {proposal.SuggestedTargetScope}");
+            Console.WriteLine();
+            Console.WriteLine("ASSESSMENT:");
+            Console.WriteLine($"  Confidence Score: {proposal.ConfidenceScore:P}");
+            if (!string.IsNullOrEmpty(proposal.Justification))
+            {
+                Console.WriteLine($"  Justification: {proposal.Justification}");
+            }
+            Console.WriteLine();
+            Console.WriteLine("TIMELINE:");
+            var createdTime = DateTimeOffset.FromUnixTimeSeconds(proposal.CreatedAt).ToString("yyyy-MM-dd HH:mm:ss UTC");
+            Console.WriteLine($"  Created: {createdTime}");
+            if (proposal.ReviewedAt.HasValue)
+            {
+                var reviewedTime = DateTimeOffset.FromUnixTimeSeconds(proposal.ReviewedAt.Value).ToString("yyyy-MM-dd HH:mm:ss UTC");
+                Console.WriteLine($"  Reviewed: {reviewedTime}");
+                Console.WriteLine($"  Reviewed By: {proposal.ReviewedBy}");
+                if (!string.IsNullOrEmpty(proposal.RejectionReason))
+                {
+                    Console.WriteLine($"  Rejection Reason: {proposal.RejectionReason}");
+                }
+            }
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to view proposal: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentProposalApproveCommand(IHost host, string id)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var proposalService = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentPromotionProposalService>();
+            logger.LogInformation("Approving agent promotion proposal {ProposalId}", id);
+
+            var proposal = await proposalService.GetProposalAsync(id);
+            if (proposal == null)
+            {
+                Console.WriteLine($"✗ Proposal not found: {id}");
+                return 1;
+            }
+
+            Console.WriteLine("APPROVING PROMOTION PROPOSAL:");
+            Console.WriteLine($"  Agent: {proposal.ProposingAgent}");
+            Console.WriteLine($"  Scope: {proposal.FromScope} → {proposal.SuggestedTargetScope}");
+            Console.WriteLine($"  Confidence: {proposal.ConfidenceScore:P}");
+            Console.WriteLine();
+
+            var result = await proposalService.ApproveProposalAsync(id, "user");
+
+            if (!result)
+            {
+                Console.WriteLine("✗ Failed to approve proposal. It may already be processed.");
+                return 1;
+            }
+
+            Console.WriteLine("✓ Proposal approved successfully");
+            Console.WriteLine($"  Learning promoted to {proposal.SuggestedTargetScope} scope");
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to approve proposal: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentProposalRejectCommand(IHost host, string id, string? reason)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var proposalService = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentPromotionProposalService>();
+            logger.LogInformation("Rejecting agent promotion proposal {ProposalId}", id);
+
+            var proposal = await proposalService.GetProposalAsync(id);
+            if (proposal == null)
+            {
+                Console.WriteLine($"✗ Proposal not found: {id}");
+                return 1;
+            }
+
+            Console.WriteLine("REJECTING PROMOTION PROPOSAL:");
+            Console.WriteLine($"  Agent: {proposal.ProposingAgent}");
+            Console.WriteLine($"  Scope: {proposal.FromScope} → {proposal.SuggestedTargetScope}");
+            if (!string.IsNullOrEmpty(reason))
+            {
+                Console.WriteLine($"  Reason: {reason}");
+            }
+            Console.WriteLine();
+
+            var result = await proposalService.RejectProposalAsync(id, reason, "user");
+
+            if (!result)
+            {
+                Console.WriteLine("✗ Failed to reject proposal. It may already be processed.");
+                return 1;
+            }
+
+            Console.WriteLine("✓ Proposal rejected successfully");
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to reject proposal: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> AgentProposalStatsCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var proposalService = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentPromotionProposalService>();
+            logger.LogInformation("Getting agent promotion proposal statistics");
+
+            var stats = await proposalService.GetStatisticsAsync();
+
+            Console.WriteLine("PROMOTION PROPOSAL STATISTICS:");
+            Console.WriteLine();
+            Console.WriteLine("COUNTS:");
+            Console.WriteLine($"  Pending: {stats.PendingCount}");
+            Console.WriteLine($"  Approved: {stats.ApprovedCount}");
+            Console.WriteLine($"  Rejected: {stats.RejectedCount}");
+            Console.WriteLine();
+
+            if (stats.PendingCount > 0)
+            {
+                Console.WriteLine("PENDING ANALYSIS:");
+                Console.WriteLine($"  Average Confidence: {stats.AveragePendingConfidence:P}");
+                Console.WriteLine();
+            }
+
+            if (stats.ProposalsByAgent.Any())
+            {
+                Console.WriteLine("PROPOSALS BY AGENT:");
+                foreach (var kvp in stats.ProposalsByAgent.OrderByDescending(x => x.Value))
+                {
+                    Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+                }
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to get statistics: {ex.Message}");
+            return 1;
         }
     }
 }

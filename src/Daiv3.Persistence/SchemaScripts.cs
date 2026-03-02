@@ -243,4 +243,40 @@ CREATE INDEX IF NOT EXISTS idx_promotions_to_scope ON promotions(to_scope);
 CREATE INDEX IF NOT EXISTS idx_promotions_learning_promoted_at ON promotions(learning_id, promoted_at DESC);
 ";
 
+    /// <summary>
+    /// Migration 006: Agent promotion proposals
+    /// Adds agent_promotion_proposals table for tracking agent-proposed promotions requiring user confirmation.
+    /// Implements KBP-REQ-003: Agents MAY propose promotions but SHALL require user confirmation.
+    /// </summary>
+    public const string Migration006_AgentPromotionProposals = @"
+-- Agent Promotion Proposals: Track agent-proposed learning promotions requiring user confirmation
+CREATE TABLE IF NOT EXISTS agent_promotion_proposals (
+    proposal_id TEXT PRIMARY KEY,
+    learning_id TEXT NOT NULL,
+    proposing_agent TEXT NOT NULL,
+    source_task_id TEXT,
+    from_scope TEXT NOT NULL CHECK(from_scope IN ('Global', 'Agent', 'Skill', 'Project', 'Domain')),
+    suggested_target_scope TEXT NOT NULL CHECK(suggested_target_scope IN ('Global', 'Agent', 'Skill', 'Project', 'Domain')),
+    justification TEXT,
+    confidence_score REAL NOT NULL DEFAULT 0.5,
+    status TEXT NOT NULL CHECK(status IN ('Pending', 'Approved', 'Rejected')) DEFAULT 'Pending',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    reviewed_by TEXT,
+    reviewed_at INTEGER,
+    rejection_reason TEXT,
+    FOREIGN KEY (learning_id) REFERENCES learnings(learning_id) ON DELETE CASCADE
+);
+
+-- Performance indexes for proposal query patterns
+CREATE INDEX IF NOT EXISTS idx_agent_promotion_proposals_learning_id ON agent_promotion_proposals(learning_id);
+CREATE INDEX IF NOT EXISTS idx_agent_promotion_proposals_status ON agent_promotion_proposals(status);
+CREATE INDEX IF NOT EXISTS idx_agent_promotion_proposals_proposing_agent ON agent_promotion_proposals(proposing_agent);
+CREATE INDEX IF NOT EXISTS idx_agent_promotion_proposals_source_task_id ON agent_promotion_proposals(source_task_id);
+CREATE INDEX IF NOT EXISTS idx_agent_promotion_proposals_created_at ON agent_promotion_proposals(created_at DESC);
+
+-- Composite index for pending proposals (most common query pattern)
+CREATE INDEX IF NOT EXISTS idx_agent_promotion_proposals_status_created_at ON agent_promotion_proposals(status, created_at DESC);
+";
+
 }

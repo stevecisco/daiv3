@@ -301,3 +301,82 @@ public class Promotion
     /// </summary>
     public string? Notes { get; set; }
 }
+
+/// <summary>
+/// Represents an agent-proposed learning promotion that requires user confirmation.
+/// Implements KBP-REQ-003: Agents MAY propose promotions but SHALL require user confirmation.
+/// </summary>
+public class AgentPromotionProposal
+{
+    /// <summary>
+    /// Unique identifier for the proposal (UUID as string).
+    /// </summary>
+    public string ProposalId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The learning that the agent is proposing for promotion.
+    /// </summary>
+    public string LearningId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The agent that proposed the promotion.
+    /// </summary>
+    public string ProposingAgent { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The task or session in which the proposal was generated.
+    /// </summary>
+    public string? SourceTaskId { get; set; }
+
+    /// <summary>
+    /// Current scope of the learning being proposed for promotion.
+    /// </summary>
+    public string FromScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The scope the agent is proposing promotion to (e.g., 'Agent', 'Project', 'Domain', 'Global').
+    /// </summary>
+    public string SuggestedTargetScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The agent's reasoning for why this learning should be promoted (nullable).
+    /// Provides justification visible to the user for decision-making.
+    /// </summary>
+    public string? Justification { get; set; }
+
+    /// <summary>
+    /// Recommendation score (0.0-1.0) from the agent on how important this promotion is.
+    /// </summary>
+    public double ConfidenceScore { get; set; }
+
+    /// <summary>
+    /// Status: Pending, Approved, Rejected.
+    /// Tracks the confirmation workflow.
+    /// </summary>
+    public string Status { get; set; } = "Pending";
+
+    /// <summary>
+    /// When the proposal was created (Unix timestamp).
+    /// </summary>
+    public long CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the proposal was last updated/responded to (Unix timestamp).
+    /// </summary>
+    public long UpdatedAt { get; set; }
+
+    /// <summary>
+    /// User or system entity that confirmed or rejected the proposal (nullable until confirmed/rejected).
+    /// </summary>
+    public string? ReviewedBy { get; set; }
+
+    /// <summary>
+    /// Timestamp when the decision was made (nullable until confirmed/rejected).
+    /// </summary>
+    public long? ReviewedAt { get; set; }
+
+    /// <summary>
+    /// Optional reason for rejection, if the proposal was rejected (nullable).
+    /// </summary>
+    public string? RejectionReason { get; set; }
+}

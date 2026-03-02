@@ -280,6 +280,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 5,
                 Description = "Add promotions table for learning scope promotion tracking (KBP-DATA-001, KBP-DATA-002)",
                 Sql = SchemaScripts.Migration005_LearningPromotions
+            },
+            new Migration
+            {
+                Version = 6,
+                Description = "Add agent_promotion_proposals table for agent-proposed promotions requiring confirmation (KBP-REQ-003)",
+                Sql = SchemaScripts.Migration006_AgentPromotionProposals
             }
         };
     }
