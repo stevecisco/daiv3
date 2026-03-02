@@ -279,10 +279,10 @@ public class LearningRetrievalService : ILearningRetrievalService
                 // Calculate batch similarity scores
                 _vectorSimilarity.BatchCosineSimilarity(
                     queryEmbedding,
-                    targetVectorsArray,
+                    targetVectorsArray.AsSpan(0, vectorCount * dimensions),
                     vectorCount,
                     dimensions,
-                    similarityScores);
+                    similarityScores.AsSpan(0, vectorCount));
 
                 // Build results
                 for (int i = 0; i < groupLearnings.Count; i++)
