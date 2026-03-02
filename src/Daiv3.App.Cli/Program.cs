@@ -850,6 +850,67 @@ public class Program
         learningPromotionCommand.AddCommand(promoteFromTaskCommand);
         rootCommand.AddCommand(learningPromotionCommand);
 
+        // Promotion history commands (KBP-ACC-002)
+        var promotionHistoryCommand = new Command("promotion-history", "View promotion history and audit trail");
+
+        var listPromotionsCommand = new Command("list", "List all promotions (most recent first)");
+        var limitOption = new Option<int>(
+            aliases: ["--limit", "-n"],
+            description: "Maximum number of promotions to display",
+            getDefaultValue: () => 20);
+        listPromotionsCommand.AddOption(limitOption);
+        listPromotionsCommand.SetHandler(async (int limit) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ListPromotionHistoryCommand(host, limit);
+            Environment.Exit(exitCode);
+        }, limitOption);
+
+        var viewPromotionHistoryCommand = new Command("view", "View promotion history for a specific learning");
+        var learningIdArgForHistory = new Argument<string>("learning-id", "Learning ID to view history for");
+        viewPromotionHistoryCommand.AddArgument(learningIdArgForHistory);
+        viewPromotionHistoryCommand.SetHandler(async (string learningId) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ViewLearningPromotionHistoryCommand(host, learningId);
+            Environment.Exit(exitCode);
+        }, learningIdArgForHistory);
+
+        var byTaskCommand = new Command("by-task", "View promotions from a specific task");
+        var taskIdArgForHistory = new Argument<string>("task-id", "Task ID to filter promotions");
+        byTaskCommand.AddArgument(taskIdArgForHistory);
+        byTaskCommand.SetHandler(async (string taskId) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ViewPromotionsByTaskCommand(host, taskId);
+            Environment.Exit(exitCode);
+        }, taskIdArgForHistory);
+
+        var byScopeCommand = new Command("by-scope", "View promotions to a specific scope");
+        var scopeArgForHistory = new Argument<string>("scope", "Target scope (Skill, Agent, Project, Domain, Global)");
+        byScopeCommand.AddArgument(scopeArgForHistory);
+        byScopeCommand.SetHandler(async (string scope) =>
+        {
+            var host = CreateHost();
+            var exitCode = await ViewPromotionsByScopeCommand(host, scope);
+            Environment.Exit(exitCode);
+        }, scopeArgForHistory);
+
+        var promotionStatsCommand = new Command("stats", "Show statistics about promotion activity");
+        promotionStatsCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await ShowPromotionStatsCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        promotionHistoryCommand.AddCommand(listPromotionsCommand);
+        promotionHistoryCommand.AddCommand(viewPromotionHistoryCommand);
+        promotionHistoryCommand.AddCommand(byTaskCommand);
+        promotionHistoryCommand.AddCommand(byScopeCommand);
+        promotionHistoryCommand.AddCommand(promotionStatsCommand);
+        rootCommand.AddCommand(promotionHistoryCommand);
+
         return await rootCommand.InvokeAsync(args);
     }
 
@@ -4123,4 +4184,368 @@ public class Program
             return 1;
         }
     }
+
+    /// <summary>
+    /// Lists all promotions in chronological order (KBP-ACC-002).
+    /// </summary>
+    private static async Task<int> ListPromotionHistoryCommand(IHost host, int limit)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var repository = host.Services.GetRequiredService<PromotionRepository>();
+
+            logger.LogInformation("Listing promotion history (limit: {Limit})", limit);
+
+            Console.WriteLine("PROMOTION HISTORY");
+            Console.WriteLine("=================");
+            Console.WriteLine();
+
+            var promotions = await repository.GetAllAsync();
+
+            if (promotions.Count == 0)
+            {
+                Console.WriteLine("No promotions found.");
+                return 0;
+            }
+
+            var displayedPromotions = promotions.Take(limit).ToList();
+
+            Console.WriteLine($"Showing {displayedPromotions.Count} of {promotions.Count} promotions:");
+            Console.WriteLine();
+
+            foreach (var promo in displayedPromotions)
+            {
+                Console.WriteLine($"Promotion ID: {promo.PromotionId}");
+                Console.WriteLine($"  Learning ID: {promo.LearningId}");
+                Console.WriteLine($"  Scope Change: {promo.FromScope} → {promo.ToScope}");
+                Console.WriteLine($"  Promoted By: {promo.PromotedBy}");
+                Console.WriteLine($"  Promoted At: {DateTimeOffset.FromUnixTimeSeconds(promo.PromotedAt):u}");
+                
+                if (!string.IsNullOrEmpty(promo.SourceTaskId))
+                {
+                    Console.WriteLine($"  Source Task: {promo.SourceTaskId}");
+                }
+                
+                if (!string.IsNullOrEmpty(promo.SourceAgent))
+                {
+                    Console.WriteLine($"  Source Agent: {promo.SourceAgent}");
+                }
+                
+                if (!string.IsNullOrEmpty(promo.Notes))
+                {
+                    Console.WriteLine($"  Notes: {promo.Notes}");
+                }
+
+                Console.WriteLine();
+            }
+
+            if (promotions.Count > limit)
+            {
+                Console.WriteLine($"... and {promotions.Count - limit} more promotions.");
+                Console.WriteLine($"Use --limit {promotions.Count} to see all promotions.");
+            }
+
+            logger.LogInformation("✓ Listed {Count} promotions", displayedPromotions.Count);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list promotion history: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to list promotion history");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Views promotion history for a specific learning (KBP-ACC-002).
+    /// </summary>
+    private static async Task<int> ViewLearningPromotionHistoryCommand(IHost host, string learningId)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var repository = host.Services.GetRequiredService<PromotionRepository>();
+            var learningService = host.Services.GetRequiredService<LearningStorageService>();
+
+            logger.LogInformation("Viewing promotion history for learning {LearningId}", learningId);
+
+            // Get learning details
+            var learning = await learningService.GetLearningAsync(learningId);
+            if (learning == null)
+            {
+                Console.WriteLine($"✗ Learning {learningId} not found.");
+                return 1;
+            }
+
+            Console.WriteLine("PROMOTION HISTORY FOR LEARNING");
+            Console.WriteLine("==============================");
+            Console.WriteLine();
+            Console.WriteLine($"Learning ID: {learning.LearningId}");
+            Console.WriteLine($"Title: {learning.Title}");
+            Console.WriteLine($"Current Scope: {learning.Scope}");
+            Console.WriteLine($"Confidence: {learning.Confidence:P0}");
+            Console.WriteLine();
+
+            var promotions = await repository.GetByLearningIdAsync(learningId);
+
+            if (promotions.Count == 0)
+            {
+                Console.WriteLine("This learning has never been promoted.");
+                return 0;
+            }
+
+            Console.WriteLine($"Promotion History ({promotions.Count} promotions):");
+            Console.WriteLine();
+
+            foreach (var promo in promotions)
+            {
+                Console.WriteLine($"{promo.FromScope} → {promo.ToScope}");
+                Console.WriteLine($"  Promoted By: {promo.PromotedBy}");
+                Console.WriteLine($"  Promoted At: {DateTimeOffset.FromUnixTimeSeconds(promo.PromotedAt):u}");
+                
+                if (!string.IsNullOrEmpty(promo.SourceTaskId))
+                {
+                    Console.WriteLine($"  Source Task: {promo.SourceTaskId}");
+                }
+                
+                if (!string.IsNullOrEmpty(promo.Notes))
+                {
+                    Console.WriteLine($"  Notes: {promo.Notes}");
+                }
+
+                Console.WriteLine();
+            }
+
+            logger.LogInformation("✓ Viewed promotion history for learning {LearningId}", learningId);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to view promotion history: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to view learning promotion history");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Views promotions from a specific task (KBP-ACC-002).
+    /// </summary>
+    private static async Task<int> ViewPromotionsByTaskCommand(IHost host, string taskId)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var repository = host.Services.GetRequiredService<PromotionRepository>();
+
+            logger.LogInformation("Viewing promotions from task {TaskId}", taskId);
+
+            Console.WriteLine("PROMOTIONS FROM TASK");
+            Console.WriteLine("====================");
+            Console.WriteLine($"Task ID: {taskId}");
+            Console.WriteLine();
+
+            var promotions = await repository.GetBySourceTaskIdAsync(taskId);
+
+            if (promotions.Count == 0)
+            {
+                Console.WriteLine("No promotions found from this task.");
+                return 0;
+            }
+
+            Console.WriteLine($"Found {promotions.Count} promotions:");
+            Console.WriteLine();
+
+            foreach (var promo in promotions)
+            {
+                Console.WriteLine($"Learning ID: {promo.LearningId}");
+                Console.WriteLine($"  Scope Change: {promo.FromScope} → {promo.ToScope}");
+                Console.WriteLine($"  Promoted By: {promo.PromotedBy}");
+                Console.WriteLine($"  Promoted At: {DateTimeOffset.FromUnixTimeSeconds(promo.PromotedAt):u}");
+                
+                if (!string.IsNullOrEmpty(promo.Notes))
+                {
+                    Console.WriteLine($"  Notes: {promo.Notes}");
+                }
+
+                Console.WriteLine();
+            }
+
+            logger.LogInformation("✓ Found {Count} promotions from task {TaskId}", promotions.Count, taskId);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to view promotions by task: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to view promotions by task");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Views promotions to a specific scope (KBP-ACC-002).
+    /// </summary>
+    private static async Task<int> ViewPromotionsByScopeCommand(IHost host, string scope)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var repository = host.Services.GetRequiredService<PromotionRepository>();
+
+            // Normalize scope input (case-insensitive)
+            var validScopes = new[] { "Skill", "Agent", "Project", "Domain", "Global" };
+            var normalizedScope = validScopes.FirstOrDefault(s => s.Equals(scope, StringComparison.OrdinalIgnoreCase));
+
+            if (normalizedScope == null)
+            {
+                Console.WriteLine($"✗ Invalid scope '{scope}'. Valid scopes: {string.Join(", ", validScopes)}");
+                return 1;
+            }
+
+            logger.LogInformation("Viewing promotions to scope {Scope}", normalizedScope);
+
+            Console.WriteLine("PROMOTIONS TO SCOPE");
+            Console.WriteLine("===================");
+            Console.WriteLine($"Target Scope: {normalizedScope}");
+            Console.WriteLine();
+
+            var promotions = await repository.GetByToScopeAsync(normalizedScope);
+
+            if (promotions.Count == 0)
+            {
+                Console.WriteLine($"No promotions found to {normalizedScope} scope.");
+                return 0;
+            }
+
+            Console.WriteLine($"Found {promotions.Count} promotions:");
+            Console.WriteLine();
+
+            foreach (var promo in promotions)
+            {
+                Console.WriteLine($"Learning ID: {promo.LearningId}");
+                Console.WriteLine($"  From Scope: {promo.FromScope}");
+                Console.WriteLine($"  Promoted By: {promo.PromotedBy}");
+                Console.WriteLine($"  Promoted At: {DateTimeOffset.FromUnixTimeSeconds(promo.PromotedAt):u}");
+                
+                if (!string.IsNullOrEmpty(promo.SourceTaskId))
+                {
+                    Console.WriteLine($"  Source Task: {promo.SourceTaskId}");
+                }
+                
+                if (!string.IsNullOrEmpty(promo.Notes))
+                {
+                    Console.WriteLine($"  Notes: {promo.Notes}");
+                }
+
+                Console.WriteLine();
+            }
+
+            logger.LogInformation("✓ Found {Count} promotions to scope {Scope}", promotions.Count, normalizedScope);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to view promotions by scope: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to view promotions by scope");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Shows statistics about promotion activity (KBP-ACC-002).
+    /// </summary>
+    private static async Task<int> ShowPromotionStatsCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var repository = host.Services.GetRequiredService<PromotionRepository>();
+
+            logger.LogInformation("Showing promotion statistics");
+
+            Console.WriteLine("PROMOTION STATISTICS");
+            Console.WriteLine("====================");
+            Console.WriteLine();
+
+            var allPromotions = await repository.GetAllAsync();
+
+            if (allPromotions.Count == 0)
+            {
+                Console.WriteLine("No promotions recorded yet.");
+                return 0;
+            }
+
+            Console.WriteLine($"Total Promotions: {allPromotions.Count}");
+            Console.WriteLine();
+
+            // Group by target scope
+            var byScopeGroups = allPromotions.GroupBy(p => p.ToScope).OrderBy(g => g.Key);
+            Console.WriteLine("PROMOTIONS BY TARGET SCOPE:");
+            foreach (var group in byScopeGroups)
+            {
+                Console.WriteLine($"  {group.Key}: {group.Count()}");
+            }
+            Console.WriteLine();
+
+            // Group by source scope
+            var fromScopeGroups = allPromotions.GroupBy(p => p.FromScope).OrderBy(g => g.Key);
+            Console.WriteLine("PROMOTIONS BY SOURCE SCOPE:");
+            foreach (var group in fromScopeGroups)
+            {
+                Console.WriteLine($"  {group.Key}: {group.Count()}");
+            }
+            Console.WriteLine();
+
+            // Group by promoter
+            var byPromoterGroups = allPromotions.GroupBy(p => p.PromotedBy)
+                .OrderByDescending(g => g.Count())
+                .Take(10);
+            Console.WriteLine("TOP PROMOTERS:");
+            foreach (var group in byPromoterGroups)
+            {
+                Console.WriteLine($"  {group.Key}: {group.Count()}");
+            }
+            Console.WriteLine();
+
+            // Time-based statistics
+            var oldestPromotion = allPromotions.OrderBy(p => p.PromotedAt).FirstOrDefault();
+            var newestPromotion = allPromotions.OrderByDescending(p => p.PromotedAt).FirstOrDefault();
+
+            if (oldestPromotion != null && newestPromotion != null)
+            {
+                Console.WriteLine("TIME RANGE:");
+                Console.WriteLine($"  First Promotion: {DateTimeOffset.FromUnixTimeSeconds(oldestPromotion.PromotedAt):u}");
+                Console.WriteLine($"  Latest Promotion: {DateTimeOffset.FromUnixTimeSeconds(newestPromotion.PromotedAt):u}");
+                Console.WriteLine();
+            }
+
+            // Recent activity
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var last24Hours = now - (24 * 60 * 60);
+            var last7Days = now - (7 * 24 * 60 * 60);
+
+            var promotionsLast24h = allPromotions.Count(p => p.PromotedAt >= last24Hours);
+            var promotionsLast7d = allPromotions.Count(p => p.PromotedAt >= last7Days);
+
+            Console.WriteLine("RECENT ACTIVITY:");
+            Console.WriteLine($"  Last 24 hours: {promotionsLast24h}");
+            Console.WriteLine($"  Last 7 days: {promotionsLast7d}");
+            Console.WriteLine();
+
+            logger.LogInformation("✓ Displayed promotion statistics");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to show promotion statistics: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to show promotion statistics");
+            return 1;
+        }
+    }
+
 }

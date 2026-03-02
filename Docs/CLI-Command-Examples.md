@@ -1364,6 +1364,306 @@ Latest Pending (ordered by creation date):
 
 ---
 
+## Promotion History Commands
+
+Promotion history commands provide visibility into knowledge propagation across scope levels (Skill → Agent → Project → Domain → Global). Every promotion is recorded with full provenance tracking for transparency and audit trails.
+
+### List Promotion History
+```bash
+# List recent promotions (default: 20 most recent)
+.\run-cli.bat promotion-history list
+
+# Specify limit
+.\run-cli.bat promotion-history list --limit 50
+.\run-cli.bat promotion-history list -l 10
+```
+
+Lists all promotions in reverse chronological order (most recent first). Shows promotion ID, learning ID, scope transitions, promoter identity, timestamps, and optional notes.
+
+**Output Example:**
+```
+PROMOTION HISTORY (Most Recent 20):
+===================================
+
+PROMOTION #1:
+  Promotion ID: prom-def45678-90ab-cdef-1234-567890abcdef
+  Learning ID: lrn-abc12345-6789-4d4e-8c12-3456789012cd
+  Scope Change: Agent → Project
+  Promoted By: user
+  Promoted At: 2026-03-02 10:15:42 UTC
+  Source Task: task-202603-001
+  Source Agent: agent-pattern-001
+  Notes: Pattern consistently successful across multiple APIs
+
+PROMOTION #2:
+  Promotion ID: prom-ghi78901-23cd-ef45-6789-012345678901
+  Learning ID: lrn-def67890-1234-5e5f-9d23-4567890123de
+  Scope Change: Skill → Agent
+  Promoted By: agent-advanced-002
+  Promoted At: 2026-03-01 14:30:15 UTC
+  Source Task: task-202602-045
+  Source Agent: agent-advanced-002
+
+PROMOTION #3:
+  Promotion ID: prom-jkl01234-56ef-7890-1abc-345678901234
+  Learning ID: lrn-ghi90123-4567-6f7g-0e34-5678901234ef
+  Scope Change: Project → Domain
+  Promoted By: user
+  Promoted At: 2026-02-28 09:45:33 UTC
+  Source Task: task-202602-012
+  Source Agent: agent-learning-003
+  Notes: Validated across 3 projects - ready for domain-wide use
+
+(Showing 3 of 20)
+Use --limit to adjust the number of promotions displayed.
+```
+
+### View Learning Promotion History
+```bash
+.\run-cli.bat promotion-history view <learning-id>
+```
+
+Displays the complete promotion history for a specific learning, showing its journey across scope levels over time.
+
+**Example Command:**
+```bash
+.\run-cli.bat promotion-history view lrn-abc12345-6789-4d4e-8c12-3456789012cd
+```
+
+**Output Example:**
+```
+PROMOTION HISTORY FOR LEARNING
+===============================
+Learning ID: lrn-abc12345-6789-4d4e-8c12-3456789012cd
+Title: API response caching optimization
+Current Scope: Project
+Confidence: 0.92
+
+LEARNING METADATA:
+  Status: Active
+  Trigger: UserFeedback
+  Times Applied: 8
+  Created: 2026-02-15 12:00:00 UTC
+
+PROMOTION PATH (2 promotions):
+-------------------------------
+
+PROMOTION #1:
+  Promotion ID: prom-001
+  Scope Change: Skill → Agent
+  Promoted By: agent-pattern-001
+  Promoted At: 2026-02-20 14:30:00 UTC
+  Source Task: task-202602-030
+  Source Agent: agent-pattern-001
+  Notes: Pattern validated in 5+ API integrations
+
+PROMOTION #2:
+  Promotion ID: prom-def45678-90ab-cdef-1234-567890abcdef
+  Scope Change: Agent → Project
+  Promoted By: user
+  Promoted At: 2026-03-02 10:15:42 UTC
+  Source Task: task-202603-001
+  Source Agent: agent-pattern-001
+  Notes: Pattern consistently successful across multiple APIs
+
+PROMOTION SUMMARY:
+  Total Promotions: 2
+  Scope Journey: Skill → Agent → Project
+  Time Span: 10 days
+  Unique Promoters: 2 (agent-pattern-001, user)
+```
+
+### View Promotions by Task
+```bash
+.\run-cli.bat promotion-history by-task <task-id>
+```
+
+Filters promotion history by source task ID, showing all knowledge captured and promoted during a specific task execution.
+
+**Example Command:**
+```bash
+.\run-cli.bat promotion-history by-task task-202603-001
+```
+
+**Output Example:**
+```
+PROMOTIONS FROM TASK: task-202603-001
+======================================
+
+Found 3 promotion(s)
+
+PROMOTION #1:
+  Promotion ID: prom-def45678-90ab-cdef-1234-567890abcdef
+  Learning ID: lrn-abc12345-6789-4d4e-8c12-3456789012cd
+  Learning Title: API response caching optimization
+  Scope Change: Agent → Project
+  Promoted By: user
+  Promoted At: 2026-03-02 10:15:42 UTC
+  Source Agent: agent-pattern-001
+  Notes: Pattern consistently successful across multiple APIs
+
+PROMOTION #2:
+  Promotion ID: prom-xyz98765-43ba-dcef-9876-543210fedcba
+  Learning ID: lrn-hij12345-6789-4e4f-5c34-6789012345ab
+  Learning Title: Error handling best practices
+  Scope Change: Skill → Agent
+  Promoted By: agent-pattern-001
+  Promoted At: 2026-03-02 10:20:15 UTC
+  Source Agent: agent-pattern-001
+
+PROMOTION #3:
+  Promotion ID: prom-aaa11111-22bb-33cc-4444-555566667777
+  Learning ID: lrn-klm23456-7890-5f6g-6d45-7890123456bc
+  Learning Title: Retry logic for transient failures
+  Scope Change: Agent → Project
+  Promoted By: user
+  Promoted At: 2026-03-02 10:25:30 UTC
+  Source Agent: agent-pattern-001
+  Notes: Improved reliability by 30% in testing
+
+TASK SUMMARY:
+  Task ID: task-202603-001
+  Total Promotions: 3
+  Learnings Promoted: 3
+  Unique Scopes: Skill → Agent, Agent → Project
+  Promoters: user (2), agent-pattern-001 (1)
+```
+
+### View Promotions by Scope
+```bash
+.\run-cli.bat promotion-history by-scope <scope>
+```
+
+Filters promotions by target scope, showing all knowledge promoted to a specific level (Skill, Agent, Project, Domain, Global).
+
+**Example Commands:**
+```bash
+.\run-cli.bat promotion-history by-scope Project
+.\run-cli.bat promotion-history by-scope Domain
+.\run-cli.bat promotion-history by-scope Global
+```
+
+**Output Example:**
+```
+PROMOTIONS TO SCOPE: Project
+============================
+
+Found 5 promotion(s)
+
+PROMOTION #1:
+  Promotion ID: prom-def45678-90ab-cdef-1234-567890abcdef
+  Learning ID: lrn-abc12345-6789-4d4e-8c12-3456789012cd
+  Learning Title: API response caching optimization
+  From Scope: Agent
+  Promoted By: user
+  Promoted At: 2026-03-02 10:15:42 UTC
+  Source Task: task-202603-001
+  Source Agent: agent-pattern-001
+  Notes: Pattern consistently successful across multiple APIs
+
+PROMOTION #2:
+  Promotion ID: prom-aaa11111-22bb-33cc-4444-555566667777
+  Learning ID: lrn-klm23456-7890-5f6g-6d45-7890123456bc
+  Learning Title: Retry logic for transient failures
+  From Scope: Agent
+  Promoted By: user
+  Promoted At: 2026-03-02 10:25:30 UTC
+  Source Task: task-202603-001
+  Source Agent: agent-pattern-001
+  Notes: Improved reliability by 30% in testing
+
+PROMOTION #3:
+  Promotion ID: prom-bbb22222-33cc-44dd-5555-666677778888
+  Learning ID: lrn-nop34567-8901-6g7h-7e56-8901234567cd
+  Learning Title: Database connection pooling
+  From Scope: Agent
+  Promoted By: user
+  Promoted At: 2026-02-28 15:10:25 UTC
+  Source Task: task-202602-089
+  Source Agent: agent-database-001
+
+[Additional promotions...]
+
+SCOPE SUMMARY:
+  Target Scope: Project
+  Total Promotions: 5
+  Source Scopes: Agent (4), Skill (1)
+  Time Range: 2026-02-28 to 2026-03-02
+  Primary Promoter: user (5)
+```
+
+### Show Promotion Statistics
+```bash
+.\run-cli.bat promotion-history stats
+```
+
+Displays aggregate statistics about all promotion activity including counts by scope, promoter analysis, time ranges, and recent activity.
+
+**Output Example:**
+```
+PROMOTION STATISTICS
+====================
+
+OVERALL METRICS:
+  Total Promotions: 47
+  Unique Learnings Promoted: 38
+  First Promotion: 2026-02-15 08:30:00 UTC
+  Latest Promotion: 2026-03-02 10:25:30 UTC
+  Time Span: 16 days
+
+PROMOTIONS BY TARGET SCOPE:
+  Skill → Agent: 18
+  Agent → Project: 15
+  Project → Domain: 9
+  Domain → Global: 5
+
+PROMOTIONS BY SOURCE SCOPE:
+  Skill: 18
+  Agent: 20
+  Project: 7
+  Domain: 2
+
+PROMOTIONS BY PROMOTER:
+  user: 32 (68%)
+  agent-pattern-001: 8 (17%)
+  agent-advanced-002: 5 (11%)
+  agent-learning-003: 2 (4%)
+
+RECENT ACTIVITY:
+  Last 24 Hours: 5 promotions
+  Last 7 Days: 23 promotions
+  Last 30 Days: 47 promotions
+
+TOP PROMOTED LEARNINGS (Most Frequently Promoted):
+  [3x] API response caching optimization (lrn-abc12345...)
+  [2x] Database connection pooling (lrn-nop34567...)
+  [2x] Error handling best practices (lrn-hij12345...)
+  [2x] Retry logic for transient failures (lrn-klm23456...)
+
+KNOWLEDGE FLOW VELOCITY:
+  Average Promotions per Day: 2.9
+  Average Time Between Promotions: 8.2 hours
+  Peak Activity Day: 2026-03-02 (7 promotions)
+```
+
+**Requirements:** KBP-ACC-002 (Promotion actions are recorded and visible in dashboard)
+
+**Implementation Details:**
+- All promotions recorded in `promotions` table (Migration 005, KBP-DATA-001)
+- Promotion provenance includes: source_task_id, source_agent, promoted_by, timestamps
+- Uses `PromotionRepository` with 6 indexed query methods for efficient retrieval
+- CLI commands implemented in `src/Daiv3.App.Cli/Program.cs` (lines 853-4552)
+- Acceptance tests in `tests/integration/Daiv3.Persistence.IntegrationTests/PromotionVisibilityAcceptanceTests.cs`
+
+**Notes:**
+- Promotion history is immutable (no updates, only inserts)
+- CASCADE DELETE removes promotions when learning is deleted
+- All queries use database indexes for optimal performance
+- Full audit trail enables knowledge flow analysis
+- Dashboard UI visibility planned (blocked by CT-REQ-003)
+
+---
+
 ## Embedding Commands
 
 ### Test Embedding Generation
