@@ -40,8 +40,15 @@ public static class PersistenceServiceExtensions
         services.AddScoped<TaskRepository>();
         services.AddScoped<AgentRepository>();
         
+        // LM-REQ-003: Learning repository for learning memory persistence
+        services.AddScoped<LearningRepository>();
+        
         // MQ-REQ-013: Model queue repository for offline queueing
         services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
+
+        // Register services
+        // LM-REQ-003: Learning storage service for managing learning persistence
+        services.AddScoped<LearningStorageService>();
 
         return services;
     }
