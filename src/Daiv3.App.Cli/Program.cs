@@ -580,10 +580,49 @@ public class Program
             Environment.Exit(exitCode);
         });
 
+        var learningSuppressCommand = new Command("suppress", "Suppress a learning (prevent injection into prompts)");
+        var learningIdSuppressOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Learning ID") { IsRequired = true };
+        learningSuppressCommand.AddOption(learningIdSuppressOption);
+        learningSuppressCommand.SetHandler(async (string id) =>
+        {
+            var host = CreateHost();
+            var exitCode = await LearningSuppressCommand(host, id);
+            Environment.Exit(exitCode);
+        }, learningIdSuppressOption);
+
+        var learningPromoteCommand = new Command("promote", "Promote a learning to broader scope (Skill→Agent→Project→Domain→Global)");
+        var learningIdPromoteOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Learning ID") { IsRequired = true };
+        learningPromoteCommand.AddOption(learningIdPromoteOption);
+        learningPromoteCommand.SetHandler(async (string id) =>
+        {
+            var host = CreateHost();
+            var exitCode = await LearningPromoteCommand(host, id);
+            Environment.Exit(exitCode);
+        }, learningIdPromoteOption);
+
+        var learningSupersedeCommand = new Command("supersede", "Mark a learning as superseded (replaced by newer learning)");
+        var learningIdSupersedeOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Learning ID") { IsRequired = true };
+        learningSupersedeCommand.AddOption(learningIdSupersedeOption);
+        learningSupersedeCommand.SetHandler(async (string id) =>
+        {
+            var host = CreateHost();
+            var exitCode = await LearningSupersedeCommand(host, id);
+            Environment.Exit(exitCode);
+        }, learningIdSupersedeOption);
+
         learningCommand.AddCommand(learningListCommand);
         learningCommand.AddCommand(learningViewCommand);
         learningCommand.AddCommand(learningEditCommand);
         learningCommand.AddCommand(learningStatsCommand);
+        learningCommand.AddCommand(learningSuppressCommand);
+        learningCommand.AddCommand(learningPromoteCommand);
+        learningCommand.AddCommand(learningSupersedeCommand);
         rootCommand.AddCommand(learningCommand);
 
         // Settings command
@@ -2514,6 +2553,149 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to generate statistics: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LearningSuppressCommand(IHost host, string id)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var learningService = host.Services.GetRequiredService<LearningStorageService>();
+            logger.LogInformation("Suppressing learning {LearningId}", id);
+
+            var learning = await learningService.GetLearningAsync(id);
+
+            if (learning == null)
+            {
+                Console.WriteLine($"✗ Learning not found: {id}");
+                Console.WriteLine();
+                Console.WriteLine("Use 'learning list' to see all available learnings.");
+                return 1;
+            }
+
+            Console.WriteLine("SUPPRESSING LEARNING:");
+            Console.WriteLine($"  ID: {learning.LearningId}");
+            Console.WriteLine($"  Title: {learning.Title}");
+            Console.WriteLine($"  Current Status: {learning.Status}");
+            Console.WriteLine();
+
+            if (learning.Status == "Suppressed")
+            {
+                Console.WriteLine("⚠ Learning is already suppressed.");
+                return 0;
+            }
+
+            await learningService.SuppressLearningAsync(id);
+
+            Console.WriteLine("✓ Learning suppressed successfully");
+            Console.WriteLine();
+            Console.WriteLine("This learning will no longer be injected into agent prompts.");
+            Console.WriteLine("To reactivate, use: learning edit --id {0} --status Active", id);
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to suppress learning: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LearningPromoteCommand(IHost host, string id)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var learningService = host.Services.GetRequiredService<LearningStorageService>();
+            logger.LogInformation("Promoting learning {LearningId}", id);
+
+            var learning = await learningService.GetLearningAsync(id);
+
+            if (learning == null)
+            {
+                Console.WriteLine($"✗ Learning not found: {id}");
+                Console.WriteLine();
+                Console.WriteLine("Use 'learning list' to see all available learnings.");
+                return 1;
+            }
+
+            Console.WriteLine("PROMOTING LEARNING:");
+            Console.WriteLine($"  ID: {learning.LearningId}");
+            Console.WriteLine($"  Title: {learning.Title}");
+            Console.WriteLine($"  Current Scope: {learning.Scope}");
+            Console.WriteLine();
+
+            var newScope = await learningService.PromoteLearningAsync(id);
+
+            if (newScope == null)
+            {
+                Console.WriteLine("⚠ Learning is already at Global scope (highest level).");
+                Console.WriteLine();
+                Console.WriteLine("Scope hierarchy: Task → Agent → Project → Domain → Global");
+                return 0;
+            }
+
+            Console.WriteLine("✓ Learning promoted successfully");
+            Console.WriteLine($"  New Scope: {newScope}");
+            Console.WriteLine();
+            Console.WriteLine("Scope hierarchy: Skill → Agent → Project → Domain → Global");
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to promote learning: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LearningSupersedeCommand(IHost host, string id)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var learningService = host.Services.GetRequiredService<LearningStorageService>();
+            logger.LogInformation("Superseding learning {LearningId}", id);
+
+            var learning = await learningService.GetLearningAsync(id);
+
+            if (learning == null)
+            {
+                Console.WriteLine($"✗ Learning not found: {id}");
+                Console.WriteLine();
+                Console.WriteLine("Use 'learning list' to see all available learnings.");
+                return 1;
+            }
+
+            Console.WriteLine("SUPERSEDING LEARNING:");
+            Console.WriteLine($"  ID: {learning.LearningId}");
+            Console.WriteLine($"  Title: {learning.Title}");
+            Console.WriteLine($"  Current Status: {learning.Status}");
+            Console.WriteLine();
+
+            if (learning.Status == "Superseded")
+            {
+                Console.WriteLine("⚠ Learning is already superseded.");
+                return 0;
+            }
+
+            await learningService.SupersedeLearningAsync(id);
+
+            Console.WriteLine("✓ Learning marked as superseded successfully");
+            Console.WriteLine();
+            Console.WriteLine("This learning has been replaced by a newer, more accurate learning.");
+            Console.WriteLine("It will no longer be injected into agent prompts.");
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to supersede learning: {ex.Message}");
             return 1;
         }
     }

@@ -406,4 +406,181 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         Assert.All(agent1Learnings, l => Assert.Equal("agent-001", l.SourceAgent));
         Assert.All(agent2Learnings, l => Assert.Equal("agent-002", l.SourceAgent));
     }
+
+    [Fact]
+    public async Task SuppressLearning_ChangesStatusAndPreventsInjection()
+    {
+        // Arrange: Create an active learning
+        var learningService = await CreateServiceAsync();
+        var learningId = await learningService.CreateLearningAsync(
+            title: "To be suppressed",
+            description: "This learning will be suppressed",
+            triggerType: "UserFeedback",
+            scope: "Global",
+            confidence: 0.85);
+
+        // Verify initial status
+        var learningBefore = await learningService.GetLearningAsync(learningId);
+        Assert.NotNull(learningBefore);
+        Assert.Equal("Active", learningBefore!.Status);
+
+        // Act: Suppress the learning
+        await learningService.SuppressLearningAsync(learningId);
+
+        // Assert: Status changed and not in active list
+        var learningAfter = await learningService.GetLearningAsync(learningId);
+        Assert.NotNull(learningAfter);
+        Assert.Equal("Suppressed", learningAfter!.Status);
+
+        var activeLearnings = await learningService.GetActiveLearningsAsync();
+        Assert.DoesNotContain(activeLearnings, l => l.LearningId == learningId);
+
+        var suppressedLearnings = await learningService.GetLearningsByStatusAsync("Suppressed");
+        Assert.Contains(suppressedLearnings, l => l.LearningId == learningId);
+    }
+
+    [Fact]
+    public async Task SupersedeLearning_MarksAsReplaced()
+    {
+        // Arrange: Create an learning to be superseded
+        var learningService = await CreateServiceAsync();
+        var oldLearningId = await learningService.CreateLearningAsync(
+            title: "Old approach",
+            description: "This will be replaced by a better approach",
+            triggerType: "UserFeedback",
+            scope: "Global",
+            confidence: 0.75);
+
+        var newLearningId = await learningService.CreateLearningAsync(
+            title: "Better approach",
+            description: "This supersedes the old learning",
+            triggerType: "UserFeedback",
+            scope: "Global",
+            confidence: 0.9);
+
+        // Act: Supersede the old learning
+        await learningService.SupersedeLearningAsync(oldLearningId);
+
+        // Assert: Old learning marked as superseded
+        var oldLearning = await learningService.GetLearningAsync(oldLearningId);
+        Assert.NotNull(oldLearning);
+        Assert.Equal("Superseded", oldLearning!.Status);
+
+        var newLearning = await learningService.GetLearningAsync(newLearningId);
+        Assert.NotNull(newLearning);
+        Assert.Equal("Active", newLearning!.Status);
+
+        // Only new learning should be active
+        var activeLearnings = await learningService.GetActiveLearningsAsync();
+        Assert.Contains(activeLearnings, l => l.LearningId == newLearningId);
+        Assert.DoesNotContain(activeLearnings, l => l.LearningId == oldLearningId);
+    }
+
+    [Fact]
+    public async Task PromoteLearning_ProgressesThroughScopeHierarchy()
+    {
+        // Arrange: Create a skill-scoped learning
+        var learningService = await CreateServiceAsync();
+        var learningId = await learningService.CreateLearningAsync(
+            title: "Valuable insight",
+            description: "This deserves broader scope",
+            triggerType: "SelfCorrection",
+            scope: "Skill",
+            confidence: 0.95);
+
+        // Act & Assert: Promote through hierarchy
+        var learning = await learningService.GetLearningAsync(learningId);
+        Assert.Equal("Skill", learning!.Scope);
+
+        // Skill → Agent
+        var scope1 = await learningService.PromoteLearningAsync(learningId);
+        Assert.Equal("Agent", scope1);
+        learning = await learningService.GetLearningAsync(learningId);
+        Assert.Equal("Agent", learning!.Scope);
+
+        // Agent → Project
+        var scope2 = await learningService.PromoteLearningAsync(learningId);
+        Assert.Equal("Project", scope2);
+        learning = await learningService.GetLearningAsync(learningId);
+        Assert.Equal("Project", learning!.Scope);
+
+        // Project → Domain
+        var scope3 = await learningService.PromoteLearningAsync(learningId);
+        Assert.Equal("Domain", scope3);
+        learning = await learningService.GetLearningAsync(learningId);
+        Assert.Equal("Domain", learning!.Scope);
+
+        // Domain → Global
+        var scope4 = await learningService.PromoteLearningAsync(learningId);
+        Assert.Equal("Global", scope4);
+        learning = await learningService.GetLearningAsync(learningId);
+        Assert.Equal("Global", learning!.Scope);
+
+        // Global → (no change)
+        var scope5 = await learningService.PromoteLearningAsync(learningId);
+        Assert.Null(scope5);
+        learning = await learningService.GetLearningAsync(learningId);
+        Assert.Equal("Global", learning!.Scope);
+    }
+
+    [Fact]
+    public async Task PromoteLearning_FromDifferentStartingScopes()
+    {
+        // Arrange: Create learnings at different scopes
+        var learningService = await CreateServiceAsync();
+        
+        var agentLearningId = await learningService.CreateLearningAsync(
+            "Agent Learning", "desc", "Explicit", "Agent", 0.8);
+        
+        var projectLearningId = await learningService.CreateLearningAsync(
+            "Project Learning", "desc", "Explicit", "Project", 0.85);
+
+        // Act & Assert: Agent → Project
+        var newScope1 = await learningService.PromoteLearningAsync(agentLearningId);
+        Assert.Equal("Project", newScope1);
+
+        // Act & Assert: Project → Domain
+        var newScope2 = await learningService.PromoteLearningAsync(projectLearningId);
+        Assert.Equal("Domain", newScope2);
+    }
+
+    [Fact]
+    public async Task LifecycleOperations_MaintainDataIntegrity()
+    {
+        // Arrange: Create multiple learnings
+        var learningService = await CreateServiceAsync();
+        var learning1Id = await learningService.CreateLearningAsync(
+            "Learning 1", "Active learning", "Explicit", "Skill", 0.8);
+        
+        var learning2Id = await learningService.CreateLearningAsync(
+            "Learning 2", "To suppress", "Explicit", "Agent", 0.75);
+        
+        var learning3Id = await learningService.CreateLearningAsync(
+            "Learning 3", "To supersede", "Explicit", "Project", 0.7);
+
+        // Act: Perform various lifecycle operations
+        await learningService.PromoteLearningAsync(learning1Id); // Skill → Agent
+        await learningService.SuppressLearningAsync(learning2Id);
+        await learningService.SupersedeLearningAsync(learning3Id);
+
+        // Assert: Verify each learning has correct state
+        var learning1 = await learningService.GetLearningAsync(learning1Id);
+        Assert.Equal("Agent", learning1!.Scope);
+        Assert.Equal("Active", learning1.Status);
+
+        var learning2 = await learningService.GetLearningAsync(learning2Id);
+        Assert.Equal("Agent", learning2!.Scope);
+        Assert.Equal("Suppressed", learning2.Status);
+
+        var learning3 = await learningService.GetLearningAsync(learning3Id);
+        Assert.Equal("Project", learning3!.Scope);
+        Assert.Equal("Superseded", learning3.Status);
+
+        // Assert: Statistics are correct
+        var stats = await learningService.GetStatisticsAsync();
+        Assert.Equal(3, stats.TotalLearnings);
+        Assert.Equal(1, stats.ActiveCount);
+        Assert.Equal(1, stats.SuppressedCount);
+        Assert.Equal(1, stats.SupersededCount);
+    }
 }

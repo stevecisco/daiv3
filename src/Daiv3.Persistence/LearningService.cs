@@ -209,6 +209,56 @@ public class LearningStorageService
     }
 
     /// <summary>
+    /// Promotes a learning to a broader scope.
+    /// Scope hierarchy: Skill → Agent → Project → Domain → Global.
+    /// If already at Global scope, no change is made.
+    /// Implements LM-REQ-008: Users SHALL promote learnings.
+    /// </summary>
+    /// <param name="learningId">The learning ID to promote.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The new scope after promotion, or null if learning not found or already at Global.</returns>
+    public async Task<string?> PromoteLearningAsync(string learningId, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(learningId);
+        
+        var learning = await GetLearningAsync(learningId, ct).ConfigureAwait(false);
+        if (learning == null)
+        {
+            _logger.LogWarning("Attempted to promote non-existent learning {LearningId}", learningId);
+            return null;
+        }
+
+        var oldScope = learning.Scope;
+        var newScope = oldScope.ToUpperInvariant() switch
+        {
+            "SKILL" => "Agent",
+            "AGENT" => "Project",
+            "PROJECT" => "Domain",
+            "DOMAIN" => "Global",
+            "GLOBAL" => "Global", // Already at highest scope
+            _ => "Global" // Unknown scope, promote to Global
+        };
+
+        if (newScope == oldScope)
+        {
+            _logger.LogInformation(
+                "Learning {LearningId} is already at {Scope} scope, no promotion performed",
+                learningId, oldScope);
+            return null;
+        }
+
+        learning.Scope = newScope;
+        learning.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
+        
+        _logger.LogInformation(
+            "Promoted learning {LearningId} from {OldScope} to {NewScope}",
+            learningId, oldScope, newScope);
+        
+        return newScope;
+    }
+
+    /// <summary>
     /// Archives a learning (soft delete via status change).
     /// </summary>
     public async Task ArchiveLearningAsync(string learningId, CancellationToken ct = default)

@@ -1008,9 +1008,108 @@ EMBEDDING STATUS:
   Without Embeddings: 2
 ```
 
-**Requirements:** LM-REQ-007 (Complete)
+### Suppress Learning
+```bash
+.\run-cli.bat learning suppress --id abc12345-6789-1011-1213-141516171819
+```
+
+Suppresses a learning to prevent it from being injected into agent prompts. The learning remains in the database but is no longer active.
+
+**Output Example:**
+```
+SUPPRESSING LEARNING:
+  ID: abc12345-6789-1011-1213-141516171819
+  Title: Use dependency injection for testability
+  Current Status: Active
+
+✓ Learning suppressed successfully
+
+This learning will no longer be injected into agent prompts.
+To reactivate, use: learning edit --id abc12345... --status Active
+```
+
+**Use Cases:**
+- Temporarily disable a learning that may not apply to current work
+- Prevent injection of learnings that caused issues in specific contexts
+- Deactivate outdated learnings without deleting them
+
+### Promote Learning
+```bash
+.\run-cli.bat learning promote --id abc12345-6789-1011-1213-141516171819
+```
+
+Promotes a learning to the next broader scope level in the hierarchy: Skill → Agent → Project → Domain → Global.
+
+**Output Example:**
+```
+PROMOTING LEARNING:
+  ID: abc12345-6789-1011-1213-141516171819
+  Title: Validate input parameters before processing
+  Current Scope: Agent
+
+✓ Learning promoted successfully
+  New Scope: Project
+
+Scope hierarchy: Task → Agent → Project → Domain → Global
+```
+
+**Output Example (Already at Global):**
+```
+PROMOTING LEARNING:
+  ID: abc12345-6789-1011-1213-141516171819
+  Title: Always use async/await for I/O operations
+  Current Scope: Global
+
+⚠ Learning is already at Global scope (highest level).
+
+Scope hierarchy: Skill → Agent → Project → Domain → Global
+```
+
+**Scope Hierarchy:**
+- **Skill:** Applies to a specific skill or capability
+- **Agent:** Applies to all tasks executed by a specific agent
+- **Project:** Applies to all agents working on a project
+- **Domain:** Applies across multiple related projects
+- **Global:** Applies universally to all agents and projects
+
+**Use Cases:**
+- Promote skill-specific insights that apply more broadly
+- Share agent-learned best practices across project team
+- Elevate project learnings to domain or organization-wide standards
+- Build global knowledge base from proven local improvements
+
+### Supersede Learning
+```bash
+.\run-cli.bat learning supersede --id abc12345-6789-1011-1213-141516171819
+```
+
+Marks a learning as superseded, indicating it has been replaced by a newer, more accurate learning. The learning is no longer injected into agent prompts.
+
+**Output Example:**
+```
+SUPERSEDING LEARNING:
+  ID: abc12345-6789-1011-1213-141516171819
+  Title: Use callback pattern for async operations
+  Current Status: Active
+
+✓ Learning marked as superseded successfully
+
+This learning has been replaced by a newer, more accurate learning.
+It will no longer be injected into agent prompts.
+```
+
+**Use Cases:**
+- Mark old approaches when better patterns are discovered
+- Replace incomplete learnings with refined versions
+- Maintain historical record while preventing outdated guidance
+- Track evolution of best practices over time
+
+**Requirements:** LM-REQ-008 (Complete)
 
 **Notes:**
+- **Suppress:** Temporarily disable without marking as outdated
+- **Promote:** Expand scope to broader applicability
+- **Supersede:** Permanently replace with better approach (keeps historical record)
 - Learnings are created automatically by agents during learning triggers
 - Embeddings are generated automatically during creation (cannot be edited directly)
 - Changing status to Suppressed prevents learning injection into agent prompts
