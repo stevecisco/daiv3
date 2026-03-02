@@ -67,6 +67,9 @@ public static class OrchestrationServiceExtensions
         // Register learning service for learning memory management (LM-REQ-001)
         services.TryAddScoped<ILearningService, LearningService>();
 
+        // Register learning retrieval service for semantic learning injection (LM-REQ-005)
+        services.TryAddScoped<ILearningRetrievalService, LearningRetrievalService>();
+
         return services;
     }
 

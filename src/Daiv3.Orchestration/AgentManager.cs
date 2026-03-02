@@ -25,6 +25,7 @@ public class AgentManager : IAgentManager
     private readonly IToolInvoker _toolInvoker;
     private readonly OrchestrationOptions _options;
     private readonly AgentExecutionMetricsCollector _metricsCollector;
+    private readonly ILearningRetrievalService? _learningRetrieval;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
     private readonly ConcurrentDictionary<string, Guid> _taskTypeAgentIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly AgentExecutionRegistry _executionRegistry = new();
@@ -37,7 +38,8 @@ public class AgentManager : IAgentManager
         IToolRegistry toolRegistry,
         IToolInvoker toolInvoker,
         IOptions<OrchestrationOptions> options,
-        AgentExecutionMetricsCollector metricsCollector)
+        AgentExecutionMetricsCollector metricsCollector,
+        ILearningRetrievalService? learningRetrieval = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _agentRepository = agentRepository ?? throw new ArgumentNullException(nameof(agentRepository));
@@ -47,6 +49,7 @@ public class AgentManager : IAgentManager
         _toolInvoker = toolInvoker ?? throw new ArgumentNullException(nameof(toolInvoker));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _metricsCollector = metricsCollector ?? throw new ArgumentNullException(nameof(metricsCollector));
+        _learningRetrieval = learningRetrieval; // Optional: may be null if learning memory is not enabled
     }
 
     /// <inheritdoc />
@@ -703,6 +706,15 @@ public class AgentManager : IAgentManager
             stepDescription += $"\nSelf-correcting based on: {failureContext}";
         }
 
+        // Retrieve relevant learnings for this task (LM-REQ-005)
+        var learningsContext = await RetrieveAndFormatLearningsAsync(agent, taskGoal, context, ct);
+        
+        if (!string.IsNullOrEmpty(learningsContext))
+        {
+            stepDescription += $"\n\nRelevant Learnings:\n{learningsContext}";
+            _logger.LogDebug("Injected learnings context into agent iteration {Iteration}", iteration);
+        }
+
         var tokensConsumed = 0;
         var output = string.Empty;
         var success = true;
@@ -968,5 +980,75 @@ public class AgentManager : IAgentManager
             CreatedAt = DateTimeOffset.FromUnixTimeSeconds(dbAgent.CreatedAt),
             Config = DeserializeConfig(dbAgent.ConfigJson)
         };
+    }
+
+    /// <summary>
+    /// Retrieves relevant learnings for the current task and formats them for injection into agent context (LM-REQ-005).
+    /// </summary>
+    /// <returns>Formatted learnings string for injection into agent prompt, or empty string if no learnings available.</returns>
+    private async Task<string> RetrieveAndFormatLearningsAsync(
+        Agent agent,
+        string taskGoal,
+        Dictionary<string, string> context,
+        CancellationToken ct)
+    {
+        // If learning retrieval service is not available, return empty (graceful degradation)
+        if (_learningRetrieval == null)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var retrievalContext = new LearningRetrievalContext
+            {
+                TaskGoal = taskGoal,
+                AgentId = agent.Id.ToString(),
+                Scope = null, // Allow all scopes (Global, Agent, Skill, Project, Domain)
+                MinConfidence = 0.6, // Only high-confidence learnings
+                MinSimilarity = 0.4, // Reasonable similarity threshold
+                MaxResults = 3, // Top 3 most relevant learnings
+                AdditionalContext = context
+            };
+
+            var retrievedLearnings = await _learningRetrieval.RetrieveLearningsAsync(retrievalContext, ct).ConfigureAwait(false);
+
+            if (retrievedLearnings.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            // Format learnings for injection into agent context
+            var formattedLearnings = new List<string>();
+            
+            foreach (var retrieved in retrievedLearnings)
+            {
+                var learning = retrieved.Learning;
+                var formatted = $"[Learning #{retrieved.Rank}] (Similarity: {retrieved.SimilarityScore:F2}, Confidence: {learning.Confidence:F2})\n" +
+                               $"Title: {learning.Title}\n" +
+                               $"Description: {learning.Description}\n" +
+                               $"Scope: {learning.Scope}, Trigger: {learning.TriggerType}";
+                
+                if (!string.IsNullOrWhiteSpace(learning.Tags))
+                {
+                    formatted += $"\nTags: {learning.Tags}";
+                }
+                
+                formattedLearnings.Add(formatted);
+            }
+
+            _logger.LogInformation(
+                "Injected {Count} relevant learnings into agent {AgentId} context",
+                retrievedLearnings.Count, agent.Id);
+
+            return string.Join("\n\n", formattedLearnings);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to retrieve learnings for agent {AgentId}, continuing without learning injection",
+                agent.Id);
+            return string.Empty;
+        }
     }
 }
