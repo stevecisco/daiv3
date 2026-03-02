@@ -3215,6 +3215,48 @@ public class Program
                 Console.WriteLine();
             }
 
+            // Generate and display knowledge summary (KBP-REQ-004)
+            if (result.SuccessfulPromotions.Count > 0)
+            {
+                try
+                {
+                    var summaryService = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IKnowledgeSummaryService>();
+
+                    // Fetch promoted learning entities for summary generation
+                    var promotedLearnings = new List<Daiv3.Persistence.Entities.Learning>();
+                    foreach (var promo in result.SuccessfulPromotions)
+                    {
+                        var learning = await service.GetLearningAsync(promo.LearningId);
+                        if (learning != null)
+                        {
+                            promotedLearnings.Add(learning);
+                        }
+                    }
+
+                    // Build target scope map
+                    var targetScopeMap = result.SuccessfulPromotions
+                        .ToDictionary(p => p.LearningId, p => p.TargetScope);
+
+                    // Generate summary
+                    var summary = await summaryService.GenerateSummaryAsync(
+                        promotedLearnings.AsReadOnly(),
+                        targetScopeMap,
+                        taskId,
+                        "user");
+
+                    Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    Console.WriteLine("KNOWLEDGE SUMMARY");
+                    Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    Console.WriteLine(summary.SummaryText);
+                    Console.WriteLine();
+                }
+                catch (Exception summaryEx)
+                {
+                    logger.LogWarning(summaryEx, "Failed to generate knowledge summary, but promotions succeeded");
+                    Console.WriteLine("⚠ Warning: Summary generation failed, but promotions were successful");
+                }
+            }
+
             logger.LogInformation(
                 "✓ Promotion completed: {SuccessCount} successful, {FailureCount} failed",
                 result.SuccessfulPromotions.Count, result.FailedPromotions.Count);

@@ -80,6 +80,9 @@ public static class OrchestrationServiceExtensions
             return new LearningRetrievalService(logger, storageService, embeddingGenerator, vectorSimilarity, metricsCollector);
         });
 
+        // Register knowledge summary service for generating summaries of knowledge promotions (KBP-REQ-004)
+        services.TryAddScoped<IKnowledgeSummaryService, KnowledgeSummaryService>();
+
         // Register agent promotion proposal service for agent-proposed promotions requiring confirmation (KBP-REQ-003)
         services.TryAddScoped<IAgentPromotionProposalService>(serviceProvider =>
         {
