@@ -801,6 +801,224 @@ NOTE: Settings persistence integration pending.
 
 ---
 
+## Learning Management Commands
+
+### List Learnings
+```bash
+# List all learnings
+.\run-cli.bat learning list
+
+# Filter by status
+.\run-cli.bat learning list --status Active
+.\run-cli.bat learning list --status Suppressed
+.\run-cli.bat learning list -s Archived
+
+# Filter by scope
+.\run-cli.bat learning list --scope Global
+.\run-cli.bat learning list --scope Agent
+.\run-cli.bat learning list -c Project
+
+# Filter by source agent
+.\run-cli.bat learning list --agent agent-123
+.\run-cli.bat learning list -a agent-456
+
+# Filter by minimum confidence
+.\run-cli.bat learning list --min-confidence 0.8
+.\run-cli.bat learning list -m 0.9
+
+# Combine filters
+.\run-cli.bat learning list --status Active --scope Global --min-confidence 0.85
+```
+
+Lists all learnings with optional filtering. Results are sorted by confidence and times applied.
+
+**Output Example:**
+```
+LEARNINGS:
+==========
+Found 3 learning(s)
+
+ID: abc12345-6789-1011-1213-141516171819
+  Title: Use dependency injection for testability
+  Scope: Global
+  Status: Active
+  Confidence: 0.950
+  Trigger: UserFeedback
+  Times Applied: 12
+  Created: 2026-02-28 15:30:45 UTC
+  Source Agent: agent-001
+
+ID: def23456-7890-1112-1314-151617181920
+  Title: Always close database connections
+  Scope: Project
+  Status: Active
+  Confidence: 0.850
+  Trigger: CompilationError
+  Times Applied: 5
+  Created: 2026-03-01 10:15:22 UTC
+  Source Agent: agent-002
+
+ID: ghi34567-8901-1213-1415-161718192021
+  Title: Outdated learning pattern
+  Scope: Global
+  Status: Suppressed
+  Confidence: 0.750
+  Trigger: SelfCorrection
+  Times Applied: 0
+  Created: 2026-02-25 08:45:10 UTC
+```
+
+### View Learning Details
+```bash
+.\run-cli.bat learning view --id abc12345-6789-1011-1213-141516171819
+```
+
+Displays comprehensive details for a specific learning including metadata, provenance, and embedding status.
+
+**Output Example:**
+```
+LEARNING DETAILS:
+=================
+ID: abc12345-6789-1011-1213-141516171819
+Title: Use dependency injection for testability
+Description: Always use constructor injection instead of service locator pattern.
+Provides better testability, clearer dependencies, and easier refactoring.
+Observed in task-789 where tight coupling caused maintenance issues.
+
+METADATA:
+  Trigger Type: UserFeedback
+  Scope: Global
+  Status: Active
+  Confidence: 0.950
+  Times Applied: 12
+  Tags: architecture,di,best-practice
+
+PROVENANCE:
+  Source Agent: agent-001
+  Source Task: task-789
+  Created By: user
+  Created At: 2026-02-28 15:30:45 UTC
+  Updated At: 2026-02-28 15:30:45 UTC
+
+EMBEDDING:
+  Dimensions: 384
+  Size: 1536 bytes
+  Status: Ready for semantic search
+```
+
+### Edit Learning
+```bash
+# Edit title
+.\run-cli.bat learning edit --id abc12345... --title "New title"
+
+# Edit description
+.\run-cli.bat learning edit --id abc12345... -d "Updated description"
+
+# Edit confidence
+.\run-cli.bat learning edit --id abc12345... --confidence 0.92
+.\run-cli.bat learning edit --id abc12345... -c 0.88
+
+# Edit tags
+.\run-cli.bat learning edit --id abc12345... --tags "updated,refined,production"
+.\run-cli.bat learning edit --id abc12345... -t "tag1,tag2"
+
+# Change status
+.\run-cli.bat learning edit --id abc12345... --status Suppressed
+.\run-cli.bat learning edit --id abc12345... -s Active
+
+# Change scope
+.\run-cli.bat learning edit --id abc12345... --scope Project
+
+# Edit multiple fields
+.\run-cli.bat learning edit --id abc12345... --title "Better Title" --confidence 0.95 --status Active
+```
+
+Edit learning properties. Changes are saved immediately. At least one field must be specified.
+
+**Valid Values:**
+- **Status:** Active, Suppressed, Superseded, Archived
+- **Scope:** Global, Project, Agent, Task, User
+- **Confidence:** 0.0 to 1.0
+
+**Output Example:**
+```
+CURRENT STATE:
+  Title: Use dependency injection
+  Description: Original description
+  Confidence: 0.850
+  Tags: architecture,di
+  Status: Active
+  Scope: Global
+
+✓ Learning updated successfully
+
+UPDATED STATE:
+  Title: Use dependency injection for better testability
+  Description: Original description
+  Confidence: 0.950
+  Tags: architecture,di,best-practice
+  Status: Active
+  Scope: Global
+```
+
+### Show Learning Statistics
+```bash
+.\run-cli.bat learning stats
+```
+
+Displays aggregate statistics about all learnings.
+
+**Output Example:**
+```
+LEARNING STATISTICS:
+===================
+Total Learnings: 47
+
+BY STATUS:
+  Active: 38
+  Suppressed: 6
+  Archived: 3
+
+BY SCOPE:
+  Global: 25
+  Project: 12
+  Agent: 8
+  Task: 2
+
+BY TRIGGER TYPE:
+  UserFeedback: 18
+  CompilationError: 12
+  SelfCorrection: 9
+  ToolFailure: 5
+  Explicit: 3
+
+AVERAGES:
+  Average Confidence: 0.847
+  Average Times Applied: 3.2
+
+MOST APPLIED (Top 5):
+  [24x] Use async/await for I/O operations
+  [18x] Validate input parameters
+  [15x] Log errors with context
+  [12x] Use dependency injection
+  [10x] Close resources in finally blocks
+
+EMBEDDING STATUS:
+  With Embeddings: 45
+  Without Embeddings: 2
+```
+
+**Requirements:** LM-REQ-007 (Complete)
+
+**Notes:**
+- Learnings are created automatically by agents during learning triggers
+- Embeddings are generated automatically during creation (cannot be edited directly)
+- Changing status to Suppressed prevents learning injection into agent prompts
+- Confidence and scope can be adjusted to refine learning applicability
+- Tags help organize and search learnings
+
+---
+
 ## Embedding Commands
 
 ### Test Embedding Generation

@@ -497,6 +497,95 @@ public class Program
         agentCommand.AddCommand(agentLoadCommand);
         rootCommand.AddCommand(agentCommand);
 
+        // Learning command
+        var learningCommand = new Command("learning", "Learning management commands");
+        
+        var learningListCommand = new Command("list", "List learnings with optional filters");
+        var learningStatusOption = new Option<string?>(
+            aliases: new[] { "--status", "-s" },
+            description: "Filter by status (Active, Suppressed, Superseded, Archived)");
+        var learningScopeOption = new Option<string?>(
+            aliases: new[] { "--scope", "-c" },
+            description: "Filter by scope (Global, Project, Agent, Task, User)");
+        var learningAgentOption = new Option<string?>(
+            aliases: new[] { "--agent", "-a" },
+            description: "Filter by source agent ID");
+        var learningMinConfidenceOption = new Option<double?>(
+            aliases: new[] { "--min-confidence", "-m" },
+            description: "Filter by minimum confidence (0.0-1.0)");
+        learningListCommand.AddOption(learningStatusOption);
+        learningListCommand.AddOption(learningScopeOption);
+        learningListCommand.AddOption(learningAgentOption);
+        learningListCommand.AddOption(learningMinConfidenceOption);
+        learningListCommand.SetHandler(async (string? status, string? scope, string? agent, double? minConfidence) =>
+        {
+            var host = CreateHost();
+            var exitCode = await LearningListCommand(host, status, scope, agent, minConfidence);
+            Environment.Exit(exitCode);
+        }, learningStatusOption, learningScopeOption, learningAgentOption, learningMinConfidenceOption);
+
+        var learningViewCommand = new Command("view", "View detailed information about a specific learning");
+        var learningIdViewOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Learning ID") { IsRequired = true };
+        learningViewCommand.AddOption(learningIdViewOption);
+        learningViewCommand.SetHandler(async (string id) =>
+        {
+            var host = CreateHost();
+            var exitCode = await LearningViewCommand(host, id);
+            Environment.Exit(exitCode);
+        }, learningIdViewOption);
+
+        var learningEditCommand = new Command("edit", "Edit learning properties");
+        var learningIdEditOption = new Option<string>(
+            aliases: new[] { "--id" },
+            description: "Learning ID") { IsRequired = true };
+        var learningEditTitleOption = new Option<string?>(
+            aliases: new[] { "--title" },
+            description: "Update title");
+        var learningEditDescOption = new Option<string?>(
+            aliases: new[] { "--description", "-d" },
+            description: "Update description");
+        var learningEditConfidenceOption = new Option<double?>(
+            aliases: new[] { "--confidence", "-c" },
+            description: "Update confidence (0.0-1.0)");
+        var learningEditTagsOption = new Option<string?>(
+            aliases: new[] { "--tags", "-t" },
+            description: "Update tags (comma-separated)");
+        var learningEditStatusOption = new Option<string?>(
+            aliases: new[] { "--status", "-s" },
+            description: "Update status (Active, Suppressed, Superseded, Archived)");
+        var learningEditScopeOption = new Option<string?>(
+            aliases: new[] { "--scope" },
+            description: "Update scope (Global, Project, Agent, Task, User)");
+        learningEditCommand.AddOption(learningIdEditOption);
+        learningEditCommand.AddOption(learningEditTitleOption);
+        learningEditCommand.AddOption(learningEditDescOption);
+        learningEditCommand.AddOption(learningEditConfidenceOption);
+        learningEditCommand.AddOption(learningEditTagsOption);
+        learningEditCommand.AddOption(learningEditStatusOption);
+        learningEditCommand.AddOption(learningEditScopeOption);
+        learningEditCommand.SetHandler(async (string id, string? title, string? description, double? confidence, string? tags, string? status, string? scope) =>
+        {
+            var host = CreateHost();
+            var exitCode = await LearningEditCommand(host, id, title, description, confidence, tags, status, scope);
+            Environment.Exit(exitCode);
+        }, learningIdEditOption, learningEditTitleOption, learningEditDescOption, learningEditConfidenceOption, learningEditTagsOption, learningEditStatusOption, learningEditScopeOption);
+
+        var learningStatsCommand = new Command("stats", "Show learning statistics and aggregates");
+        learningStatsCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await LearningStatsCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        learningCommand.AddCommand(learningListCommand);
+        learningCommand.AddCommand(learningViewCommand);
+        learningCommand.AddCommand(learningEditCommand);
+        learningCommand.AddCommand(learningStatsCommand);
+        rootCommand.AddCommand(learningCommand);
+
         // Settings command
         var settingsCommand = new Command("settings", "Configuration management");
         
@@ -2068,6 +2157,363 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to load agent configuration: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LearningListCommand(IHost host, string? status, string? scope, string? agent, double? minConfidence)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var learningService = host.Services.GetRequiredService<LearningStorageService>();
+            logger.LogInformation("Listing learnings with filters - status: {Status}, scope: {Scope}, agent: {Agent}, minConfidence: {MinConfidence}",
+                status, scope, agent, minConfidence);
+
+            IReadOnlyList<Learning> learnings;
+
+            // Apply filters based on provided options
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                learnings = await learningService.GetLearningsByStatusAsync(status);
+            }
+            else if (!string.IsNullOrWhiteSpace(scope))
+            {
+                learnings = await learningService.GetLearningsByScopeAsync(scope);
+            }
+            else if (!string.IsNullOrWhiteSpace(agent))
+            {
+                learnings = await learningService.GetLearningsBySourceAgentAsync(agent);
+            }
+            else
+            {
+                learnings = await learningService.GetAllLearningsAsync();
+            }
+
+            // Apply additional filters in-memory
+            if (minConfidence.HasValue)
+            {
+                learnings = learnings.Where(l => l.Confidence >= minConfidence.Value).ToList();
+            }
+
+            Console.WriteLine("LEARNINGS:");
+            Console.WriteLine("==========");
+            if (learnings.Count == 0)
+            {
+                Console.WriteLine("  (No learnings found)");
+                Console.WriteLine();
+                Console.WriteLine("Learnings are created automatically when agents learn from feedback or corrections.");
+                return 0;
+            }
+
+            Console.WriteLine($"Found {learnings.Count} learning(s)");
+            Console.WriteLine();
+
+            foreach (var learning in learnings.OrderByDescending(l => l.Confidence).ThenByDescending(l => l.TimesApplied))
+            {
+                Console.WriteLine($"ID: {learning.LearningId}");
+                Console.WriteLine($"  Title: {learning.Title}");
+                Console.WriteLine($"  Scope: {learning.Scope}");
+                Console.WriteLine($"  Status: {learning.Status}");
+                Console.WriteLine($"  Confidence: {learning.Confidence:F3}");
+                Console.WriteLine($"  Trigger: {learning.TriggerType}");
+                Console.WriteLine($"  Times Applied: {learning.TimesApplied}");
+                Console.WriteLine($"  Created: {DateTimeOffset.FromUnixTimeSeconds(learning.CreatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+                if (!string.IsNullOrEmpty(learning.SourceAgent))
+                {
+                    Console.WriteLine($"  Source Agent: {learning.SourceAgent}");
+                }
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list learnings: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LearningViewCommand(IHost host, string id)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var learningService = host.Services.GetRequiredService<LearningStorageService>();
+            logger.LogInformation("Viewing learning {LearningId}", id);
+
+            var learning = await learningService.GetLearningAsync(id);
+
+            if (learning == null)
+            {
+                Console.WriteLine($"✗ Learning not found: {id}");
+                Console.WriteLine();
+                Console.WriteLine("Use 'learning list' to see all available learnings.");
+                return 1;
+            }
+
+            Console.WriteLine("LEARNING DETAILS:");
+            Console.WriteLine("=================");
+            Console.WriteLine($"ID: {learning.LearningId}");
+            Console.WriteLine($"Title: {learning.Title}");
+            Console.WriteLine($"Description: {learning.Description}");
+            Console.WriteLine();
+            Console.WriteLine("METADATA:");
+            Console.WriteLine($"  Trigger Type: {learning.TriggerType}");
+            Console.WriteLine($"  Scope: {learning.Scope}");
+            Console.WriteLine($"  Status: {learning.Status}");
+            Console.WriteLine($"  Confidence: {learning.Confidence:F3}");
+            Console.WriteLine($"  Times Applied: {learning.TimesApplied}");
+            
+            if (!string.IsNullOrEmpty(learning.Tags))
+            {
+                Console.WriteLine($"  Tags: {learning.Tags}");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("PROVENANCE:");
+            if (!string.IsNullOrEmpty(learning.SourceAgent))
+            {
+                Console.WriteLine($"  Source Agent: {learning.SourceAgent}");
+            }
+            if (!string.IsNullOrEmpty(learning.SourceTaskId))
+            {
+                Console.WriteLine($"  Source Task: {learning.SourceTaskId}");
+            }
+            Console.WriteLine($"  Created By: {learning.CreatedBy}");
+            Console.WriteLine($"  Created At: {DateTimeOffset.FromUnixTimeSeconds(learning.CreatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+            Console.WriteLine($"  Updated At: {DateTimeOffset.FromUnixTimeSeconds(learning.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+
+            Console.WriteLine();
+            Console.WriteLine("EMBEDDING:");
+            if (learning.EmbeddingBlob != null && learning.EmbeddingBlob.Length > 0)
+            {
+                Console.WriteLine($"  Dimensions: {learning.EmbeddingDimensions ?? 0}");
+                Console.WriteLine($"  Size: {learning.EmbeddingBlob.Length} bytes");
+                Console.WriteLine($"  Status: Ready for semantic search");
+            }
+            else
+            {
+                Console.WriteLine($"  Status: No embedding (semantic search not available)");
+            }
+
+            Console.WriteLine();
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to view learning: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LearningEditCommand(IHost host, string id, string? title, string? description, 
+        double? confidence, string? tags, string? status, string? scope)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var learningService = host.Services.GetRequiredService<LearningStorageService>();
+
+            // Validate at least one update parameter is provided
+            if (title == null && description == null && confidence == null && tags == null && status == null && scope == null)
+            {
+                Console.WriteLine("✗ No updates specified. Provide at least one of: --title, --description, --confidence, --tags, --status, --scope");
+                return 1;
+            }
+
+            logger.LogInformation("Editing learning {LearningId}", id);
+
+            var learning = await learningService.GetLearningAsync(id);
+
+            if (learning == null)
+            {
+                Console.WriteLine($"✗ Learning not found: {id}");
+                Console.WriteLine();
+                Console.WriteLine("Use 'learning list' to see all available learnings.");
+                return 1;
+            }
+
+            // Show current state
+            Console.WriteLine("CURRENT STATE:");
+            Console.WriteLine($"  Title: {learning.Title}");
+            Console.WriteLine($"  Description: {learning.Description}");
+            Console.WriteLine($"  Confidence: {learning.Confidence:F3}");
+            Console.WriteLine($"  Tags: {learning.Tags ?? "(none)"}");
+            Console.WriteLine($"  Status: {learning.Status}");
+            Console.WriteLine($"  Scope: {learning.Scope}");
+            Console.WriteLine();
+
+            // Validate and apply updates
+            bool hasChanges = false;
+
+            if (title != null)
+            {
+                learning.Title = title;
+                hasChanges = true;
+            }
+
+            if (description != null)
+            {
+                learning.Description = description;
+                hasChanges = true;
+            }
+
+            if (confidence.HasValue)
+            {
+                if (confidence.Value < 0.0 || confidence.Value > 1.0)
+                {
+                    Console.WriteLine($"✗ Invalid confidence: {confidence.Value}. Must be between 0.0 and 1.0.");
+                    return 1;
+                }
+                learning.Confidence = confidence.Value;
+                hasChanges = true;
+            }
+
+            if (tags != null)
+            {
+                learning.Tags = tags;
+                hasChanges = true;
+            }
+
+            if (status != null)
+            {
+                var validStatuses = new[] { "Active", "Suppressed", "Superseded", "Archived" };
+                if (!validStatuses.Contains(status, StringComparer.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"✗ Invalid status: {status}. Valid options: {string.Join(", ", validStatuses)}");
+                    return 1;
+                }
+                learning.Status = status;
+                hasChanges = true;
+            }
+
+            if (scope != null)
+            {
+                var validScopes = new[] { "Global", "Project", "Agent", "Task", "User" };
+                if (!validScopes.Contains(scope, StringComparer.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"✗ Invalid scope: {scope}. Valid options: {string.Join(", ", validScopes)}");
+                    return 1;
+                }
+                learning.Scope = scope;
+                hasChanges = true;
+            }
+
+            if (!hasChanges)
+            {
+                Console.WriteLine("No changes detected.");
+                return 0;
+            }
+
+            // Update the learning
+            await learningService.UpdateLearningAsync(learning);
+
+            Console.WriteLine("✓ Learning updated successfully");
+            Console.WriteLine();
+            Console.WriteLine("UPDATED STATE:");
+            Console.WriteLine($"  Title: {learning.Title}");
+            Console.WriteLine($"  Description: {learning.Description}");
+            Console.WriteLine($"  Confidence: {learning.Confidence:F3}");
+            Console.WriteLine($"  Tags: {learning.Tags ?? "(none)"}");
+            Console.WriteLine($"  Status: {learning.Status}");
+            Console.WriteLine($"  Scope: {learning.Scope}");
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to edit learning: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LearningStatsCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var learningService = host.Services.GetRequiredService<LearningStorageService>();
+            logger.LogInformation("Generating learning statistics");
+
+            var allLearnings = await learningService.GetAllLearningsAsync();
+
+            if (allLearnings.Count == 0)
+            {
+                Console.WriteLine("LEARNING STATISTICS:");
+                Console.WriteLine("===================");
+                Console.WriteLine("  No learnings found.");
+                Console.WriteLine();
+                Console.WriteLine("Learnings are created automatically when agents learn from feedback or corrections.");
+                return 0;
+            }
+
+            Console.WriteLine("LEARNING STATISTICS:");
+            Console.WriteLine("===================");
+            Console.WriteLine($"Total Learnings: {allLearnings.Count}");
+            Console.WriteLine();
+
+            // By Status
+            var byStatus = allLearnings.GroupBy(l => l.Status).ToList();
+            Console.WriteLine("BY STATUS:");
+            foreach (var group in byStatus.OrderByDescending(g => g.Count()))
+            {
+                Console.WriteLine($"  {group.Key}: {group.Count()}");
+            }
+            Console.WriteLine();
+
+            // By Scope
+            var byScope = allLearnings.GroupBy(l => l.Scope).ToList();
+            Console.WriteLine("BY SCOPE:");
+            foreach (var group in byScope.OrderByDescending(g => g.Count()))
+            {
+                Console.WriteLine($"  {group.Key}: {group.Count()}");
+            }
+            Console.WriteLine();
+
+            // By Trigger Type
+            var byTrigger = allLearnings.GroupBy(l => l.TriggerType).ToList();
+            Console.WriteLine("BY TRIGGER TYPE:");
+            foreach (var group in byTrigger.OrderByDescending(g => g.Count()))
+            {
+                Console.WriteLine($"  {group.Key}: {group.Count()}");
+            }
+            Console.WriteLine();
+
+            // Averages
+            var avgConfidence = allLearnings.Average(l => l.Confidence);
+            var avgTimesApplied = allLearnings.Average(l => l.TimesApplied);
+            Console.WriteLine("AVERAGES:");
+            Console.WriteLine($"  Average Confidence: {avgConfidence:F3}");
+            Console.WriteLine($"  Average Times Applied: {avgTimesApplied:F1}");
+            Console.WriteLine();
+
+            // Most Applied
+            var mostApplied = allLearnings.OrderByDescending(l => l.TimesApplied).Take(5).ToList();
+            if (mostApplied.Any(l => l.TimesApplied > 0))
+            {
+                Console.WriteLine("MOST APPLIED (Top 5):");
+                foreach (var learning in mostApplied.Where(l => l.TimesApplied > 0))
+                {
+                    Console.WriteLine($"  [{learning.TimesApplied}x] {learning.Title}");
+                }
+                Console.WriteLine();
+            }
+
+            // Embedding Status
+            var withEmbedding = allLearnings.Count(l => l.EmbeddingBlob != null && l.EmbeddingBlob.Length > 0);
+            Console.WriteLine("EMBEDDING STATUS:");
+            Console.WriteLine($"  With Embeddings: {withEmbedding}");
+            Console.WriteLine($"  Without Embeddings: {allLearnings.Count - withEmbedding}");
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to generate statistics: {ex.Message}");
             return 1;
         }
     }
