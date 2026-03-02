@@ -44,6 +44,45 @@ public class LearningServiceTests
     #region General Learning Creation Tests
 
     [Fact]
+    public async Task CreateLearningAsync_PopulatesAllLmReq002RequiredFields()
+    {
+        var context = new ExplicitTriggerContext
+        {
+            Title = "Learning record structure validation",
+            Description = "Ensure learning includes all required LM-REQ-002 fields.",
+            Scope = "Project",
+            SourceAgent = "agent-lm-002",
+            SourceTaskId = "task-lm-002",
+            Tags = "lm,structure,validation",
+            Confidence = 0.91,
+            CreatedBy = "agent-lm-002"
+        };
+
+        _mockRepository
+            .Setup(x => x.AddAsync(It.IsAny<Learning>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Guid.NewGuid().ToString());
+
+        var result = await _service.CreateLearningAsync(context);
+
+        Assert.False(string.IsNullOrWhiteSpace(result.LearningId));
+        Assert.Equal("Learning record structure validation", result.Title);
+        Assert.Equal("Ensure learning includes all required LM-REQ-002 fields.", result.Description);
+        Assert.Equal("Explicit", result.TriggerType);
+        Assert.Equal("Project", result.Scope);
+        Assert.Equal("agent-lm-002", result.SourceAgent);
+        Assert.Equal("task-lm-002", result.SourceTaskId);
+        Assert.NotNull(result.EmbeddingBlob);
+        Assert.Equal(3, result.EmbeddingDimensions);
+        Assert.Equal("lm,structure,validation", result.Tags);
+        Assert.Equal(0.91, result.Confidence);
+        Assert.Equal("Active", result.Status);
+        Assert.Equal(0, result.TimesApplied);
+        Assert.True(result.CreatedAt > 0);
+        Assert.True(result.UpdatedAt >= result.CreatedAt);
+        Assert.Equal("agent-lm-002", result.CreatedBy);
+    }
+
+    [Fact]
     public async Task CreateLearningAsync_ThrowsArgumentNullException_WhenContextIsNull()
     {
         // Act & Assert
