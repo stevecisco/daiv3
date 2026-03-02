@@ -29,6 +29,7 @@ public static class OrchestrationServiceExtensions
         // Register options
         services.AddOptions<OrchestrationOptions>();
         services.AddOptions<AgentExecutionObservabilityOptions>();
+        services.AddOptions<SkillSandboxConfiguration>();
 
         // Register HttpClient for REST API tool invocation
         services.AddHttpClient("RestApiTool", client =>
@@ -39,6 +40,9 @@ public static class OrchestrationServiceExtensions
 
         // Register metrics collection service
         services.TryAddSingleton<AgentExecutionMetricsCollector>();
+
+        // Register skill sandboxing services
+        services.TryAddScoped<SkillPermissionValidator>();
 
         // Register core orchestration services
         services.TryAddScoped<ITaskOrchestrator, TaskOrchestrator>();

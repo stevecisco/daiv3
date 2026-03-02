@@ -7,23 +7,32 @@ namespace Daiv3.Orchestration;
 
 /// <summary>
 /// Executes skills directly or within agent workflows.
-/// Handles parameter validation, error handling, and execution logging.
+/// Handles parameter validation, sandboxing, error handling, and execution logging.
 /// </summary>
 public class SkillExecutor : ISkillExecutor
 {
     private readonly ISkillRegistry _skillRegistry;
     private readonly ILogger<SkillExecutor> _logger;
+    private readonly ILogger<SkillResourceMonitor> _resourceMonitorLogger;
     private readonly OrchestrationOptions _options;
+    private readonly SkillSandboxConfiguration _sandboxConfig;
+    private readonly SkillPermissionValidator _permissionValidator;
     private const int DefaultTimeoutSeconds = 300; // 5 minutes default
 
     public SkillExecutor(
         ISkillRegistry skillRegistry,
         ILogger<SkillExecutor> logger,
-        IOptions<OrchestrationOptions> options)
+        ILogger<SkillResourceMonitor> resourceMonitorLogger,
+        IOptions<OrchestrationOptions> options,
+        IOptions<SkillSandboxConfiguration> sandboxOptions,
+        SkillPermissionValidator permissionValidator)
     {
         _skillRegistry = skillRegistry ?? throw new ArgumentNullException(nameof(skillRegistry));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _resourceMonitorLogger = resourceMonitorLogger ?? throw new ArgumentNullException(nameof(resourceMonitorLogger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _sandboxConfig = sandboxOptions?.Value ?? new SkillSandboxConfiguration();
+        _permissionValidator = permissionValidator ?? throw new ArgumentNullException(nameof(permissionValidator));
     }
 
     /// <inheritdoc />
@@ -57,6 +66,33 @@ public class SkillExecutor : ISkillExecutor
                     ErrorMessage = errorMsg,
                     ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
                 };
+            }
+
+            // Check sandbox mode
+            var sandboxMode = _sandboxConfig.GetEffectiveMode(request.SkillName);
+            
+            _logger.LogDebug(
+                "Skill '{SkillName}' sandbox mode: {SandboxMode}",
+                request.SkillName, sandboxMode);
+
+            // Permission validation (if enabled)
+            if (sandboxMode >= SkillSandboxMode.PermissionChecks)
+            {
+                var permissionCheck = _permissionValidator.ValidatePermissions(skill, request.SkillName);
+                if (!permissionCheck.IsAllowed)
+                {
+                    stopwatch.Stop();
+                    _logger.LogWarning(
+                        "Skill '{SkillName}' from {CallerContext} blocked by permission check: {Reason}",
+                        request.SkillName, callerContext, permissionCheck.DenialReason);
+                    
+                    return new SkillExecutionResult
+                    {
+                        Success = false,
+                        ErrorMessage = $"Permission denied: {permissionCheck.DenialReason}",
+                        ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
+                    };
+                }
             }
 
             // Validate parameters
@@ -94,19 +130,40 @@ public class SkillExecutor : ISkillExecutor
                 "Skill '{SkillName}' execution starting with {Timeout}s timeout",
                 request.SkillName, timeout);
 
-            var output = await skill.ExecuteAsync(request.Parameters, cts.Token).ConfigureAwait(false);
-            stopwatch.Stop();
-
-            _logger.LogInformation(
-                "Skill '{SkillName}' executed successfully from {CallerContext} in {ElapsedMs}ms",
-                request.SkillName, callerContext, stopwatch.ElapsedMilliseconds);
-
-            return new SkillExecutionResult
+            // Resource monitoring (if enabled)
+            SkillResourceMonitor? monitor = null;
+            if (sandboxMode >= SkillSandboxMode.ResourceLimits)
             {
-                Success = true,
-                Output = output,
-                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
-            };
+                monitor = new SkillResourceMonitor(
+                    _resourceMonitorLogger,
+                    _sandboxConfig,
+                    request.SkillName,
+                    cts);
+            }
+
+            try
+            {
+                var output = await skill.ExecuteAsync(request.Parameters, cts.Token).ConfigureAwait(false);
+                stopwatch.Stop();
+
+                var resourceMetrics = monitor?.GetSnapshot();
+
+                _logger.LogInformation(
+                    "Skill '{SkillName}' executed successfully from {CallerContext} in {ElapsedMs}ms",
+                    request.SkillName, callerContext, stopwatch.ElapsedMilliseconds);
+
+                return new SkillExecutionResult
+                {
+                    Success = true,
+                    Output = output,
+                    ElapsedMilliseconds = stopwatch.ElapsedMilliseconds,
+                    ResourceMetrics = resourceMetrics
+                };
+            }
+            finally
+            {
+                monitor?.Dispose();
+            }
         }
         catch (OperationCanceledException ex)
         {

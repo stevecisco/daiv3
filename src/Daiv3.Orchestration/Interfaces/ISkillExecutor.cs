@@ -29,6 +29,11 @@ public class SkillExecutionResult
     /// Execution time in milliseconds.
     /// </summary>
     public long ElapsedMilliseconds { get; set; }
+    
+    /// <summary>
+    /// Resource usage metrics during execution (if sandboxing enabled).
+    /// </summary>
+    public SkillResourceMetrics? ResourceMetrics { get; set; }
 }
 
 /// <summary>
