@@ -1180,6 +1180,190 @@ It will no longer be injected into agent prompts.
 
 ---
 
+## Agent Promotion Proposals
+
+Agent-proposed promotions allow agents to suggest learning promotions based on discovered patterns, with user confirmation required before execution.
+
+### List Pending Proposals
+```bash
+# List all pending proposals
+.\run-cli.bat agent-proposal list
+
+# List proposals by status
+.\run-cli.bat agent-proposal list --status Pending
+.\run-cli.bat agent-proposal list --status Approved
+.\run-cli.bat agent-proposal list -s Rejected
+```
+
+Lists all agent-proposed learning promotions. By default shows only Pending proposals awaiting user decision.
+
+**Output Example:**
+```
+Pending Proposals (3):
+┌────────────────┬──────────────────────┬────────────────┬────────────┐
+│ Proposal ID    │ Agent                │ Target Scope   │ Confidence │
+├────────────────┼──────────────────────┼────────────────┼────────────┤
+│ PROP-001       │ agent-pattern-001    │ Project        │ 0.92       │
+│ PROP-002       │ agent-advanced-002   │ Domain         │ 0.87       │
+│ PROP-003       │ agent-pattern-001    │ Global         │ 0.81       │
+└────────────────┴──────────────────────┴────────────────┴────────────┘
+
+Use 'agent-proposal view --id <id>' to see full details.
+Use 'agent-proposal approve --id <id>' to accept proposal.
+Use 'agent-proposal reject --id <id>' to decline proposal.
+```
+
+### View Proposal Details
+```bash
+.\run-cli.bat agent-proposal view --id PROP-001
+```
+
+Displays comprehensive details for a specific proposal including learning context, justification, and timeline.
+
+**Output Example:**
+```
+PROPOSAL DETAILS
+================
+Proposal ID: PROP-001
+Status: Pending
+Created: 2026-02-28T14:30:45Z
+
+AGENT:
+  Name: agent-pattern-001
+  Type: Pattern Recognition Agent
+
+LEARNING:
+  ID: LRN-ABC123
+  Title: API response caching optimization
+  Current Scope: Skill
+  Confidence: 0.85
+
+PROMOTION DETAILS:
+  Suggested Target Scope: Project
+  Confidence Score: 0.92
+  
+JUSTIFICATION:
+  Pattern observed in 15+ successful API optimizations across different
+  endpoints. Consistent 30-40% latency improvement. High confidence in
+  applicability to broader project scope based on empirical results.
+  
+SOURCE:
+  Source Task ID: TASK-98765
+  Created: 2026-02-28 14:30:45 UTC
+
+DECISION REQUIRED:
+  Use one of the following commands:
+    agent-proposal approve --id PROP-001
+    agent-proposal reject --id PROP-001 --reason "Needs review"
+```
+
+### Approve Proposal
+```bash
+# Basic approval
+.\run-cli.bat agent-proposal approve --id PROP-001
+
+# Approval gets recorded with timestamp and reviewer
+```
+
+Approves a proposal and executes the learning promotion. The promotion is recorded in the promotion history for audit trail.
+
+**Output Example:**
+```
+APPROVING PROPOSAL
+==================
+Proposal ID: PROP-001
+Learning: API response caching optimization
+Promotion: Skill → Project
+
+Processing approval...
+✓ Promotion executed successfully
+
+RESULTS:
+  Learning Scope: Skill → Project
+  Promoted By: user
+  Promoted At: 2026-02-28 15:45:22 UTC
+  Proposal Status: Approved
+  Reviewed At: 2026-02-28 15:45:22 UTC
+
+The learning is now available to all agents working on project tasks.
+```
+
+### Reject Proposal
+```bash
+# Basic rejection
+.\run-cli.bat agent-proposal reject --id PROP-001
+
+# Rejection with reason
+.\run-cli.bat agent-proposal reject --id PROP-001 --reason "Needs domain expert review"
+.\run-cli.bat agent-proposal reject --id PROP-002 -r "Insufficient data size"
+```
+
+Rejects a proposal and records the decision. Learning scope remains unchanged.
+
+**Output Example:**
+```
+REJECTING PROPOSAL
+==================
+Proposal ID: PROP-001
+Learning: API response caching optimization
+Current Scope: Skill (unchanged)
+
+Processing rejection...
+✓ Proposal rejected successfully
+
+RESULTS:
+  Proposal Status: Rejected
+  Rejection Reason: Needs domain expert review
+  Reviewed By: user
+  Reviewed At: 2026-02-28 15:45:22 UTC
+
+Learning scope remains Skill. To manually promote, use:
+  learning promote --id LRN-ABC123
+```
+
+### View Statistics
+```bash
+# Show proposal statistics
+.\run-cli.bat agent-proposal stats
+```
+
+Displays aggregated statistics for all proposals including counts by status and per-agent breakdown.
+
+**Output Example:**
+```
+PROPOSAL STATISTICS
+===================
+Total Proposals: 12
+
+BY STATUS:
+  Pending: 3
+  Approved: 7
+  Rejected: 2
+
+AVERAGE CONFIDENCE (Pending): 0.87
+
+BY AGENT:
+  agent-pattern-001: 5 proposals (3 pending, 2 approved)
+  agent-advanced-002: 4 proposals (0 pending, 4 approved)
+  agent-learning-003: 3 proposals (0 pending, 1 approved, 2 rejected)
+
+Latest Pending (ordered by creation date):
+  [3 hours ago] PROP-001 - agent-pattern-001 (Confidence 0.92)
+  [5 hours ago] PROP-002 - agent-advanced-002 (Confidence 0.87)
+  [1 day ago]   PROP-003 - agent-pattern-001 (Confidence 0.81)
+```
+
+**Requirements:** KBP-REQ-003 (Agent-proposed learning promotions with user confirmation)
+
+**Notes:**
+- Proposals maintain full audit trail with timestamps and reviewer information
+- Each approval is recorded as a promotion in the promotion history
+- Rejections are tracked for analysis but don't affect learnings
+- Confidence scores reflect agent's assessed likelihood of applicability
+- Source task IDs enable tracing patterns back to original observations
+
+---
+
 ## Embedding Commands
 
 ### Test Embedding Generation
