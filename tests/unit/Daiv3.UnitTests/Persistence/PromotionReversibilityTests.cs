@@ -23,6 +23,12 @@ public class PromotionReversibilityTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Dispose previous if exists (for test reruns)
+        if (_serviceProvider is IAsyncDisposable oldDisposable)
+        {
+            await oldDisposable.DisposeAsync();
+        }
+        
         var services = new ServiceCollection();
         services.AddLogging();
         services.Configure<PersistenceOptions>(options =>
@@ -151,7 +157,7 @@ public class PromotionReversibilityTests : IAsyncLifetime
         // Verify metric was recorded
         var metrics = await metricRepo.GetByMetricNameAsync("revert_events");
         Assert.NotEmpty(metrics);
-        Assert.True(metrics.Any(m => m.Context?.Contains(promotionId) ?? false));
+        Assert.Contains(metrics, m => m.Context?.Contains(promotionId) ?? false);
     }
 
     [Fact]

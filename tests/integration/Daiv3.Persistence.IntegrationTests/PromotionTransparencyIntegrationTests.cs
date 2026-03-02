@@ -53,7 +53,7 @@ public class PromotionTransparencyIntegrationTests : IAsyncLifetime
     public async Task PromotionHistoryTracking_CreatesAuditTrail()
     {
         // Arrange
-        var learningService = _serviceProvider!.GetRequiredService<ILearningStorageService>();
+        var learningService = _serviceProvider!.GetRequiredService<LearningStorageService>();
         var promotionRepo = _serviceProvider!.GetRequiredService<PromotionRepository>();
 
         var learning1 = await learningService.CreateLearningAsync(
@@ -93,7 +93,7 @@ public class PromotionTransparencyIntegrationTests : IAsyncLifetime
     public async Task PromotionMetrricsCollection_RecordsRevertEvents()
     {
         // Arrange
-        var learningService = _serviceProvider!.GetRequiredService<ILearningStorageService>();
+        var learningService = _serviceProvider!.GetRequiredService<LearningStorageService>();
         var promotionRepo = _serviceProvider!.GetRequiredService<PromotionRepository>();
         var metricRepo = _serviceProvider!.GetRequiredService<PromotionMetricRepository>();
 
@@ -124,7 +124,7 @@ public class PromotionTransparencyIntegrationTests : IAsyncLifetime
     public async Task PromotionQueryFilters_ProvideCompleteVisibility()
     {
         // Arrange
-        var learningService = _serviceProvider!.GetRequiredService<ILearningStorageService>();
+        var learningService = _serviceProvider!.GetRequiredService<LearningStorageService>();
         var promotionRepo = _serviceProvider!.GetRequiredService<PromotionRepository>();
 
         // Create multiple learnings with different promotions
@@ -166,7 +166,7 @@ public class PromotionTransparencyIntegrationTests : IAsyncLifetime
     public async Task RevertPromotionWithMetrics_CompletesSuccessfully()
     {
         // Arrange
-        var learningService = _serviceProvider!.GetRequiredService<ILearningStorageService>();
+        var learningService = _serviceProvider!.GetRequiredService<LearningStorageService>();
         var promotionRepo = _serviceProvider!.GetRequiredService<PromotionRepository>();
         var revertRepo = _serviceProvider!.GetRequiredService<RevertPromotionRepository>();
         var metricRepo = _serviceProvider!.GetRequiredService<PromotionMetricRepository>();
@@ -218,13 +218,13 @@ public class PromotionTransparencyIntegrationTests : IAsyncLifetime
     public async Task PromotionTransparency_WithBatchPromotions()
     {
         // Arrange
-        var learningService = _serviceProvider!.GetRequiredService<ILearningStorageService>();
+        var learningService = _serviceProvider!.GetRequiredService<LearningStorageService>();
         var promotionRepo = _serviceProvider!.GetRequiredService<PromotionRepository>();
 
         // Create learnings from a simulated task
-        var l1 = await learningService.CreateLearningAsync("L1", "D", "UserFeedback", "Skill", 0.8);
-        var l2 = await learningService.CreateLearningAsync("L2", "D", "UserFeedback", "Skill", 0.85);
-        var l3 = await learningService.CreateLearningAsync("L3", "D", "UserFeedback", "Agent", 0.9);
+        var l1 = await learningService.CreateLearningAsync("L1", "D", "UserFeedback", "Skill", 0.8, null, "task-batch-001");
+        var l2 = await learningService.CreateLearningAsync("L2", "D", "UserFeedback", "Skill", 0.85, null, "task-batch-001");
+        var l3 = await learningService.CreateLearningAsync("L3", "D", "UserFeedback", "Agent", 0.9, null, "task-batch-001");
 
         // Act: Batch promotion
         var selections = new[]

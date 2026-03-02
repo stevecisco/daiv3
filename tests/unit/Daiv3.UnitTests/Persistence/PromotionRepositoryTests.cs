@@ -54,7 +54,15 @@ public class PromotionRepositoryTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        await _databaseContext.DisposeAsync();
+        // Dispose service provider which handles all services including database context
+        if (_serviceProvider is IAsyncDisposable asyncDisposable)
+        {
+            await asyncDisposable.DisposeAsync();
+        }
+        else if (_serviceProvider is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
         
         // Clean up test database file
         try
