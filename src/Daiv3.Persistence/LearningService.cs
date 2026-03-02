@@ -8,19 +8,23 @@ namespace Daiv3.Persistence;
 /// Service for managing learning persistence and retrieval.
 /// Provides low-level storage operations for learnings in the SQLite database.
 /// Implements LM-REQ-003: Storage of learnings in dedicated SQLite table.
+/// Implements LM-NFR-002: Learnings SHOULD be transparent and auditable (via metrics collector).
 /// Note: For learning creation with embeddings, use Orchestration.LearningService (LM-REQ-001).
 /// </summary>
 public class LearningStorageService : ILearningStorageService
 {
     private readonly LearningRepository _repository;
     private readonly ILogger<LearningStorageService> _logger;
+    private readonly ILearningObserver? _metricsCollector;
 
     public LearningStorageService(
         LearningRepository repository,
-        ILogger<LearningStorageService> logger)
+        ILogger<LearningStorageService> logger,
+        ILearningObserver? metricsCollector = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _metricsCollector = metricsCollector;
     }
 
     /// <summary>
@@ -48,6 +52,7 @@ public class LearningStorageService : ILearningStorageService
             throw new ArgumentOutOfRangeException(nameof(confidence), "Confidence must be between 0.0 and 1.0");
         }
 
+        var createdAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var learning = new Learning
         {
             LearningId = Guid.NewGuid().ToString(),
@@ -61,8 +66,8 @@ public class LearningStorageService : ILearningStorageService
             Confidence = confidence,
             Status = "Active",
             TimesApplied = 0,
-            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            CreatedAt = createdAtUnix,
+            UpdatedAt = createdAtUnix,
             CreatedBy = createdBy ?? "system"
         };
 
@@ -70,6 +75,13 @@ public class LearningStorageService : ILearningStorageService
         _logger.LogInformation(
             "Created learning {LearningId} with title '{Title}' (scope: {Scope}, confidence: {Confidence})",
             learningId, title, scope, confidence);
+        
+        // Fire observability event
+        if (_metricsCollector != null)
+        {
+            await _metricsCollector.OnLearningCreatedAsync(
+                learningId, title, triggerType, scope, confidence, sourceAgent, createdAtUnix).ConfigureAwait(false);
+        }
         
         return learningId;
     }
@@ -180,11 +192,21 @@ public class LearningStorageService : ILearningStorageService
             return;
         }
 
+        var previousStatus = learning.Status;
         learning.Status = "Suppressed";
-        learning.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        learning.UpdatedAt = updatedAtUnix;
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
         
         _logger.LogInformation("Suppressed learning {LearningId}", learningId);
+        
+        // Fire observability event
+        if (_metricsCollector != null)
+        {
+            await _metricsCollector.OnLearningStatusChangedAsync(
+                learningId, previousStatus, "Suppressed", "User suppression", updatedAtUnix).ConfigureAwait(false);
+            await _metricsCollector.OnLearningSuppressionAsync(learningId, null, updatedAtUnix).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -201,11 +223,21 @@ public class LearningStorageService : ILearningStorageService
             return;
         }
 
+        var previousStatus = learning.Status;
         learning.Status = "Superseded";
-        learning.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        learning.UpdatedAt = updatedAtUnix;
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
         
         _logger.LogInformation("Marked learning {LearningId} as superseded", learningId);
+        
+        // Fire observability event
+        if (_metricsCollector != null)
+        {
+            await _metricsCollector.OnLearningStatusChangedAsync(
+                learningId, previousStatus, "Superseded", "User supersession", updatedAtUnix).ConfigureAwait(false);
+            await _metricsCollector.OnLearningSupersededAsync(learningId, null, updatedAtUnix).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -248,12 +280,19 @@ public class LearningStorageService : ILearningStorageService
         }
 
         learning.Scope = newScope;
-        learning.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        learning.UpdatedAt = updatedAtUnix;
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
         
         _logger.LogInformation(
             "Promoted learning {LearningId} from {OldScope} to {NewScope}",
             learningId, oldScope, newScope);
+        
+        // Fire observability event
+        if (_metricsCollector != null)
+        {
+            await _metricsCollector.OnLearningPromotedAsync(learningId, oldScope, newScope, updatedAtUnix).ConfigureAwait(false);
+        }
         
         return newScope;
     }

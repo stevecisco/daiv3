@@ -11,6 +11,7 @@ namespace Daiv3.Orchestration;
 /// <summary>
 /// Service for retrieving relevant learnings for agent execution per LM-REQ-005.
 /// Implements semantic search using embedding similarity for learning injection into agent prompts.
+/// Implements LM-NFR-002: Learnings SHOULD be transparent and auditable (via metrics collection).
 /// </summary>
 public class LearningRetrievalService : ILearningRetrievalService
 {
@@ -18,17 +19,20 @@ public class LearningRetrievalService : ILearningRetrievalService
     private readonly ILearningStorageService _storageService;
     private readonly IEmbeddingGenerator _embeddingGenerator;
     private readonly IVectorSimilarityService _vectorSimilarity;
+    private readonly ILearningObserver? _metricsCollector;
 
     public LearningRetrievalService(
         ILogger<LearningRetrievalService> logger,
         ILearningStorageService storageService,
         IEmbeddingGenerator embeddingGenerator,
-        IVectorSimilarityService vectorSimilarity)
+        IVectorSimilarityService vectorSimilarity,
+        ILearningObserver? metricsCollector = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _storageService = storageService ?? throw new ArgumentNullException(nameof(storageService));
         _embeddingGenerator = embeddingGenerator ?? throw new ArgumentNullException(nameof(embeddingGenerator));
         _vectorSimilarity = vectorSimilarity ?? throw new ArgumentNullException(nameof(vectorSimilarity));
+        _metricsCollector = metricsCollector;
     }
 
     /// <inheritdoc/>
@@ -206,6 +210,18 @@ public class LearningRetrievalService : ILearningRetrievalService
                 topLearnings.Count,
                 topLearnings.Count > 0 ? topLearnings[0].SimilarityScore : 0.0);
 
+            // Fire metrics collection event
+            if (_metricsCollector != null)
+            {
+                var retrievalId = Guid.NewGuid().ToString();
+                await _metricsCollector.OnLearningsRetrievedAsync(
+                    retrievalId,
+                    topLearnings.Count,
+                    context.TaskGoal,
+                    context.MinSimilarity,
+                    retrievalStopwatch.ElapsedMilliseconds).ConfigureAwait(false);
+            }
+
             // Update TimesApplied counter for retrieved learnings asynchronously (fire and forget)
             _ = Task.Run(async () =>
             {
@@ -215,6 +231,16 @@ public class LearningRetrievalService : ILearningRetrievalService
                     {
                         retrieved.Learning.TimesApplied++;
                         await _storageService.UpdateLearningAsync(retrieved.Learning, CancellationToken.None).ConfigureAwait(false);
+                        
+                        // Fire application event
+                        if (_metricsCollector != null)
+                        {
+                            await _metricsCollector.OnLearningAppliedAsync(
+                                retrieved.Learning.LearningId,
+                                context.AgentId ?? "unknown",
+                                "Injected",
+                                DateTimeOffset.UtcNow.ToUnixTimeSeconds()).ConfigureAwait(false);
+                        }
                     }
                     catch (Exception ex)
                     {

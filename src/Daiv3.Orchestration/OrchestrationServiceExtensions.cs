@@ -68,7 +68,16 @@ public static class OrchestrationServiceExtensions
         services.TryAddScoped<ILearningService, LearningService>();
 
         // Register learning retrieval service for semantic learning injection (LM-REQ-005)
-        services.TryAddScoped<ILearningRetrievalService, LearningRetrievalService>();
+        // with metrics collection for transparency (LM-NFR-002)
+        services.TryAddScoped<ILearningRetrievalService>(serviceProvider =>
+        {
+            var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LearningRetrievalService>>();
+            var storageService = serviceProvider.GetRequiredService<Daiv3.Persistence.ILearningStorageService>();
+            var embeddingGenerator = serviceProvider.GetRequiredService<Daiv3.Knowledge.Embedding.IEmbeddingGenerator>();
+            var vectorSimilarity = serviceProvider.GetRequiredService<Daiv3.Knowledge.Embedding.IVectorSimilarityService>();
+            var metricsCollector = serviceProvider.GetService<Daiv3.Persistence.ILearningObserver>();
+            return new LearningRetrievalService(logger, storageService, embeddingGenerator, vectorSimilarity, metricsCollector);
+        });
 
         return services;
     }

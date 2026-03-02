@@ -15,10 +15,12 @@ public static class PersistenceServiceExtensions
     /// </summary>
     /// <param name="services">Service collection</param>
     /// <param name="configureOptions">Optional configuration action for persistence options</param>
+    /// <param name="configureLearningObservability">Optional configuration for learning observability</param>
     /// <returns>Service collection for chaining</returns>
     public static IServiceCollection AddPersistence(
         this IServiceCollection services,
-        Action<PersistenceOptions>? configureOptions = null)
+        Action<PersistenceOptions>? configureOptions = null,
+        Action<LearningObservabilityOptions>? configureLearningObservability = null)
     {
         // Register options
         if (configureOptions != null)
@@ -28,6 +30,16 @@ public static class PersistenceServiceExtensions
         else
         {
             services.Configure<PersistenceOptions>(options => { });
+        }
+
+        // Register learning observability options
+        if (configureLearningObservability != null)
+        {
+            services.Configure(configureLearningObservability);
+        }
+        else
+        {
+            services.Configure<LearningObservabilityOptions>(options => { });
         }
 
         // Register database context
@@ -46,10 +58,31 @@ public static class PersistenceServiceExtensions
         // MQ-REQ-013: Model queue repository for offline queueing
         services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
 
+        // LM-NFR-002: Learning metrics collector for transparency and auditability
+        services.AddSingleton<LearningMetricsCollector>(serviceProvider =>
+        {
+            var repository = serviceProvider.GetRequiredService<LearningRepository>();
+            var logger = serviceProvider.GetRequiredService<ILogger<LearningMetricsCollector>>();
+            return new LearningMetricsCollector(repository, logger);
+        });
+        services.AddSingleton<ILearningObserver>(sp => sp.GetRequiredService<LearningMetricsCollector>());
+
         // Register services
         // LM-REQ-003: Learning storage service for managing learning persistence
-        services.AddScoped<ILearningStorageService, LearningStorageService>();
-        services.AddScoped<LearningStorageService>();
+        services.AddScoped<ILearningStorageService>(serviceProvider =>
+        {
+            var repository = serviceProvider.GetRequiredService<LearningRepository>();
+            var logger = serviceProvider.GetRequiredService<ILogger<LearningStorageService>>();
+            var metricsCollector = serviceProvider.GetRequiredService<ILearningObserver>();
+            return new LearningStorageService(repository, logger, metricsCollector);
+        });
+        services.AddScoped<LearningStorageService>(serviceProvider =>
+        {
+            var repository = serviceProvider.GetRequiredService<LearningRepository>();
+            var logger = serviceProvider.GetRequiredService<ILogger<LearningStorageService>>();
+            var metricsCollector = serviceProvider.GetRequiredService<ILearningObserver>();
+            return new LearningStorageService(repository, logger, metricsCollector);
+        });
 
         return services;
     }
