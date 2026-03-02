@@ -7,6 +7,7 @@ using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Moq;
 using Xunit;
 using System.Text.Json;
 
@@ -82,11 +83,26 @@ public class TaskDependencyAcceptanceTests : IAsyncLifetime
 
         var intentResolverLogger = loggerFactory.CreateLogger<IntentResolver>();
         var intentResolver = new IntentResolver(intentResolverLogger, orchestrationOptions);
+        var successCriteriaEvaluator = new SuccessCriteriaEvaluator(loggerFactory.CreateLogger<SuccessCriteriaEvaluator>());
+        var mockToolRegistry = new Mock<IToolRegistry>();
+        mockToolRegistry
+            .Setup(x => x.GetAvailableToolsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<Daiv3.Orchestration.Models.ToolDescriptor>)Array.Empty<Daiv3.Orchestration.Models.ToolDescriptor>());
+        var mockToolInvoker = new Mock<IToolInvoker>();
+        var metricsCollector = new AgentExecutionMetricsCollector(
+            loggerFactory.CreateLogger<AgentExecutionMetricsCollector>(),
+            Options.Create(new AgentExecutionObservabilityOptions()));
+
         _agentManager = new AgentManager(
             loggerFactory.CreateLogger<AgentManager>(),
             _agentRepository,
             _messageBroker,
-            orchestrationOptions);
+            successCriteriaEvaluator,
+            mockToolRegistry.Object,
+            mockToolInvoker.Object,
+            orchestrationOptions,
+            metricsCollector,
+            null);
 
         _orchestrator = new TaskOrchestrator(
             intentResolver,

@@ -12,7 +12,7 @@ public class SkillSandboxIntegrationTests
     public async Task ExecuteAsync_WhenPermissionDenied_BlocksSkillExecution()
     {
         var services = new ServiceCollection();
-        services.AddLogging(x => x.AddDebug());
+        services.AddLogging(x => x.AddConsole());
         services.AddOrchestrationServices();
         services.Configure<SkillSandboxConfiguration>(options =>
         {
@@ -45,7 +45,7 @@ public class SkillSandboxIntegrationTests
     public async Task ExecuteAsync_WhenPermissionAllowed_ExecutesSkillSuccessfully()
     {
         var services = new ServiceCollection();
-        services.AddLogging(x => x.AddDebug());
+        services.AddLogging(x => x.AddConsole());
         services.AddOrchestrationServices();
         services.Configure<SkillSandboxConfiguration>(options =>
         {

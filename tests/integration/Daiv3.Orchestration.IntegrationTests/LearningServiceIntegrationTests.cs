@@ -5,6 +5,7 @@ using Daiv3.Orchestration.Models;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -20,12 +21,16 @@ public class LearningServiceIntegrationTests : IAsyncLifetime
     private DatabaseContext? _dbContext;
     private LearningRepository? _repository;
     private ILearningService? _service;
+    private string? _dbPath;
 
     public async Task InitializeAsync()
     {
-        // Create in-memory database
-        _dbContext = new DatabaseContext(":memory:");
-        await _dbContext.InitializeDatabaseAsync();
+        // Create test database
+        _dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-learning-service-test-{Guid.NewGuid():N}.db");
+        _dbContext = new DatabaseContext(
+            Mock.Of<ILogger<DatabaseContext>>(),
+            Options.Create(new PersistenceOptions { DatabasePath = _dbPath }));
+        await _dbContext.InitializeAsync();
 
         // Create repository
         _repository = new LearningRepository(
@@ -59,6 +64,11 @@ public class LearningServiceIntegrationTests : IAsyncLifetime
         if (_dbContext != null)
         {
             await _dbContext.DisposeAsync();
+        }
+
+        if (!string.IsNullOrWhiteSpace(_dbPath) && File.Exists(_dbPath))
+        {
+            File.Delete(_dbPath);
         }
     }
 

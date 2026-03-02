@@ -19,14 +19,16 @@ public class SkillExecutorIntegrationTests : IAsyncLifetime
     private readonly ISkillExecutor _skillExecutor;
     private readonly IMessageBroker _messageBroker;
     private readonly DatabaseContext _databaseContext;
+    private readonly string _dbPath;
 
     public SkillExecutorIntegrationTests()
     {
         var services = new ServiceCollection();
-        services.AddLogging(x => x.AddDebug());
+        services.AddLogging(x => x.AddConsole());
+        _dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-skill-executor-test-{Guid.NewGuid():N}.db");
         
         // Register persistence
-        services.AddPersistenceServices();
+        services.AddPersistence(options => options.DatabasePath = _dbPath);
         
         // Register orchestration
         services.AddOrchestrationServices();
@@ -50,6 +52,11 @@ public class SkillExecutorIntegrationTests : IAsyncLifetime
         if (_databaseContext is IAsyncDisposable asyncDisposable)
         {
             await asyncDisposable.DisposeAsync();
+        }
+
+        if (File.Exists(_dbPath))
+        {
+            File.Delete(_dbPath);
         }
     }
 
@@ -364,16 +371,6 @@ public class SkillExecutorIntegrationTests : IAsyncLifetime
     {
         // Arrange
         _skillRegistry.RegisterSkill(new TestCalculatorSkill());
-        
-        var skillExecutionCompleted = false;
-        _messageBroker.Subscribe("skill/executed", (message) =>
-        {
-            if (message.Topic == "skill/executed")
-            {
-                skillExecutionCompleted = true;
-            }
-            return Task.CompletedTask;
-        });
 
         var request = new SkillExecutionRequest
         {

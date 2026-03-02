@@ -3,12 +3,9 @@ using Daiv3.Orchestration;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Models;
 using Daiv3.Persistence;
-using Daiv3.Persistence.Entities;
-using Daiv3.Persistence.Repositories;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -25,7 +22,6 @@ public class LearningInjectionAcceptanceTests : IAsyncLifetime
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<LearningInjectionAcceptanceTests> _logger;
     private IServiceProvider? _serviceProvider;
-    private DatabaseContext? _databaseContext;
 
     public LearningInjectionAcceptanceTests()
     {
@@ -37,25 +33,13 @@ public class LearningInjectionAcceptanceTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        // Initialize database
-        _databaseContext = new DatabaseContext(
-            _loggerFactory.CreateLogger<DatabaseContext>(),
-            Options.Create(new PersistenceOptions { DatabasePath = _testDbPath }));
-        await _databaseContext.InitializeAsync();
-
         // Set up DI container
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
-        // Register persistence (using existing database)
-        services.AddSingleton(_databaseContext);
-        services.AddScoped<IRepository<Learning>, LearningRepository>();
-        services.AddScoped<LearningRepository>();
-        services.AddScoped<LearningStorageService>();
-        services.AddScoped<IAgentRepository, AgentRepository>();
-        services.AddScoped<ISkillRegistry, SkillRegistry>();
-        services.AddScoped<IToolRegistry, ToolRegistry>();
-        services.AddScoped<IMessageBroker, InMemoryMessageBroker>();
+        // Register persistence + orchestration
+        services.AddPersistence(options => options.DatabasePath = _testDbPath);
+        services.AddOrchestrationServices();
 
         // Register mock embedding generator with deterministic embeddings
         var mockEmbeddingGenerator = new Mock<IEmbeddingGenerator>();
@@ -93,13 +77,10 @@ public class LearningInjectionAcceptanceTests : IAsyncLifetime
                 return embedding;
             });
 
-        services.AddSingleton(mockEmbeddingGenerator.Object);
+        services.AddSingleton<IEmbeddingGenerator>(mockEmbeddingGenerator.Object);
 
         // Register vector similarity service
-        services.AddScoped<IVectorSimilarityService, Infrastructure.Shared.Hardware.CpuVectorSimilarityService>();
-
-        // Register orchestration services
-        services.AddOrchestrationServices();
+        services.AddScoped<IVectorSimilarityService, CpuVectorSimilarityService>();
 
         _serviceProvider = services.BuildServiceProvider();
     }
@@ -113,12 +94,6 @@ public class LearningInjectionAcceptanceTests : IAsyncLifetime
         else if (_serviceProvider is IDisposable disposable)
         {
             disposable.Dispose();
-        }
-
-        if (_databaseContext != null)
-        {
-            await _databaseContext.DisposeAsync();
-            _databaseContext = null;
         }
 
         SqliteConnection.ClearAllPools();

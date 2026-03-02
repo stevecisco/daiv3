@@ -1,5 +1,6 @@
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -17,10 +18,13 @@ public class AgentExecutionObservabilityIntegrationTests : IAsyncLifetime
     private readonly IAgentManager _agentManager;
     private readonly AgentExecutionMetricsCollector _metricsCollector;
     private readonly ILogger<AgentExecutionObservabilityIntegrationTests> _logger;
+    private readonly string _dbPath;
     private Guid _testAgentId;
 
     public AgentExecutionObservabilityIntegrationTests()
     {
+        _dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-observability-test-{Guid.NewGuid():N}.db");
+
         var services = new ServiceCollection();
         
         // Add logging
@@ -30,7 +34,7 @@ public class AgentExecutionObservabilityIntegrationTests : IAsyncLifetime
         services.AddOrchestrationServices();
 
         // Add persistence services
-        services.AddSingleton<IDatabaseContextFactory>(new InMemoryDatabaseContextFactory());
+        services.AddPersistence(options => options.DatabasePath = _dbPath);
 
         _serviceProvider = services.BuildServiceProvider();
         _agentManager = _serviceProvider.GetRequiredService<IAgentManager>();
@@ -55,7 +59,16 @@ public class AgentExecutionObservabilityIntegrationTests : IAsyncLifetime
 
     public Task DisposeAsync()
     {
-        _serviceProvider?.Dispose();
+        if (_serviceProvider is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        if (File.Exists(_dbPath))
+        {
+            File.Delete(_dbPath);
+        }
+
         return Task.CompletedTask;
     }
 
@@ -210,7 +223,7 @@ public class AgentExecutionObservabilityIntegrationTests : IAsyncLifetime
         
         // Metrics should have token information
         Assert.True(metrics.TotalTokensConsumed >= 0, "Token count should be non-negative");
-        Assert.Equal(result.TokensConsumed, metrics.TotalTokensConsumed, "Metrics should match result tokens");
+        Assert.Equal(result.TokensConsumed, metrics.TotalTokensConsumed);
         
         // Check calculations
         if (metrics.TotalIterations > 0)
@@ -259,23 +272,6 @@ public class AgentExecutionObservabilityIntegrationTests : IAsyncLifetime
         
         var metrics = _metricsCollector.GetMetrics(result.ExecutionId);
         Assert.NotNull(metrics);
-        Assert.Equal(result.IterationsExecuted, metrics.TotalIterations, "Iteration count should match");
-    }
-}
-
-/// <summary>
-/// In-memory database context factory for testing.
-/// </summary>
-internal class InMemoryDatabaseContextFactory : IDatabaseContextFactory
-{
-    public ValueTask<IDatabaseContext> CreateContextAsync(CancellationToken ct = default)
-    {
-        var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<DatabaseContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        var context = new DatabaseContext(options);
-        context.Database.EnsureCreated();
-        return ValueTask.FromResult<IDatabaseContext>(context);
+        Assert.Equal(result.IterationsExecuted, metrics.TotalIterations);
     }
 }

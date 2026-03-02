@@ -14,15 +14,16 @@ public class AgentSelfCorrectionIntegrationTests : IAsyncLifetime
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly IAgentManager _agentManager;
-    private readonly DatabaseContext _dbContext;
+    private readonly IDatabaseContext _dbContext;
     private Guid _testAgentId;
 
     public AgentSelfCorrectionIntegrationTests()
     {
         var services = new ServiceCollection();
+        var dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-self-correction-test-{Guid.NewGuid():N}.db");
         
         // Register persistence
-        services.AddPersistenceServices(() => ":memory:");
+        services.AddPersistence(options => options.DatabasePath = dbPath);
         
         // Register orchestration services
         services.AddOrchestrationServices();
@@ -38,7 +39,7 @@ public class AgentSelfCorrectionIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Create test database
-        await _dbContext.Database.EnsureCreatedAsync();
+        await _dbContext.InitializeAsync();
 
         // Create test agent
         var agentDef = new AgentDefinition
@@ -329,7 +330,7 @@ public class AgentSelfCorrectionIntegrationTests : IAsyncLifetime
         // Should terminate when max iterations reached
         Assert.False(result.Success);
         Assert.Equal("SuccessCriteriaNotMet", result.TerminationReason);
-        Assert.LessOrEqual(result.IterationsExecuted, 2);
+        Assert.True(result.IterationsExecuted <= 2);
     }
 
     #endregion
