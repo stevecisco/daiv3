@@ -398,29 +398,61 @@ public class LearningStorageService : ILearningStorageService
                     continue;
                 }
 
-                // Promote the learning
-                var newScope = await PromoteLearningAsync(
-                    selection.LearningId,
-                    promotedBy,
-                    taskId,
-                    null,
-                    selection.Notes,
-                    ct).ConfigureAwait(false);
+                // Promote the learning directly to the target scope
+                var normalizedTargetScope = char.ToUpperInvariant(selection.TargetScope[0]) + selection.TargetScope[1..].ToLowerInvariant();
+                
+                // Check if already at or beyond target scope
+                var scopeHierarchy = new[] { "Skill", "Agent", "Project", "Domain", "Global" };
+                var currentIndex = Array.IndexOf(scopeHierarchy, learning.Scope);
+                var targetIndex = Array.IndexOf(scopeHierarchy, normalizedTargetScope);
 
-                if (newScope != null)
+                if (currentIndex >= targetIndex)
                 {
-                    result.SuccessfulPromotions.Add(selection);
                     _logger.LogInformation(
-                        "Promoted learning {LearningId} from {OldScope} to {NewScope} as part of task {TaskId}",
-                        selection.LearningId, learning.Scope, newScope, taskId);
-                }
-                else
-                {
+                        "Learning {LearningId} is already at {CurrentScope} which is at or beyond {TargetScope}, skipping promotion",
+                        selection.LearningId, learning.Scope, normalizedTargetScope);
                     result.FailedPromotions.Add(
                         selection,
                         new PromotionError(
-                            "PromotionFailed",
-                            $"Learning is already at the highest scope or not found"));
+                            "AlreadyAtOrBeyondTargetScope",
+                            $"Learning is already at {learning.Scope} which is at or beyond {normalizedTargetScope}"));
+                    continue;
+                }
+
+                // Update the learning scope directly
+                var oldScope = learning.Scope;
+                learning.Scope = normalizedTargetScope;
+                var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                learning.UpdatedAt = updatedAtUnix;
+                await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
+                
+                // Record promotion history with source task
+                if (_promotionRepository != null)
+                {
+                    var promotion = new Promotion
+                    {
+                        PromotionId = Guid.NewGuid().ToString(),
+                        LearningId = selection.LearningId,
+                        FromScope = oldScope,
+                        ToScope = normalizedTargetScope,
+                        PromotedAt = updatedAtUnix,
+                        PromotedBy = promotedBy,
+                        SourceTaskId = taskId,
+                        Notes = selection.Notes
+                    };
+
+                    await _promotionRepository.AddAsync(promotion, ct).ConfigureAwait(false);
+                }
+                
+                result.SuccessfulPromotions.Add(selection);
+                _logger.LogInformation(
+                    "Promoted learning {LearningId} from {OldScope} to {NewScope} as part of task {TaskId}",
+                    selection.LearningId, oldScope, normalizedTargetScope, taskId);
+                
+                // Fire observability event
+                if (_metricsCollector != null)
+                {
+                    await _metricsCollector.OnLearningPromotedAsync(selection.LearningId, oldScope, normalizedTargetScope, updatedAtUnix).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
