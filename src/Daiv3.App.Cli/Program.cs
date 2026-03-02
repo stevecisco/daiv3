@@ -10,6 +10,7 @@ using Daiv3.Knowledge.Embedding;
 using Daiv3.Scheduler;
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Configuration;
+using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Models;
 
 namespace Daiv3.App.Cli;
@@ -3162,6 +3163,7 @@ public class Program
         {
             var logger = host.Services.GetRequiredService<ILogger<Program>>();
             var service = host.Services.GetRequiredService<LearningStorageService>();
+            var promotionService = host.Services.GetRequiredService<IKnowledgePromotionService>();
 
             logger.LogInformation(
                 "Promoting {Count} learnings from task {TaskId}",
@@ -3175,13 +3177,31 @@ public class Program
                 return 1;
             }
 
-            // Create promotion selections
-            var promotions = learningIds.Zip(targetScopes, (id, scope) => new LearningPromotionSelection
+            var requestedScopeByLearningId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Create promotion selections. Internet-level targets are exported via KBP-REQ-005
+            // but persisted as Global scope in learning storage.
+            var promotions = new List<LearningPromotionSelection>(learningIds.Length);
+            for (var i = 0; i < learningIds.Length; i++)
             {
-                LearningId = id,
-                TargetScope = scope,
-                Notes = notes
-            }).ToList();
+                var learningId = learningIds[i];
+                var requestedScope = targetScopes[i];
+                requestedScopeByLearningId[learningId] = requestedScope;
+
+                var storageScope = requestedScope;
+                if (promotionService.TryParseLevel(requestedScope, out var level)
+                    && level == KnowledgePromotionLevel.Internet)
+                {
+                    storageScope = "Global";
+                }
+
+                promotions.Add(new LearningPromotionSelection
+                {
+                    LearningId = learningId,
+                    TargetScope = storageScope,
+                    Notes = notes
+                });
+            }
 
             // Execute batch promotion
             var result = await service.PromoteLearningsFromTaskAsync(taskId, promotions.AsReadOnly());
@@ -3198,7 +3218,10 @@ public class Program
                 Console.WriteLine($"✓ Successful Promotions ({result.SuccessfulPromotions.Count}):");
                 foreach (var promo in result.SuccessfulPromotions)
                 {
-                    Console.WriteLine($"  • Learning {promo.LearningId} → {promo.TargetScope}");
+                    var displayScope = requestedScopeByLearningId.TryGetValue(promo.LearningId, out var requestedScope)
+                        ? requestedScope
+                        : promo.TargetScope;
+                    Console.WriteLine($"  • Learning {promo.LearningId} → {displayScope}");
                 }
                 Console.WriteLine();
             }
@@ -3234,8 +3257,14 @@ public class Program
                     }
 
                     // Build target scope map
-                    var targetScopeMap = result.SuccessfulPromotions
-                        .ToDictionary(p => p.LearningId, p => p.TargetScope);
+                    var targetScopeMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var promo in result.SuccessfulPromotions)
+                    {
+                        var targetScope = requestedScopeByLearningId.TryGetValue(promo.LearningId, out var requestedScope)
+                            ? requestedScope
+                            : promo.TargetScope;
+                        targetScopeMap[promo.LearningId] = targetScope;
+                    }
 
                     // Generate summary
                     var summary = await summaryService.GenerateSummaryAsync(
@@ -3249,6 +3278,29 @@ public class Program
                     Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                     Console.WriteLine(summary.SummaryText);
                     Console.WriteLine();
+
+                    // Create Internet-level draft artifact for review (KBP-REQ-005)
+                    var hasInternetPromotion = result.SuccessfulPromotions.Any(promo =>
+                        targetScopeMap.TryGetValue(promo.LearningId, out var targetScope)
+                        && promotionService.TryParseLevel(targetScope, out var level)
+                        && level == KnowledgePromotionLevel.Internet);
+
+                    if (hasInternetPromotion)
+                    {
+                        var draftService = host.Services.GetRequiredService<IKnowledgeInternetDraftService>();
+                        var draft = await draftService.CreateDraftArtifactAsync(
+                            promotedLearnings.AsReadOnly(),
+                            targetScopeMap,
+                            summary,
+                            taskId,
+                            "user");
+
+                        Console.WriteLine("INTERNET DRAFT ARTIFACT");
+                        Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                        Console.WriteLine("✓ Draft created for user review");
+                        Console.WriteLine($"  File: {draft.ArtifactPath}");
+                        Console.WriteLine();
+                    }
                 }
                 catch (Exception summaryEx)
                 {

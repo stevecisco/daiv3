@@ -30,6 +30,7 @@ public static class OrchestrationServiceExtensions
         services.AddOptions<OrchestrationOptions>();
         services.AddOptions<AgentExecutionObservabilityOptions>();
         services.AddOptions<SkillSandboxConfiguration>();
+        services.AddOptions<InternetKnowledgeDraftOptions>();
 
         // Register HttpClient for REST API tool invocation
         services.AddHttpClient("RestApiTool", client =>
@@ -82,6 +83,9 @@ public static class OrchestrationServiceExtensions
 
         // Register knowledge summary service for generating summaries of knowledge promotions (KBP-REQ-004)
         services.TryAddScoped<IKnowledgeSummaryService, KnowledgeSummaryService>();
+
+        // Register Internet promotion draft artifact service (KBP-REQ-005)
+        services.TryAddScoped<IKnowledgeInternetDraftService, KnowledgeInternetDraftService>();
 
         // Register agent promotion proposal service for agent-proposed promotions requiring confirmation (KBP-REQ-003)
         services.TryAddScoped<IAgentPromotionProposalService>(serviceProvider =>
