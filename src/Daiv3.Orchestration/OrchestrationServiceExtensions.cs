@@ -98,6 +98,19 @@ public static class OrchestrationServiceExtensions
             return new AgentPromotionProposalService(logger, proposalRepository, learningRepository, promotionRepository, learningService);
         });
 
+        // Register web content ingestion service for integrating fetched web content into knowledge pipeline (WFC-REQ-006)
+        services.TryAddScoped<IWebContentIngestionService>(serviceProvider =>
+        {
+            var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<WebContentIngestionService>>();
+            var contentStore = serviceProvider.GetRequiredService<Daiv3.WebFetch.Crawl.IMarkdownContentStore>();
+            var documentProcessor = serviceProvider.GetRequiredService<Daiv3.Knowledge.IKnowledgeDocumentProcessor>();
+            var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<WebContentIngestionOptions>>();
+            return new WebContentIngestionService(logger, contentStore, documentProcessor, options);
+        });
+
+        // Register web content ingestion options
+        services.AddOptions<WebContentIngestionOptions>();
+
         return services;
     }
 
