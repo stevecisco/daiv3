@@ -5,42 +5,58 @@ Source Spec: 12. Key .NET Libraries & Components - Requirements
 ## Requirement
 The system SHALL integrate Foundry Local via Microsoft.Extensions.AI and the Foundry Local SDK.
 
-## Rationale
-Foundry Local provides **managed intelligent orchestration** for local SLM/LLM execution on Windows 11 Copilot+ devices. While ONNX Runtime is used directly for stateless embedding inference, Foundry Local is essential for interactive language models because it:
+## Status
+**Complete (100%)**
 
-1. **Automatic Hardware Optimization** - Discovers and downloads model variants optimized for target hardware (NPU > GPU > CPU). Eliminates manual variant management and testing across different hardware tiers.
+## Implementation Summary
+KLC-REQ-005 is implemented by wiring Foundry lifecycle orchestration into the model execution layer and app startup composition:
 
-2. **Service Catalog Management** - Provides unified model discovery and automatic updates when optimized versions are released. Application code remains stable even as new hardware optimizations become available.
+1. **Foundry SDK-backed lifecycle operations**
+   - `FoundryLocalManagementService` now exposes lifecycle APIs used by execution flow:
+     - `IsModelAvailableAsync(...)`
+     - `LoadModelAsync(...)`
+     - `UnloadModelAsync(...)`
+     - `GetLoadedModelAsync(...)`
+   - Lifecycle calls use SDK-version-tolerant invocation so the same code path works across current Foundry SDK surfaces.
 
-3. **Unified AI Interface** - Foundry Local integrates with Microsoft.Extensions.AI, enabling seamless provider switching between local models (Foundry) and online providers (OpenAI, Azure OpenAI, Anthropic) without architecture changes.
+2. **Single-model constraint + real lifecycle bridge**
+   - `ModelLifecycleManager` now delegates load/unload behavior to Foundry management when registered.
+   - Existing single-model enforcement, lock safety, metrics, and idempotency behavior remain intact.
 
-4. **Model Lifecycle Management** - Handles memory management, execution provider initialization (DirectML settings, GPU drivers, etc.), and graceful degradation across hardware tiers.
+3. **Microsoft.Extensions.AI integration path**
+   - `FoundryBridge` accepts `IChatClient` for local execution through Microsoft.Extensions.AI abstractions when available.
+   - If no `IChatClient` is registered, execution falls back to safe local behavior while still honoring model lifecycle switching.
 
-5. **Queue Foundation** - The one-model-at-a-time constraint is a Foundry Local SDK limitation that drives the intelligent queue batching strategy, which minimizes expensive model-switching costs.
+4. **DI and startup integration**
+   - `ModelExecutionServiceExtensions` registers `FoundryLocalManagementService` with model execution services.
+   - CLI and MAUI startup registration now call `AddModelExecutionServices(...)` to ensure Foundry integration is active in host composition.
 
-Alternatively, direct ONNX usage would require manual variant management, custom hardware detection, and reimplementation of ~60% of Foundry Local's features for each deployment target.
+5. **Dependency alignment required by Foundry SDK graph**
+   - Package versions were aligned for `Microsoft.Extensions.AI.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`, and `Microsoft.Extensions.DependencyInjection.Abstractions` where required to eliminate NU1605 downgrade errors.
 
-## Implementation Plan
-- Identify the owning component and interface boundary.
-- Define data contracts, configuration, and defaults.
-- Implement the core logic with clear error handling and logging.
-- Add integration points to orchestration and UI where applicable.
-- Document configuration and operational behavior.
+## Validation
+- Targeted model execution tests passed:
+  - `ModelLifecycleManagerTests`
+  - `FoundryBridgeTests`
+- Full solution build passed:
+  - `dotnet build Daiv3.FoundryLocal.slnx --nologo --verbosity minimal -clp:ErrorsOnly`
 
-## Testing Plan
-- Unit tests to validate primary behavior and edge cases.
-- Integration tests with dependent components and data stores.
-- Negative tests to verify failure modes and error messages.
-- Performance or load checks if the requirement impacts latency.
-- Manual verification via UI workflows when applicable.
-
-## Usage and Operational Notes
-- Describe how this capability is invoked or configured.
-- List user-visible effects and any UI surfaces involved.
-- Specify operational constraints (offline mode, budgets, permissions).
+## Files Updated (KLC-REQ-005 scope)
+- `src/Daiv3.FoundryLocal.Management/FoundryLocalManagementService.cs`
+- `src/Daiv3.ModelExecution/ModelLifecycleManager.cs`
+- `src/Daiv3.ModelExecution/FoundryBridge.cs`
+- `src/Daiv3.ModelExecution/ModelExecutionServiceExtensions.cs`
+- `src/Daiv3.ModelExecution/Daiv3.ModelExecution.csproj`
+- `src/Daiv3.App.Cli/Program.cs`
+- `src/Daiv3.App.Cli/Daiv3.App.Cli.csproj`
+- `src/Daiv3.App.Maui/MauiProgram.cs`
+- `src/Daiv3.App.Maui/Daiv3.App.Maui.csproj`
+- Plus package/version alignment in affected `src/**/*.csproj` and `tests/**/*.csproj` to keep restore/build healthy.
 
 ## Dependencies
-- None
+- Microsoft.AI.Foundry.Local / Microsoft.AI.Foundry.Local.WinML
+- Microsoft.Extensions.AI.Abstractions
 
 ## Related Requirements
-- None
+- MM-REQ-001, MM-REQ-007, MM-REQ-014, MM-REQ-019
+- MQ-REQ-001 (removes prior “awaiting KLC-REQ-005 SDK integration” blocker)

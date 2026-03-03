@@ -8,9 +8,12 @@ public sealed class FoundryLocalManagementService : IAsyncDisposable
 {
     private readonly ILogger _logger;
     private readonly ServiceCatalogClient _serviceCatalogClient = new();
+    private readonly SemaphoreSlim _modelLifecycleLock = new(1, 1);
     private bool _initialized;
     private bool _ownsManager;
     private FoundryLocalManager? _manager;
+    private IDisposable? _loadedModelManager;
+    private string? _loadedModelId;
 
     public FoundryLocalManagementService(ILogger logger)
     {
@@ -155,7 +158,7 @@ public sealed class FoundryLocalManagementService : IAsyncDisposable
         var allModels = await _serviceCatalogClient.ListModelsAsync(ct).ConfigureAwait(false);
 
         var candidates = allModels
-            .Where(m => LooksLikeModelId(aliasOrId) 
+            .Where(m => LooksLikeModelId(aliasOrId)
                 ? m.ModelId.Equals(aliasOrId, StringComparison.OrdinalIgnoreCase)
                 : m.Alias.Equals(aliasOrId, StringComparison.OrdinalIgnoreCase))
             .Where(m => version == null || ParseVersion(m.ModelId) == version.Value)
@@ -183,8 +186,118 @@ public sealed class FoundryLocalManagementService : IAsyncDisposable
         return deletedCount;
     }
 
+    public async Task<bool> IsModelAvailableAsync(string aliasOrId, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(aliasOrId);
+        EnsureInitialized();
+
+        var models = await _serviceCatalogClient.ListModelsAsync(ct).ConfigureAwait(false);
+        return models.Any(m =>
+            m.ModelId.Equals(aliasOrId, StringComparison.OrdinalIgnoreCase) ||
+            m.Alias.Equals(aliasOrId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task LoadModelAsync(string aliasOrId, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(aliasOrId);
+        EnsureInitialized();
+
+        await _modelLifecycleLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_loadedModelId) &&
+                _loadedModelId.Equals(aliasOrId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _loadedModelManager?.Dispose();
+            _loadedModelManager = null;
+
+            var managerType = typeof(FoundryLocalManager);
+            var startMethod = managerType.GetMethod("StartModelAsync", new[] { typeof(string) });
+            if (startMethod != null)
+            {
+                var startTask = (Task?)startMethod.Invoke(null, [aliasOrId]);
+                if (startTask == null)
+                {
+                    throw new InvalidOperationException("Foundry Local SDK returned null task from StartModelAsync.");
+                }
+
+                await startTask.ConfigureAwait(false);
+
+                var resultProperty = startTask.GetType().GetProperty("Result");
+                if (resultProperty?.GetValue(startTask) is IDisposable disposable)
+                {
+                    _loadedModelManager = disposable;
+                }
+            }
+
+            _loadedModelId = aliasOrId;
+            _logger.LogInformation("Foundry Local model loaded: {ModelId}", _loadedModelId);
+        }
+        finally
+        {
+            _modelLifecycleLock.Release();
+        }
+    }
+
+    public async Task UnloadModelAsync(CancellationToken ct = default)
+    {
+        EnsureInitialized();
+
+        await _modelLifecycleLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var modelId = _loadedModelId;
+
+            var managerType = typeof(FoundryLocalManager);
+            var stopWithModel = managerType.GetMethod("StopModelAsync", new[] { typeof(string) });
+            if (stopWithModel != null && !string.IsNullOrWhiteSpace(modelId))
+            {
+                var stopTask = (Task?)stopWithModel.Invoke(null, [modelId]);
+                if (stopTask != null)
+                {
+                    await stopTask.ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                var stopWithoutArgs = managerType.GetMethod("StopModelAsync", Type.EmptyTypes);
+                if (stopWithoutArgs != null)
+                {
+                    var stopTask = (Task?)stopWithoutArgs.Invoke(null, null);
+                    if (stopTask != null)
+                    {
+                        await stopTask.ConfigureAwait(false);
+                    }
+                }
+            }
+
+            _loadedModelManager?.Dispose();
+            _loadedModelManager = null;
+            _loadedModelId = null;
+
+            _logger.LogInformation("Foundry Local model unloaded: {ModelId}", modelId);
+        }
+        finally
+        {
+            _modelLifecycleLock.Release();
+        }
+    }
+
+    public Task<string?> GetLoadedModelAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(_loadedModelId);
+    }
+
     public async ValueTask DisposeAsync()
     {
+        _loadedModelManager?.Dispose();
+        _loadedModelManager = null;
+        _loadedModelId = null;
+
         if (_ownsManager && _manager != null)
         {
 #pragma warning disable IDISP007 // Don't dispose injected - we only dispose if we own it
@@ -195,6 +308,7 @@ public sealed class FoundryLocalManagementService : IAsyncDisposable
 
         _initialized = false;
         _ownsManager = false;
+        _modelLifecycleLock.Dispose();
         await _serviceCatalogClient.DisposeAsync().ConfigureAwait(false);
     }
 

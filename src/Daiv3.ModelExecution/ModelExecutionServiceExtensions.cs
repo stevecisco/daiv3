@@ -1,6 +1,8 @@
+using Daiv3.FoundryLocal.Management;
 using Daiv3.ModelExecution.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Daiv3.ModelExecution;
 
@@ -44,6 +46,13 @@ public static class ModelExecutionServiceExtensions
 
         services.AddOptions<TaskToModelMappingConfiguration>()
             .Bind(configuration.GetSection("TaskToModelMapping"));
+
+        // Register Foundry Local management service
+        services.AddSingleton<FoundryLocalManagementService>(serviceProvider =>
+        {
+            var logger = serviceProvider.GetRequiredService<ILogger<FoundryLocalManagementService>>();
+            return new FoundryLocalManagementService(logger);
+        });
 
         // Register core services
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
@@ -119,6 +128,13 @@ public static class ModelExecutionServiceExtensions
         // Configure MQ-REQ-011 and MQ-REQ-012 options with defaults
         services.Configure<LocalModelIntentClassificationOptions>(_ => { });
         services.Configure<TaskToModelMappingConfiguration>(_ => { });
+
+        // Register Foundry Local management service
+        services.AddSingleton<FoundryLocalManagementService>(serviceProvider =>
+        {
+            var logger = serviceProvider.GetRequiredService<ILogger<FoundryLocalManagementService>>();
+            return new FoundryLocalManagementService(logger);
+        });
 
         // Register core services
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();

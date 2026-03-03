@@ -5,6 +5,7 @@ using Daiv3.App.Maui.ViewModels;
 using Daiv3.Knowledge;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Infrastructure.Shared.Logging;
+using Daiv3.ModelExecution;
 
 namespace Daiv3.App.Maui;
 
@@ -50,6 +51,9 @@ public static class MauiProgram
 
 		// Add knowledge layer (Tier 1/2 vector indexing and search)
 		builder.Services.AddKnowledgeLayer();
+
+		// Add model execution layer (Foundry Local integration)
+		builder.Services.AddModelExecutionServices();
 
 		var app = builder.Build();
 

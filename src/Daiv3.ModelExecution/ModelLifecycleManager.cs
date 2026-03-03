@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using Daiv3.FoundryLocal.Management;
 using Daiv3.ModelExecution.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Daiv3.ModelExecution;
 
@@ -18,6 +20,8 @@ namespace Daiv3.ModelExecution;
 public class ModelLifecycleManager : IModelLifecycleManager
 {
     private readonly ILogger<ModelLifecycleManager> _logger;
+    private readonly FoundryLocalManagementService? _foundryManagementService;
+    private readonly ModelLifecycleOptions _options;
     private readonly SemaphoreSlim _lockSlim = new(1, 1);
 
     private string? _currentModelId;
@@ -29,8 +33,18 @@ public class ModelLifecycleManager : IModelLifecycleManager
     private readonly List<long> _loadTimes = new();
 
     public ModelLifecycleManager(ILogger<ModelLifecycleManager> logger)
+        : this(logger, null, null)
+    {
+    }
+
+    public ModelLifecycleManager(
+        ILogger<ModelLifecycleManager> logger,
+        FoundryLocalManagementService? foundryManagementService,
+        IOptions<ModelLifecycleOptions>? options = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _foundryManagementService = foundryManagementService;
+        _options = options?.Value ?? new ModelLifecycleOptions();
     }
 
     public async Task LoadModelAsync(string modelId, CancellationToken ct = default)
@@ -68,14 +82,7 @@ public class ModelLifecycleManager : IModelLifecycleManager
 
             _logger.LogInformation("Loading model: {ModelId}", modelId);
 
-            // TODO: Integrate with Foundry Local SDK to actually load the model
-            // - Use FoundryLocalManagementService to load model
-            // - This will involve downloading the model if not cached
-            // - Handling hardware-specific optimizations
-            // - Initializing execution providers (DirectML, GPU, CPU)
-
-            // For now, simulate loading with a small delay
-            await Task.Delay(100, ct);
+            await LoadWithTimeoutAsync(modelId, ct).ConfigureAwait(false);
 
             _currentModelId = modelId;
             _lastModelSwitch = DateTimeOffset.UtcNow;
@@ -136,23 +143,13 @@ public class ModelLifecycleManager : IModelLifecycleManager
             if (_currentModelId != null)
             {
                 _logger.LogDebug("Unloading model: {ModelId}", _currentModelId);
-                
-                // TODO: Integrate with Foundry Local SDK to unload
-                // - Release model memory
-                // - Clean up execution provider resources
-                
-                await Task.Delay(50, ct); // Simulate unloading
+                await UnloadWithTimeoutAsync(ct).ConfigureAwait(false);
             }
 
             // Load the new model
             _totalLoads++;
             _logger.LogDebug("Loading model: {NewModelId}", newModelId);
-
-            // TODO: Integrate with Foundry Local SDK to load
-            // - Download model if needed
-            // - Initialize execution providers
-            
-            await Task.Delay(100, ct); // Simulate loading
+            await LoadWithTimeoutAsync(newModelId, ct).ConfigureAwait(false);
 
             _currentModelId = newModelId;
             _lastModelSwitch = DateTimeOffset.UtcNow;
@@ -195,11 +192,7 @@ public class ModelLifecycleManager : IModelLifecycleManager
             var modelToUnload = _currentModelId;
             _logger.LogInformation("Unloading model: {ModelId}", modelToUnload);
 
-            // TODO: Integrate with Foundry Local SDK to release model
-            // - Free memory
-            // - Cleanup execution providers
-            
-            await Task.Delay(50, ct); // Simulate unloading
+            await UnloadWithTimeoutAsync(ct).ConfigureAwait(false);
 
             _currentModelId = null;
             _lastModelSwitch = DateTimeOffset.UtcNow;
@@ -215,6 +208,55 @@ public class ModelLifecycleManager : IModelLifecycleManager
         {
             _lockSlim.Release();
         }
+    }
+
+    private async Task LoadWithTimeoutAsync(string modelId, CancellationToken ct)
+    {
+        if (_foundryManagementService == null)
+        {
+            await Task.Delay(100, ct).ConfigureAwait(false);
+            return;
+        }
+
+        await EnsureFoundryInitializedAsync(ct).ConfigureAwait(false);
+
+        if (!await _foundryManagementService.IsModelAvailableAsync(modelId, ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException($"Cannot load model '{modelId}': model is not available in Foundry Local catalog.");
+        }
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(_options.LoadTimeoutMs));
+        await _foundryManagementService.LoadModelAsync(modelId, timeoutCts.Token).ConfigureAwait(false);
+    }
+
+    private async Task UnloadWithTimeoutAsync(CancellationToken ct)
+    {
+        if (_foundryManagementService == null)
+        {
+            await Task.Delay(50, ct).ConfigureAwait(false);
+            return;
+        }
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(_options.SwitchTimeoutMs));
+        await _foundryManagementService.UnloadModelAsync(timeoutCts.Token).ConfigureAwait(false);
+    }
+
+    private async Task EnsureFoundryInitializedAsync(CancellationToken ct)
+    {
+        if (_foundryManagementService == null)
+        {
+            return;
+        }
+
+        await _foundryManagementService.InitializeAsync(
+            new FoundryLocalOptions
+            {
+                AppName = "daiv3-model-execution",
+                EnsureExecutionProviders = true
+            },
+            ct).ConfigureAwait(false);
     }
 
     public Task<string?> GetLoadedModelAsync()

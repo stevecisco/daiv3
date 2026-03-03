@@ -18,6 +18,7 @@
     <ProjectReference Include="..\Daiv3.Core\Daiv3.Core.csproj" />
     <ProjectReference Include="..\Daiv3.Infrastructure.Shared\Daiv3.Infrastructure.Shared.csproj" />
     <ProjectReference Include="..\Daiv3.Knowledge.Embedding\Daiv3.Knowledge.Embedding.csproj" />
+    <ProjectReference Include="..\Daiv3.ModelExecution\Daiv3.ModelExecution.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,3 +28,5 @@
   </ItemGroup>
 
 </Project>
+
+

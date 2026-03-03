@@ -65,6 +65,7 @@
 		<ProjectReference Include="..\Daiv3.Persistence\Daiv3.Persistence.csproj" />
 		<ProjectReference Include="..\Daiv3.Infrastructure.Shared\Daiv3.Infrastructure.Shared.csproj" />
 		<ProjectReference Include="..\Daiv3.Core\Daiv3.Core.csproj" />
+		<ProjectReference Include="..\Daiv3.ModelExecution\Daiv3.ModelExecution.csproj" />
 	</ItemGroup>
 
 	<ItemGroup Condition="$(TargetFramework.Contains('windows'))">
@@ -77,3 +78,5 @@
 	</ItemGroup>
 
 </Project>
+
+

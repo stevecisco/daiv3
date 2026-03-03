@@ -4,9 +4,9 @@
 
 **Requirement:** The system SHALL enforce the constraint that only one Foundry Local model is loaded at a time.
 
-**Status:** Core Implementation Complete (Awaiting KLC-REQ-005 SDK Integration)
+**Status:** Complete (KLC-REQ-005 SDK Integration Applied)
 
-**Progress:** 100% (Core Abstraction) - This is a constraint enforcement layer that is ready for Foundry Local SDK integration.
+**Progress:** 100% - Constraint enforcement is now connected to Foundry lifecycle management integration.
 
 ---
 
@@ -339,23 +339,13 @@ Only one model can be loaded at a time. Use SwitchModelAsync() instead.
 
 ---
 
-## Future Integration (KLC-REQ-005)
+## KLC-REQ-005 Integration Status
 
-When Foundry Local SDK is integrated, replace the stub implementations:
+Foundry lifecycle integration has been applied:
 
-```csharp
-// In ModelLifecycleManager methods:
-
-// TODO: Integrate with Foundry Local SDK to actually load the model
-// - Use FoundryLocalManagementService to load model
-// - This will involve downloading the model if not cached
-// - Handling hardware-specific optimizations
-// - Initializing execution providers (DirectML, GPU, CPU)
-
-// Currently simulates with Task.Delay(100, ct);
-```
-
-The interface remains unchanged; SDK integration is transparent to clients.
+- `ModelLifecycleManager` now delegates lifecycle operations through Foundry management services when registered.
+- Single-model constraint enforcement, locking, idempotency, and metrics behavior remain unchanged.
+- The public `IModelLifecycleManager` interface did not require breaking changes.
 
 ---
 

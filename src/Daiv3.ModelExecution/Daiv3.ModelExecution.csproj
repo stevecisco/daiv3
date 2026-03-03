@@ -15,18 +15,21 @@
   <ItemGroup>
     <ProjectReference Include="..\Daiv3.Core\Daiv3.Core.csproj" />
     <ProjectReference Include="..\Daiv3.FoundryLocal.Bridge\Daiv3.FoundryLocal.Bridge.csproj" />
+    <ProjectReference Include="..\Daiv3.FoundryLocal.Management\Daiv3.FoundryLocal.Management.csproj" />
     <ProjectReference Include="..\Daiv3.OnlineProviders.Abstractions\Daiv3.OnlineProviders.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="9.1.0-preview.1.25064.3" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="9.8.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
   </ItemGroup>
 
 </Project>
+
+

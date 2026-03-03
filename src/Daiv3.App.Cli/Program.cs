@@ -13,6 +13,7 @@ using Daiv3.Orchestration;
 using Daiv3.Orchestration.Configuration;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Models;
+using Daiv3.ModelExecution;
 
 namespace Daiv3.App.Cli;
 
@@ -962,6 +963,9 @@ public class Program
 
                 // Add knowledge layer (Tier 1/2 vector indexing and search)
                 services.AddKnowledgeLayer();
+
+                // Add model execution layer (Foundry Local integration)
+                services.AddModelExecutionServices(context.Configuration);
 
                 // Add scheduler
                 services.AddScheduler(options =>
