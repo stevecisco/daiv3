@@ -153,7 +153,12 @@ public class TopicIndexRepository : RepositoryBase<TopicIndex>
         using var command = new SqliteCommand(sql, connection);
         var result = await command.ExecuteScalarAsync(ct).ConfigureAwait(false);
 
-        return result is int count ? count : 0;
+        return result switch
+        {
+            long count => checked((int)count),
+            int count => count,
+            _ => 0
+        };
     }
 
     private static TopicIndex MapTopicIndex(SqliteDataReader reader)

@@ -59,14 +59,28 @@ public class VectorStoreService : IVectorStoreService
             MetadataJson = metadata
         };
 
-        var result = await _topicIndexRepository.AddAsync(topicIndex, ct).ConfigureAwait(false);
-        _logger.LogInformation(
-            "Stored topic index for document {DocId}, {Dimensions} dimensions, {SummaryLength} chars",
-            docId,
-            embedding.Length,
-            summaryText.Length);
+        var existingTopic = await _topicIndexRepository.GetByIdAsync(docId, ct).ConfigureAwait(false);
 
-        return result;
+        if (existingTopic is null)
+        {
+            await _topicIndexRepository.AddAsync(topicIndex, ct).ConfigureAwait(false);
+            _logger.LogInformation(
+                "Stored topic index for document {DocId}, {Dimensions} dimensions, {SummaryLength} chars",
+                docId,
+                embedding.Length,
+                summaryText.Length);
+        }
+        else
+        {
+            await _topicIndexRepository.UpdateAsync(topicIndex, ct).ConfigureAwait(false);
+            _logger.LogInformation(
+                "Updated topic index for document {DocId}, {Dimensions} dimensions, {SummaryLength} chars",
+                docId,
+                embedding.Length,
+                summaryText.Length);
+        }
+
+        return docId;
     }
 
     public async Task<string> StoreChunkAsync(

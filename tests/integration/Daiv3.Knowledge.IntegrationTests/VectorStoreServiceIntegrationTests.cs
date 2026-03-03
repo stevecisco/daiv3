@@ -251,6 +251,45 @@ public class VectorStoreServiceIntegrationTests
         Assert.Equal(2, doc2Chunks.Count);
     }
 
+    [Fact]
+    public async Task StoreTopicIndex_WhenCalledTwiceForSameDocument_MaintainsSingleTier1Vector()
+    {
+        // Arrange
+        var vectorStore = _fixture.ServiceProvider.GetRequiredService<IVectorStoreService>();
+        var documentRepository = _fixture.ServiceProvider.GetRequiredService<DocumentRepository>();
+        var docId = $"doc-upsert-{Guid.NewGuid():N}";
+        var sourcePath = GetUniquePath("/test/doc-upsert.txt");
+        var fileHash = GetUniqueHash();
+        var initialCount = await vectorStore.GetTopicIndexCountAsync();
+
+        await CreateTestDocumentAsync(documentRepository, docId, sourcePath, fileHash);
+
+        // Act - first write
+        await vectorStore.StoreTopicIndexAsync(
+            docId,
+            "Initial summary",
+            CreateTestEmbedding(384),
+            sourcePath,
+            fileHash);
+
+        // Act - second write for same docId should update, not create another row
+        await vectorStore.StoreTopicIndexAsync(
+            docId,
+            "Updated summary",
+            CreateTestEmbedding(384),
+            sourcePath,
+            fileHash);
+
+        // Assert
+        var topicCount = await vectorStore.GetTopicIndexCountAsync();
+        var topic = await vectorStore.GetTopicIndexAsync(docId);
+
+        Assert.Equal(initialCount + 1, topicCount);
+        Assert.NotNull(topic);
+        Assert.Equal("Updated summary", topic.SummaryText);
+        Assert.Equal(docId, topic.DocId);
+    }
+
     // Helper method to create test documents
     private async Task CreateTestDocumentAsync(DocumentRepository repository, string docId, string sourcePath, string fileHash)
     {

@@ -39,6 +39,10 @@ public class VectorStoreServiceTests
         _mockDocumentRepository = new Mock<DocumentRepository>(
             _mockDatabaseContext.Object,
             NullLogger<DocumentRepository>.Instance) { CallBase = true };
+
+        _mockTopicRepository
+            .Setup(x => x.GetByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TopicIndex?)null);
         
         _service = new VectorStoreService(_mockDatabaseContext.Object, _mockTopicRepository.Object, _mockChunkRepository.Object, _mockDocumentRepository.Object, NullLogger<VectorStoreService>.Instance);
     }
@@ -71,6 +75,60 @@ public class VectorStoreServiceTests
                     t.EmbeddingDimensions == 384),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+
+        _mockTopicRepository.Verify(
+            x => x.UpdateAsync(It.IsAny<TopicIndex>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task StoreTopicIndexAsync_WhenDocumentExists_UpdatesExistingTopicIndex()
+    {
+        // Arrange
+        var docId = "test-doc-existing";
+        var updatedEmbedding = new float[384];
+
+        _mockTopicRepository
+            .Setup(x => x.GetByIdAsync(docId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TopicIndex
+            {
+                DocId = docId,
+                SummaryText = "old summary",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
+                EmbeddingDimensions = 384,
+                SourcePath = "/documents/old.txt",
+                FileHash = "old-hash",
+                IngestedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            });
+
+        _mockTopicRepository
+            .Setup(x => x.UpdateAsync(It.IsAny<TopicIndex>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await _service.StoreTopicIndexAsync(
+            docId,
+            "new summary",
+            updatedEmbedding,
+            "/documents/new.txt",
+            "new-hash",
+            null,
+            CancellationToken.None);
+
+        // Assert
+        _mockTopicRepository.Verify(
+            x => x.UpdateAsync(
+                It.Is<TopicIndex>(t =>
+                    t.DocId == docId &&
+                    t.SummaryText == "new summary" &&
+                    t.SourcePath == "/documents/new.txt" &&
+                    t.FileHash == "new-hash"),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _mockTopicRepository.Verify(
+            x => x.AddAsync(It.IsAny<TopicIndex>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
