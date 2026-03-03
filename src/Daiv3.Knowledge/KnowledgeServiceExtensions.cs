@@ -77,6 +77,9 @@ public static class KnowledgeServiceExtensions
 
         services.AddScoped<IKnowledgeLayerTelemetry, KnowledgeLayerTelemetry>();
 
+        // Register file orchestration service
+        services.AddSingleton<IKnowledgeFileOrchestrationService, KnowledgeFileOrchestrationService>();
+
         return services;
     }
 
