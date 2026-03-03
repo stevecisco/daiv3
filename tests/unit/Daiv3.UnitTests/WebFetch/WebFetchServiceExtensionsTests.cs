@@ -308,6 +308,86 @@ public class WebFetchServiceExtensionsTests
     }
 
     [Fact]
+    public void AddWebCrawler_RegistersCrawlerService()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+        services.AddWebFetcher();
+
+        // Act
+        services.AddWebCrawler();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var crawler = provider.GetService<IWebCrawler>();
+        Assert.NotNull(crawler);
+        Assert.IsType<WebCrawler>(crawler);
+    }
+
+    [Fact]
+    public void AddWebCrawler_RegistersWithDefaultOptions()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+        services.AddWebFetcher();
+
+        // Act
+        services.AddWebCrawler();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var options = provider.GetService<WebCrawlerOptions>();
+        Assert.NotNull(options);
+        Assert.Equal(1, options.DefaultMaxDepth);
+        Assert.Equal(5, options.MaxAllowedDepth);
+        Assert.True(options.RestrictToSameDomain);
+    }
+
+    [Fact]
+    public void AddWebCrawler_WithCustomOptions_UsesCustomConfiguration()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+        services.AddWebFetcher();
+
+        // Act
+        services.AddWebCrawler(opts =>
+        {
+            opts.DefaultMaxDepth = 2;
+            opts.MaxAllowedDepth = 10;
+            opts.RestrictToSameDomain = false;
+        });
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var options = provider.GetService<WebCrawlerOptions>();
+        Assert.NotNull(options);
+        Assert.Equal(2, options.DefaultMaxDepth);
+        Assert.Equal(10, options.MaxAllowedDepth);
+        Assert.False(options.RestrictToSameDomain);
+    }
+
+    [Fact]
+    public void AddWebCrawler_WithNullFactory_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => services.AddWebCrawler((Func<IServiceProvider, WebCrawlerOptions>)null!));
+    }
+
+    [Fact]
+    public void AddWebCrawler_NullServices_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => ((IServiceCollection)null!).AddWebCrawler());
+    }
+
+    [Fact]
     public void AddHtmlToMarkdownConverter_RegistersConverterService()
     {
         // Arrange

@@ -132,6 +132,58 @@ public static class WebFetchServiceExtensions
     }
 
     /// <summary>
+    /// Adds web crawler services to the dependency injection container.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configureOptions">An optional action to configure crawler options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <remarks>
+    /// This method requires both HtmlParser and WebFetcher to be registered.
+    /// </remarks>
+    public static IServiceCollection AddWebCrawler(
+        this IServiceCollection services,
+        Action<WebCrawlerOptions>? configureOptions = null)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        var options = new WebCrawlerOptions();
+        configureOptions?.Invoke(options);
+
+        services.AddSingleton(options);
+        services.AddScoped<IWebCrawler, WebCrawler>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds web crawler services with configuration from a delegate.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="optionsFactory">A delegate that creates crawler options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddWebCrawler(
+        this IServiceCollection services,
+        Func<IServiceProvider, WebCrawlerOptions> optionsFactory)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        if (optionsFactory == null)
+            throw new ArgumentNullException(nameof(optionsFactory));
+
+        services.AddSingleton(optionsFactory);
+        services.AddScoped<IWebCrawler>(sp =>
+            new WebCrawler(
+                sp.GetRequiredService<IWebFetcher>(),
+                sp.GetRequiredService<IHtmlParser>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<WebCrawler>>(),
+                optionsFactory(sp)));
+
+        return services;
+    }
+
+    /// <summary>
     /// Adds HTML to Markdown converter services to the dependency injection container.
     /// </summary>
     /// <param name="services">The service collection.</param>
