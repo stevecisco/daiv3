@@ -44,6 +44,15 @@ public class VectorStoreServiceTests
             .Setup(x => x.GetByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((TopicIndex?)null);
         
+        // Setup DocumentRepository mocks to support EnsureDocumentExistsAsync
+        _mockDocumentRepository
+            .Setup(x => x.GetByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Document?)null);
+        
+        _mockDocumentRepository
+            .Setup(x => x.AddAsync(It.IsAny<Document>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Document doc, CancellationToken ct) => doc.DocId);
+        
         _service = new VectorStoreService(_mockDatabaseContext.Object, _mockTopicRepository.Object, _mockChunkRepository.Object, _mockDocumentRepository.Object, NullLogger<VectorStoreService>.Instance);
     }
 

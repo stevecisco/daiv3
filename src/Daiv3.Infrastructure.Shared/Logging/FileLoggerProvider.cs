@@ -99,7 +99,17 @@ public sealed class FileLoggerProvider : ILoggerProvider
 
 		_writer?.Dispose();
 		_currentLogFile = logFilePath;
-		_writer = new StreamWriter(logFilePath, append: true) { AutoFlush = true };
+		
+		// Use FileShare.ReadWrite to allow concurrent access from multiple test instances
+		var fileStream = new FileStream(
+			logFilePath,
+			FileMode.Append,
+			FileAccess.Write,
+			FileShare.ReadWrite | FileShare.Delete,
+			bufferSize: 4096,
+			useAsync: false);
+		
+		_writer = new StreamWriter(fileStream) { AutoFlush = true };
 	}
 
 	private static string GetLogLevelString(LogLevel logLevel) => logLevel switch

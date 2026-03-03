@@ -45,6 +45,9 @@ public class VectorStoreService : IVectorStoreService
         ArgumentNullException.ThrowIfNull(fileHash);
         ArgumentNullException.ThrowIfNull(embedding);
 
+        // Ensure document exists (required by foreign key constraint)
+        await EnsureDocumentExistsAsync(docId, sourcePath, fileHash, ct).ConfigureAwait(false);
+
         var embeddingBlob = ConvertEmbeddingToBytes(embedding);
 
         var topicIndex = new TopicIndex
@@ -97,6 +100,9 @@ public class VectorStoreService : IVectorStoreService
 
         if (chunkOrder < 0)
             throw new ArgumentException("Chunk order must be non-negative", nameof(chunkOrder));
+
+        // Ensure document exists (required by foreign key constraint)
+        await EnsureDocumentExistsAsync(docId, sourcePath: "unknown", fileHash: "unknown", ct).ConfigureAwait(false);
 
         var embeddingBlob = ConvertEmbeddingToBytes(embedding);
         var chunkId = $"{docId}_chunk_{chunkOrder}";
@@ -191,5 +197,34 @@ public class VectorStoreService : IVectorStoreService
         var bytes = new byte[embedding.Length * sizeof(float)];
         System.Buffer.BlockCopy(embedding, 0, bytes, 0, bytes.Length);
         return bytes;
+    }
+
+    /// <summary>
+    /// Ensures a document record exists before storing embeddings (required by foreign key constraints).
+    /// Creates a minimal placeholder document if it doesn't exist.
+    /// </summary>
+    private async Task EnsureDocumentExistsAsync(string docId, string sourcePath, string fileHash, CancellationToken ct)
+    {
+        var existingDoc = await _documentRepository.GetByIdAsync(docId, ct).ConfigureAwait(false);
+        
+        if (existingDoc is null)
+        {
+            // Create minimal placeholder document to satisfy foreign key constraint
+            var document = new Document
+            {
+                DocId = docId,
+                SourcePath = sourcePath,
+                FileHash = fileHash,
+                Format = ".unknown",
+                SizeBytes = 0,
+                LastModified = DateTime.UtcNow.ToFileTimeUtc(),
+                Status = "indexed",
+                CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                MetadataJson = null
+            };
+
+            await _documentRepository.AddAsync(document, ct).ConfigureAwait(false);
+            _logger.LogDebug("Created placeholder document record for {DocId}", docId);
+        }
     }
 }
