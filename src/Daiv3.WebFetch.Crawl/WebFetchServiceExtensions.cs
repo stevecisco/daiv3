@@ -89,6 +89,9 @@ public static class WebFetchServiceExtensions
         // Register options as singleton
         services.AddSingleton(options);
 
+        // Register cancellation metrics
+        services.AddSingleton<ICancellationMetrics, CancellationMetrics>();
+
         // Register HttpClient with custom configuration
         services.AddHttpClient<IWebFetcher, WebFetcher>("WebFetcher")
             .ConfigureHttpClient((sp, client) =>
@@ -118,6 +121,9 @@ public static class WebFetchServiceExtensions
 
         // Register options factory
         services.AddSingleton(optionsFactory);
+
+        // Register cancellation metrics
+        services.AddSingleton<ICancellationMetrics, CancellationMetrics>();
 
         // Register HttpClient
         services.AddHttpClient<IWebFetcher, WebFetcher>("WebFetcher")
@@ -382,6 +388,24 @@ public static class WebFetchServiceExtensions
                 sp.GetRequiredService<IMarkdownContentStore>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<WebRefreshScheduler>>(),
                 optionsFactory(sp)));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds cancellation metrics service to the dependency injection container.
+    /// This allows tracking and observability of fetch operation cancellations.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddCancellationMetrics(
+        this IServiceCollection services)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        // Register cancellation metrics as singleton (shared across all fetch operations)
+        services.AddSingleton<ICancellationMetrics, CancellationMetrics>();
 
         return services;
     }

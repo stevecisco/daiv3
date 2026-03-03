@@ -20,6 +20,8 @@ public class WebFetcher : IWebFetcher
     private readonly ILogger<WebFetcher> _logger;
     private readonly WebFetcherOptions _options;
     private readonly IHtmlParser _htmlParser;
+    private readonly ICancellationMetrics _cancellationMetrics;
+    private readonly System.Diagnostics.Stopwatch _stopwatch = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebFetcher"/> class.
@@ -28,17 +30,20 @@ public class WebFetcher : IWebFetcher
     /// <param name="logger">The logger instance.</param>
     /// <param name="htmlParser">The HTML parser for extracting meaningful content.</param>
     /// <param name="options">The web fetcher configuration options.</param>
+    /// <param name="cancellationMetrics">The cancellation metrics service.</param>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is null.</exception>
     public WebFetcher(
         HttpClient httpClient,
         ILogger<WebFetcher> logger,
         IHtmlParser htmlParser,
-        WebFetcherOptions? options = null)
+        WebFetcherOptions? options = null,
+        ICancellationMetrics? cancellationMetrics = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _htmlParser = htmlParser ?? throw new ArgumentNullException(nameof(htmlParser));
         _options = options ?? new WebFetcherOptions();
+        _cancellationMetrics = cancellationMetrics ?? new CancellationMetrics();
     }
 
     /// <summary>
@@ -53,6 +58,8 @@ public class WebFetcher : IWebFetcher
     {
         if (string.IsNullOrWhiteSpace(url))
             throw new ArgumentNullException(nameof(url));
+
+        _stopwatch.Restart();
 
         try
         {
@@ -130,6 +137,8 @@ public class WebFetcher : IWebFetcher
             }
             catch (OperationCanceledException ex) when (cts.Token.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
+                _stopwatch.Stop();
+                _cancellationMetrics.RecordCancellation("Fetch", url, "Timeout", _stopwatch.ElapsedMilliseconds);
                 _logger.LogError(ex, "Fetch operation timed out after {TimeoutMs}ms for {Url}", _options.RequestTimeoutMs, url);
                 throw new InvalidOperationException($"HTTP request timed out after {_options.RequestTimeoutMs}ms", ex);
             }
@@ -170,8 +179,17 @@ public class WebFetcher : IWebFetcher
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
+            _stopwatch.Stop();
+            _cancellationMetrics.RecordCancellation("Fetch", url, "Timeout", _stopwatch.ElapsedMilliseconds);
             _logger.LogError(ex, "Fetch operation cancelled (timeout) for {Url}", url);
             throw new InvalidOperationException($"Fetch operation timed out for {url}", ex);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _stopwatch.Stop();
+            _cancellationMetrics.RecordCancellation("Fetch", url, "UserRequested", _stopwatch.ElapsedMilliseconds);
+            _logger.LogInformation("Fetch operation cancelled by user for {Url} after {ElapsedMs}ms", url, _stopwatch.ElapsedMilliseconds);
+            throw;
         }
         catch (HttpRequestException ex)
         {
