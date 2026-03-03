@@ -322,4 +322,37 @@ CREATE INDEX IF NOT EXISTS idx_promotion_metrics_recorded_at ON promotion_metric
 CREATE INDEX IF NOT EXISTS idx_promotion_metrics_name_recorded_at ON promotion_metrics(metric_name, recorded_at DESC);
 ";
 
+    /// <summary>
+    /// Migration 008: Web fetch metadata tracking
+    /// Adds web_fetches table for storing metadata about fetched web content.
+    /// Implements WFC-DATA-001: Metadata SHALL include source URL, fetch date, and content hash.
+    /// </summary>
+    public const string Migration008_WebFetchMetadata = @"
+-- Web Fetches: Track fetched web content metadata for change detection and source tracking
+CREATE TABLE IF NOT EXISTS web_fetches (
+    web_fetch_id TEXT PRIMARY KEY,
+    doc_id TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    fetch_date INTEGER NOT NULL,
+    title TEXT,
+    description TEXT,
+    status TEXT NOT NULL CHECK(status IN ('active', 'stale', 'error', 'deleted')) DEFAULT 'active',
+    error_message TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE
+);
+
+-- Performance indexes for web fetch queries
+CREATE INDEX IF NOT EXISTS idx_web_fetches_doc_id ON web_fetches(doc_id);
+CREATE INDEX IF NOT EXISTS idx_web_fetches_source_url ON web_fetches(source_url);
+CREATE INDEX IF NOT EXISTS idx_web_fetches_content_hash ON web_fetches(content_hash);
+CREATE INDEX IF NOT EXISTS idx_web_fetches_fetch_date ON web_fetches(fetch_date DESC);
+CREATE INDEX IF NOT EXISTS idx_web_fetches_status ON web_fetches(status);
+
+-- Composite index for querying active fetches by date (most common pattern)
+CREATE INDEX IF NOT EXISTS idx_web_fetches_status_fetch_date ON web_fetches(status, fetch_date DESC);
+";
+
 }

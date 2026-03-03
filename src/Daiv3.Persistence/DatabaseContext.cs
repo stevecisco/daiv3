@@ -292,6 +292,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 7,
                 Description = "Add revert_promotions and promotion_metrics tables for reversible, transparent promotions (KBP-NFR-001)",
                 Sql = SchemaScripts.Migration007_PromotionRevertAndMetrics
+            },
+            new Migration
+            {
+                Version = 8,
+                Description = "Add web_fetches table for web content metadata tracking (WFC-DATA-001)",
+                Sql = SchemaScripts.Migration008_WebFetchMetadata
             }
         };
     }

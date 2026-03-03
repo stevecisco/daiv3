@@ -471,3 +471,75 @@ public class PromotionMetric
     /// </summary>
     public string? Context { get; set; }
 }
+
+/// <summary>
+/// Represents web fetch metadata for fetched web content.
+/// Tracks source URL, fetch date, and content hash for change detection.
+/// Implements WFC-DATA-001: Metadata SHALL include source URL, fetch date, and content hash.
+/// </summary>
+public class WebFetch
+{
+    /// <summary>
+    /// Unique identifier for the web fetch record (UUID as string).
+    /// </summary>
+    public string WebFetchId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Reference to the document this web fetch created.
+    /// Foreign key to documents table.
+    /// </summary>
+    public string DocId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The URL that was fetched.
+    /// Implements WFC-DATA-001.
+    /// </summary>
+    public string SourceUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Hash of the fetched content for change detection.
+    /// Implements WFC-DATA-001.
+    /// Can be used to detect if content has changed on refetch.
+    /// </summary>
+    public string ContentHash { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the content was fetched (Unix timestamp).
+    /// Implements WFC-DATA-001.
+    /// Used to determine if content is stale.
+    /// </summary>
+    public long FetchDate { get; set; }
+
+    /// <summary>
+    /// The title extracted from the fetched page (nullable).
+    /// Used for display and metadata.
+    /// </summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// A brief description extracted from the page or provided by the fetcher (nullable).
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Status of the web fetch: active, stale, error, deleted.
+    /// active = currently tracked, stale = needs refetch, error = last fetch failed.
+    /// </summary>
+    public string Status { get; set; } = "active";
+
+    /// <summary>
+    /// Optional error message if the last fetch failed (nullable).
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// When this web fetch record was created (Unix timestamp).
+    /// </summary>
+    public long CreatedAt { get; set; }
+
+    /// <summary>
+    /// When this web fetch record was last updated (Unix timestamp).
+    /// Updated when content is refetched or status changes.
+    /// </summary>
+    public long UpdatedAt { get; set; }
+}
