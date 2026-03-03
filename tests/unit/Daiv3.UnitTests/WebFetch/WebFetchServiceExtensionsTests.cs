@@ -143,4 +143,167 @@ public class WebFetchServiceExtensionsTests
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => services.AddHtmlParser((Func<IServiceProvider, HtmlParsingOptions>)null!));
     }
+
+    [Fact]
+    public void AddWebFetcher_RegistersWebFetcherService()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+
+        // Act
+        services.AddWebFetcher();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var fetcher = provider.GetService<IWebFetcher>();
+        Assert.NotNull(fetcher);
+        Assert.IsType<WebFetcher>(fetcher);
+    }
+
+    [Fact]
+    public void AddWebFetcher_RegistersWithDefaultOptions()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+
+        // Act
+        services.AddWebFetcher();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var options = provider.GetService<WebFetcherOptions>();
+        Assert.NotNull(options);
+        Assert.Equal(30_000, options.RequestTimeoutMs);
+        Assert.Equal(10 * 1024 * 1024, options.MaxContentSizeBytes);
+    }
+
+    [Fact]
+    public void AddWebFetcher_WithCustomOptions_UsesCustomConfiguration()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+
+        // Act
+        services.AddWebFetcher(opts =>
+        {
+            opts.RequestTimeoutMs = 60_000;
+            opts.MaxContentSizeBytes = 50 * 1024 * 1024;
+        });
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var options = provider.GetService<WebFetcherOptions>();
+        Assert.NotNull(options);
+        Assert.Equal(60_000, options.RequestTimeoutMs);
+        Assert.Equal(50 * 1024 * 1024, options.MaxContentSizeBytes);
+    }
+
+    [Fact]
+    public void AddWebFetcher_WithOptionsFactory_CreatesOptionsPerCall()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+        var callCount = 0;
+
+        // Act
+        services.AddWebFetcher(_ =>
+        {
+            callCount++;
+            return new WebFetcherOptions { RequestTimeoutMs = 45_000 };
+        });
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var fetcher1 = provider.GetRequiredService<IWebFetcher>();
+        var fetcher2 = provider.GetRequiredService<IWebFetcher>();
+        Assert.NotNull(fetcher1);
+        Assert.NotNull(fetcher2);
+        Assert.True(callCount > 0);
+    }
+
+    [Fact]
+    public void AddWebFetcher_ReturnsServiceCollection()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+
+        // Act
+        var result = services.AddWebFetcher();
+
+        // Assert - verify it returns IServiceCollection for chaining
+        Assert.Same(services, result);
+    }
+
+    [Fact]
+    public void AddWebFetcher_Multiple_ReturnsDifferentInstancesInDifferentScopes()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        services.AddHtmlParser();
+
+        // Act
+        services.AddWebFetcher();
+        var provider = services.BuildServiceProvider();
+
+        // Get fetchers in different scopes
+        IWebFetcher? fetcher1;
+        IWebFetcher? fetcher2;
+        using (var scope1 = provider.CreateScope())
+        {
+            fetcher1 = scope1.ServiceProvider.GetRequiredService<IWebFetcher>();
+        }
+
+        using (var scope2 = provider.CreateScope())
+        {
+            fetcher2 = scope2.ServiceProvider.GetRequiredService<IWebFetcher>();
+        }
+
+        // Assert - scoped services should return different instances across different scopes
+        Assert.NotSame(fetcher1, fetcher2);
+    }
+
+    [Fact]
+    public void AddWebFetcher_NullServices_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => ((IServiceCollection)null!).AddWebFetcher());
+    }
+
+    [Fact]
+    public void AddWebFetcher_WithNullFactory_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => services.AddWebFetcher((Func<IServiceProvider, WebFetcherOptions>)null!));
+    }
+
+    [Fact]
+    public void AddHtmlParserAndAddWebFetcher_CanBeUsedTogether()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddHtmlParser();
+        services.AddWebFetcher();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var parser = provider.GetRequiredService<IHtmlParser>();
+        var fetcher = provider.GetRequiredService<IWebFetcher>();
+        var parserOptions = provider.GetRequiredService<HtmlParsingOptions>();
+        var fetcherOptions = provider.GetRequiredService<WebFetcherOptions>();
+
+        Assert.NotNull(parser);
+        Assert.NotNull(fetcher);
+        Assert.NotNull(parserOptions);
+        Assert.NotNull(fetcherOptions);
+    }
 }

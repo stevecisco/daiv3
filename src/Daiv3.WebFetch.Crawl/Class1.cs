@@ -1,9 +1,15 @@
 namespace Daiv3.WebFetch.Crawl;
 
 /// <summary>
-/// Placeholder class for Daiv3.WebFetch.Crawl library.
-/// This library provides web content fetching and crawling.
+/// Library for web content fetching and crawling.
+/// 
+/// This library provides services for:
+/// - Fetching HTTP content from URLs
+/// - Parsing HTML using AngleSharp
+/// - Extracting meaningful text from web pages
+/// - Configurable timeouts, size limits, and HTTP headers
 /// </summary>
-public class Class1
+internal class WebFetchCrawlLibraryMarker
 {
+    // Marker class for library identification
 }

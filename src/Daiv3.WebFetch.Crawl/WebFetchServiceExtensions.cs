@@ -62,4 +62,72 @@ public static class WebFetchServiceExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Adds web fetcher services to the dependency injection container.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configureOptions">An optional action to configure web fetcher options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <remarks>
+    /// This method requires HtmlParser to be registered via AddHtmlParser().
+    /// An HttpClient named "WebFetcher" is registered and configured with default headers.
+    /// </remarks>
+    public static IServiceCollection AddWebFetcher(
+        this IServiceCollection services,
+        Action<WebFetcherOptions>? configureOptions = null)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        // Create default options
+        var options = new WebFetcherOptions();
+
+        // Apply custom configuration if provided
+        configureOptions?.Invoke(options);
+
+        // Register options as singleton
+        services.AddSingleton(options);
+
+        // Register HttpClient with custom configuration
+        services.AddHttpClient<IWebFetcher, WebFetcher>("WebFetcher")
+            .ConfigureHttpClient((sp, client) =>
+            {
+                client.Timeout = TimeSpan.FromMilliseconds(options.RequestTimeoutMs);
+                client.DefaultRequestHeaders.Add("User-Agent", options.UserAgent);
+            });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds web fetcher services with configuration from a delegate.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="optionsFactory">A delegate that creates web fetcher options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddWebFetcher(
+        this IServiceCollection services,
+        Func<IServiceProvider, WebFetcherOptions> optionsFactory)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        if (optionsFactory == null)
+            throw new ArgumentNullException(nameof(optionsFactory));
+
+        // Register options factory
+        services.AddSingleton(optionsFactory);
+
+        // Register HttpClient
+        services.AddHttpClient<IWebFetcher, WebFetcher>("WebFetcher")
+            .ConfigureHttpClient((sp, client) =>
+            {
+                var opts = optionsFactory(sp);
+                client.Timeout = TimeSpan.FromMilliseconds(opts.RequestTimeoutMs);
+                client.DefaultRequestHeaders.Add("User-Agent", opts.UserAgent);
+            });
+
+        return services;
+    }
 }
