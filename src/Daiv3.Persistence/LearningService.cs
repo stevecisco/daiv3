@@ -441,7 +441,7 @@ public class LearningStorageService : ILearningStorageService
                         LearningId = selection.LearningId,
                         FromScope = oldScope,
                         ToScope = normalizedTargetScope,
-                        PromotedAt = updatedAtUnix,
+                        PromotedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                         PromotedBy = promotedBy,
                         SourceTaskId = taskId,
                         Notes = selection.Notes

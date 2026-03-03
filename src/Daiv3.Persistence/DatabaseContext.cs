@@ -239,6 +239,16 @@ public sealed class DatabaseContext : IDatabaseContext
             await using var walCmd = connection.CreateCommand();
             walCmd.CommandText = "PRAGMA journal_mode = WAL";
             await walCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+
+            // Set synchronous mode to EXTRA to ensure WAL is synced
+            await using var syncCmd = connection.CreateCommand();
+            syncCmd.CommandText = "PRAGMA synchronous = EXTRA";
+            await syncCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+
+            // Set WAL auto-checkpoint interval to ensure frequent syncs
+            await using var checkpointCmd = connection.CreateCommand();
+            checkpointCmd.CommandText = "PRAGMA wal_autocheckpoint = 100";
+            await checkpointCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
         // Enable foreign keys

@@ -150,7 +150,7 @@ public class PromotionRepository : RepositoryBase<Promotion>
                    source_task_id, source_agent, notes
             FROM promotions
             WHERE learning_id = $learning_id
-            ORDER BY promoted_at DESC";
+            ORDER BY promoted_at DESC, rowid DESC";
 
         return await ExecuteReaderAsync(sql, MapPromotion, parameters =>
         {
