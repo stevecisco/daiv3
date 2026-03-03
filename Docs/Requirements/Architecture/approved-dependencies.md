@@ -37,6 +37,7 @@ The following categories are **automatically approved** and do not require entri
 |-----------------|---------|--------|-------------|---------------|----------------|---------------|
 | UglyToad.PdfPig | 1.7.0-custom-5 | Approved | PDF text extraction | 2026-02-23 | Required for KM-REQ-002 and KLC-REQ-009; includes aligned subpackages | [ADD-20260223-pdf-processing.md](decisions/ADD-20260223-pdf-processing.md) |
 | ReverseMarkdown | 3.23.0 | Approved | HTML to Markdown conversion | 2026-02-23 | Required for KM-REQ-003; lightweight HTML to Markdown conversion for document indexing | [ADD-20260223-html-to-markdown.md](decisions/ADD-20260223-html-to-markdown.md) |
+| AngleSharp | 1.0.1 | Approved | HTML parsing for web content extraction | 2026-03-02 | Required for KLC-REQ-007; modern, standards-compliant HTML5 parser for web fetch and content extraction | [ADD-20260302-html-parser.md](decisions/ADD-20260302-html-parser.md) |
 
 ## Rejected Dependencies
 
@@ -48,7 +49,6 @@ The following categories are **automatically approved** and do not require entri
 
 | Dependency Name | Versions Evaluated | Purpose | ADD Document | Status | KLC Reference |
 |-----------------|-------------------|---------|--------------|--------|--------|
-| AngleSharp vs HtmlAgilityPack | TBD | HTML parsing for web content extraction | ADD-HtmlParser | Pending Decision | KLC-REQ-007 |
 | Model Context Protocol .NET SDK | TBD | Model Context Protocol tool integration | ADD-McpIntegration | Pending | KLC-REQ-008 |
 | UI Framework (WinUI 3, Windows App SDK, or MAUI) | TBD | User interface implementation | ADD-UiFramework | Pending Decision | KLC-REQ-011 |
 

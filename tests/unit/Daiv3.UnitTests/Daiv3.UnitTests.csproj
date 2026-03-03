@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\..\src\Daiv3.Infrastructure.Shared\Daiv3.Infrastructure.Shared.csproj" />
     <ProjectReference Include="..\..\..\src\Daiv3.FoundryLocal.Management\Daiv3.FoundryLocal.Management.csproj" />
     <ProjectReference Include="..\..\..\src\Daiv3.Mcp.Integration\Daiv3.Mcp.Integration.csproj" />
+    <ProjectReference Include="..\..\..\src\Daiv3.WebFetch.Crawl\Daiv3.WebFetch.Crawl.csproj" />
   </ItemGroup>
 
   <!-- MAUI app reference only for Windows target framework -->
