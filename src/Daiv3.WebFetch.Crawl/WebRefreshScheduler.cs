@@ -7,6 +7,7 @@ namespace Daiv3.WebFetch.Crawl;
 /// <summary>
 /// Implementation of IWebRefreshScheduler that manages scheduled refetches of previously fetched URLs.
 /// Implements WFC-REQ-008: The system SHALL support scheduled refetch intervals.
+/// Implements WFC-ACC-003: Refetch updates stored content and reindexes when changed.
 /// </summary>
 public class WebRefreshScheduler : IWebRefreshScheduler
 {

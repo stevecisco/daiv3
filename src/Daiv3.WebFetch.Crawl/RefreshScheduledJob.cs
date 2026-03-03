@@ -5,7 +5,7 @@ namespace Daiv3.WebFetch.Crawl;
 
 /// <summary>
 /// A scheduled job that refetches a URL and updates content if it has changed.
-/// Implements the core refetch logic for WFC-REQ-008.
+/// Implements the core refetch logic for WFC-REQ-008 and WFC-ACC-003.
 /// </summary>
 internal class RefreshScheduledJob : IScheduledJob
 {
@@ -56,10 +56,12 @@ internal class RefreshScheduledJob : IScheduledJob
     /// <remarks>
     /// The refetch logic:
     /// 1. Fetch the URL again using IWebFetcher
-    /// 2. Compare the new content hash with the stored hash
-    /// 3. If changed, update the markdown store and metadata
-    /// 4. If configured, trigger re-indexing for knowledge ingestion
+    /// 2. Store the markdown content (change detection happens in IMarkdownContentStore via content hash)
+    /// 3. Log whether content changed (IsNew flag from StoreContentResult)
+    /// 4. If content changed, reindexing is triggered automatically by IWebContentIngestionService's FileSystemWatcher
     /// 5. Log success or failure
+    /// 
+    /// This implements WFC-REQ-008 (scheduled refetch) and WFC-ACC-003 (detection of content changes).
     /// 
     /// Failures are logged but don't throw unhandled exceptions,
     /// allowing the scheduler to continue with other jobs.
@@ -98,11 +100,11 @@ internal class RefreshScheduledJob : IScheduledJob
             }
 
             // Step 2: Store the markdown content
-            // The content store will handle deduplication and change detection
+            // The content store will handle deduplication and change detection via content hash (WFC-REQ-007)
             var markdownContent = fetchResult.HtmlContent;
             if (!string.IsNullOrEmpty(markdownContent))
             {
-                var result = await _contentStore.StoreAsync(
+                var storeResult = await _contentStore.StoreAsync(
                     _sourceUrl,
                     markdownContent,
                     title: null,
@@ -110,10 +112,21 @@ internal class RefreshScheduledJob : IScheduledJob
                     tags: null,
                     cancellationToken: cancellationToken);
 
-                _logger.LogInformation(
-                    "Successfully refetched and stored content for URL: {SourceUrl} -> {ContentId}",
-                    _sourceUrl,
-                    result.Metadata.ContentId);
+                // Step 3: Log whether content changed (WFC-ACC-003)
+                if (storeResult.IsNew)
+                {
+                    _logger.LogInformation(
+                        "Content changed for URL {SourceUrl}; stored as {ContentId}. " +
+                        "Reindexing will be triggered automatically via file system monitoring.",
+                        _sourceUrl,
+                        storeResult.Metadata.ContentId);
+                }
+                else
+                {
+                    _logger.LogDebug(
+                        "Content unchanged for URL {SourceUrl}; no reindexing needed",
+                        _sourceUrl);
+                }
             }
         }
         catch (OperationCanceledException)

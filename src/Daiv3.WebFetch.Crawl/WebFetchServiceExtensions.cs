@@ -329,6 +329,8 @@ public static class WebFetchServiceExtensions
     /// - IMarkdownContentStore (via AddMarkdownContentStore)
     /// 
     /// The refresh scheduler provides WFC-REQ-008: The system SHALL support scheduled refetch intervals.
+    /// Also implements WFC-ACC-003: Refetch updates stored content and reindexes when changed.
+    /// Reindexing is triggered automatically when stored content is updated via IWebContentIngestionService's FileSystemWatcher monitoring.
     /// </remarks>
     public static IServiceCollection AddWebRefreshScheduler(
         this IServiceCollection services,
