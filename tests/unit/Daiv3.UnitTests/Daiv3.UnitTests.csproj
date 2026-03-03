@@ -31,9 +31,11 @@
   </ItemGroup>
 
   <!-- MAUI app reference only for Windows target framework -->
+  <!-- Use PrivateAssets=All to prevent executable DLL from being copied to test bin, which causes file locking during test discovery -->
   <ItemGroup Condition="$(TargetFramework.Contains('windows'))">
     <ProjectReference Include="..\..\..\src\Daiv3.App.Maui\Daiv3.App.Maui.csproj">
       <ExcludeAssets>buildTransitive</ExcludeAssets>
+      <PrivateAssets>All</PrivateAssets>
     </ProjectReference>
   </ItemGroup>
 
