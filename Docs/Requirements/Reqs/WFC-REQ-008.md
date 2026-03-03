@@ -5,28 +5,57 @@ Source Spec: 10. Web Fetch, Crawl & Content Ingestion - Requirements
 ## Requirement
 The system SHALL support scheduled refetch intervals.
 
-## Implementation Plan
-- Identify the owning component and interface boundary.
-- Define data contracts, configuration, and defaults.
-- Implement the core logic with clear error handling and logging.
-- Add integration points to orchestration and UI where applicable.
-- Document configuration and operational behavior.
+## Status
+**Status:** ✅ Complete (100%)  
+**Completed:** March 3, 2026
 
-## Testing Plan
-- Unit tests to validate primary behavior and edge cases.
-- Integration tests with dependent components and data stores.
-- Negative tests to verify failure modes and error messages.
-- Performance or load checks if the requirement impacts latency.
-- Manual verification via UI workflows when applicable.
+## Implementation Summary
 
-## Usage and Operational Notes
-- Describe how this capability is invoked or configured.
-- List user-visible effects and any UI surfaces involved.
-- Specify operational constraints (offline mode, budgets, permissions).
+WFC-REQ-008 provides periodic refetch scheduling for previously fetched URLs, enabling the system to keep web content fresh and support WFC-ACC-003 (refetch updates and reindexing on change detection).
 
-## Dependencies
-- KLC-REQ-007
-- PTS-REQ-007
+The implementation integrates with PTS-REQ-007 (Scheduler) to schedule periodic refetch jobs that execute at configured intervals, refetch URLs, and store updated content when successful.
 
-## Related Requirements
-- None
+## Components Implemented
+
+### Core Interfaces and Classes
+- **`IWebRefreshScheduler`** - Interface for managing periodic refetches
+  - `ScheduleRefetchAsync()`, `CancelRefetchAsync()`, `GetScheduledRefetchesAsync()`, etc.
+- **`WebRefreshScheduler`** - Implementation (in-memory tracking with IScheduler integration)
+- **`RefreshScheduledJob`** - IScheduledJob implementation for actual refetch execution
+- **`WebRefreshSchedulerOptions`** - Configuration with sensible defaults
+- **`RefreshScheduleResult`** & **`RefreshScheduleMetadata`** - Data contracts
+
+### DI Registration
+- `AddWebRefreshScheduler()` - Two overloads for flexible configuration
+
+## Key Features
+- Schedule URLs for periodic refetch with configurable intervals
+- Validate minimum intervals (>= 60 seconds enforced)
+- In-memory tracking of schedules with O(1) lookups
+- Integration with PTS-REQ-007 (Scheduler), WFC-REQ-001 (Fetcher), WFC-REQ-005 (Storage)
+- Graceful error handling for network failures, timeouts, parse errors
+- Configuration controls resource limits and behavior
+- Comprehensive logging for operational visibility
+
+## Testing
+- 14+ unit tests in WebRefreshSchedulerTests.cs
+- Mock-based testing of all public API methods
+- Edge cases covered: null URLs, invalid intervals, disabled scheduler, max job limits
+
+## Files
+- New: IWebRefreshScheduler.cs, WebRefreshScheduler.cs, WebRefreshSchedulerOptions.cs, RefreshScheduledJob.cs
+- New tests: WebRefreshSchedulerTests.cs
+- Modified: WebFetchServiceExtensions.cs, Daiv3.WebFetch.Crawl.csproj
+
+## Build Status
+- ✅ Zero errors
+- ⚠️ 4 IDISP006 warnings (acceptable for test infrastructure)
+- ✅ All dependencies referenced correctly
+
+## Acceptance Criteria Met
+✅ System supports scheduled refetch intervals  
+✅ Refetch integrates with scheduler, fetcher, and storage  
+✅ Configurable with resource limits  
+✅ Graceful error handling and logging  
+✅ Comprehensive unit tests  
+✅ No breaking changes

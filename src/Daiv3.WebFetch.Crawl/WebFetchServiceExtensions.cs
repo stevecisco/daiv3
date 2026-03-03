@@ -314,4 +314,73 @@ public static class WebFetchServiceExtensions
         services.AddScoped<IWebFetchMetadataService, WebFetchMetadataService>();
 
         return services;
-    }}
+    }
+
+    /// <summary>
+    /// Adds web refresh scheduler services to the dependency injection container.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configureOptions">An optional action to configure refresh scheduler options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <remarks>
+    /// This method requires the following to be registered:
+    /// - IScheduler (from Daiv3.Scheduler, typically via AddScheduler)
+    /// - IWebFetcher (via AddWebFetcher)
+    /// - IMarkdownContentStore (via AddMarkdownContentStore)
+    /// 
+    /// The refresh scheduler provides WFC-REQ-008: The system SHALL support scheduled refetch intervals.
+    /// </remarks>
+    public static IServiceCollection AddWebRefreshScheduler(
+        this IServiceCollection services,
+        Action<WebRefreshSchedulerOptions>? configureOptions = null)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        // Create default options
+        var options = new WebRefreshSchedulerOptions();
+
+        // Apply custom configuration if provided
+        configureOptions?.Invoke(options);
+
+        // Register options as singleton
+        services.AddSingleton(options);
+
+        // Register the web refresh scheduler
+        // The scheduler service depends on IScheduler, IWebFetcher, and IMarkdownContentStore
+        services.AddScoped<IWebRefreshScheduler, WebRefreshScheduler>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds web refresh scheduler services with configuration from a delegate.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="optionsFactory">A delegate that creates refresh scheduler options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddWebRefreshScheduler(
+        this IServiceCollection services,
+        Func<IServiceProvider, WebRefreshSchedulerOptions> optionsFactory)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        if (optionsFactory == null)
+            throw new ArgumentNullException(nameof(optionsFactory));
+
+        // Register options factory
+        services.AddSingleton(sp => optionsFactory(sp));
+
+        // Register the web refresh scheduler
+        services.AddScoped<IWebRefreshScheduler>(sp =>
+            new WebRefreshScheduler(
+                sp.GetRequiredService<Daiv3.Scheduler.IScheduler>(),
+                sp.GetRequiredService<IWebFetcher>(),
+                sp.GetRequiredService<IMarkdownContentStore>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<WebRefreshScheduler>>(),
+                optionsFactory(sp)));
+
+        return services;
+    }
+}

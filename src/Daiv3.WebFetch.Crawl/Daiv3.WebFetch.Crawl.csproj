@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Daiv3.Infrastructure.Shared\Daiv3.Infrastructure.Shared.csproj" />
     <ProjectReference Include="..\Daiv3.Persistence\Daiv3.Persistence.csproj" />
+    <ProjectReference Include="..\Daiv3.Scheduler\Daiv3.Scheduler.csproj" />
   </ItemGroup>
 
   <ItemGroup>
