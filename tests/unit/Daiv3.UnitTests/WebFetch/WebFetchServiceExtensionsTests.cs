@@ -555,4 +555,148 @@ public class WebFetchServiceExtensionsTests
         Assert.NotNull(fetcher);
         Assert.NotNull(converter);
     }
+
+    #region AddMarkdownContentStore Tests
+
+    [Fact]
+    public void AddMarkdownContentStore_RegistersContentStoreService()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddMarkdownContentStore();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var store = provider.GetService<IMarkdownContentStore>();
+        Assert.NotNull(store);
+    }
+
+    [Fact]
+    public void AddMarkdownContentStore_RegistersWithDefaultOptions()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddMarkdownContentStore();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var options = provider.GetService<MarkdownContentStoreOptions>();
+        Assert.NotNull(options);
+        Assert.False(string.IsNullOrEmpty(options.StorageDirectory));
+        Assert.Equal(10 * 1024 * 1024, options.MaxContentSizeBytes);
+        Assert.True(options.OrganizeByDomain);
+        Assert.True(options.StoreSidecarMetadata);
+    }
+
+    [Fact]
+    public void AddMarkdownContentStore_WithCustomOptions_UsesCustomConfiguration()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        var customDir = Path.Combine(Path.GetTempPath(), "custom-content");
+
+        // Act
+        services.AddMarkdownContentStore(opts =>
+        {
+            opts.StorageDirectory = customDir;
+            opts.MaxContentSizeBytes = 5_000_000;
+            opts.OrganizeByDomain = false;
+        });
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var options = provider.GetService<MarkdownContentStoreOptions>();
+        Assert.NotNull(options);
+        Assert.Equal(customDir, options.StorageDirectory);
+        Assert.Equal(5_000_000, options.MaxContentSizeBytes);
+        Assert.False(options.OrganizeByDomain);
+    }
+
+    [Fact]
+    public void AddMarkdownContentStore_WithOptionsFactory_UsesFactory()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        var customDir = Path.Combine(Path.GetTempPath(), "factory-content");
+
+        // Act
+        services.AddMarkdownContentStore(_ =>
+            new MarkdownContentStoreOptions
+            {
+                StorageDirectory = customDir,
+                MaxContentSizeBytes = 20_000_000
+            });
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var store = provider.GetRequiredService<IMarkdownContentStore>();
+        Assert.NotNull(store);
+        Assert.Equal(customDir, store.GetStorageDirectory());
+    }
+
+    [Fact]
+    public void AddMarkdownContentStore_ReturnsServiceCollection()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        var result = services.AddMarkdownContentStore();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Same(services, result);
+    }
+
+    [Fact]
+    public void AddMarkdownContentStore_Multiple_ReturnsDifferentInstancesInDifferentScopes()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddMarkdownContentStore();
+        var provider = services.BuildServiceProvider();
+
+        // Get stores in different scopes
+        IMarkdownContentStore? store1;
+        IMarkdownContentStore? store2;
+        using (var scope1 = provider.CreateScope())
+        {
+            store1 = scope1.ServiceProvider.GetRequiredService<IMarkdownContentStore>();
+        }
+
+        using (var scope2 = provider.CreateScope())
+        {
+            store2 = scope2.ServiceProvider.GetRequiredService<IMarkdownContentStore>();
+        }
+
+        // Assert - scoped services should return different instances across different scopes
+        Assert.NotSame(store1, store2);
+    }
+
+    [Fact]
+    public void AddMarkdownContentStore_NullServices_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() =>
+            ((IServiceCollection)null!).AddMarkdownContentStore());
+    }
+
+    [Fact]
+    public void AddMarkdownContentStore_WithNullFactory_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() =>
+            services.AddMarkdownContentStore((Func<IServiceProvider, MarkdownContentStoreOptions>)null!));
+    }
+
+    #endregion
 }

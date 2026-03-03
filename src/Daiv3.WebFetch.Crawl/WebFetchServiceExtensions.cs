@@ -238,4 +238,60 @@ public static class WebFetchServiceExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Adds Markdown content store services to the dependency injection container.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configureOptions">An optional action to configure content store options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddMarkdownContentStore(
+        this IServiceCollection services,
+        Action<MarkdownContentStoreOptions>? configureOptions = null)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        // Create default options
+        var options = new MarkdownContentStoreOptions();
+
+        // Apply custom configuration if provided
+        configureOptions?.Invoke(options);
+
+        // Register options as singleton
+        services.AddSingleton(options);
+
+        // Register the content store
+        services.AddScoped<IMarkdownContentStore, MarkdownContentStore>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds Markdown content store services with configuration from a delegate.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="optionsFactory">A delegate that creates content store options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddMarkdownContentStore(
+        this IServiceCollection services,
+        Func<IServiceProvider, MarkdownContentStoreOptions> optionsFactory)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        if (optionsFactory == null)
+            throw new ArgumentNullException(nameof(optionsFactory));
+
+        // Register options factory
+        services.AddSingleton(optionsFactory);
+
+        // Register the content store
+        services.AddScoped<IMarkdownContentStore>(sp =>
+            new MarkdownContentStore(
+                Microsoft.Extensions.Options.Options.Create(optionsFactory(sp)),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MarkdownContentStore>>()));
+
+        return services;
+    }
 }
