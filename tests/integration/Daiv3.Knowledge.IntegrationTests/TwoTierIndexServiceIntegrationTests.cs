@@ -18,6 +18,9 @@ public class TwoTierIndexServiceIntegrationTests
         _fixture = fixture;
     }
 
+    private string GetUniquePath(string basePath) => $"{basePath}_{Guid.NewGuid():N}";
+    private string GetUniqueHash() => Guid.NewGuid().ToString()[..16];
+
     [Fact]
     public async Task InitializeAsync_LoadsAllTopicIndicesFromDatabase()
     {
@@ -29,11 +32,11 @@ public class TwoTierIndexServiceIntegrationTests
         for (int i = 0; i < 5; i++)
         {
             await vectorStore.StoreTopicIndexAsync(
-                $"doc-{i}",
+                $"doc-{i}-{Guid.NewGuid():N}",
                 $"Document {i} summary",
                 CreateTestEmbedding(384),
-                $"/test/doc{i}.txt",
-                $"hash{i}");
+                GetUniquePath($"/test/doc{i}.txt"),
+                GetUniqueHash());
         }
 
         // Act
@@ -55,18 +58,19 @@ public class TwoTierIndexServiceIntegrationTests
         // Store test data
         for (int i = 0; i < 3; i++)
         {
+            var docId = $"doc-{i}-{Guid.NewGuid():N}";
             await vectorStore.StoreTopicIndexAsync(
-                $"doc-{i}",
+                docId,
                 $"Document {i}",
                 CreateTestEmbedding(384),
-                $"/test/doc{i}.txt",
-                $"hash{i}");
+                GetUniquePath($"/test/doc{i}.txt"),
+                GetUniqueHash());
 
             // Store chunks for each document
             for (int j = 0; j < 2; j++)
             {
                 await vectorStore.StoreChunkAsync(
-                    $"doc-{i}",
+                    docId,
                     $"Chunk {j} of document {i}",
                     CreateTestEmbedding(384),
                     j);
@@ -98,11 +102,11 @@ public class TwoTierIndexServiceIntegrationTests
         for (int i = 0; i < 20; i++)
         {
             await vectorStore.StoreTopicIndexAsync(
-                $"doc-{i}",
+                $"doc-{i}-{Guid.NewGuid():N}",
                 $"Document {i}",
                 CreateTestEmbedding(384),
-                $"/test/doc{i}.txt",
-                $"hash{i}");
+                GetUniquePath($"/test/doc{i}.txt"),
+                GetUniqueHash());
         }
 
         // Initialize index
@@ -129,17 +133,18 @@ public class TwoTierIndexServiceIntegrationTests
         
         for (int i = 0; i < docCount; i++)
         {
+            var docId = $"doc-{i}-{Guid.NewGuid():N}";
             await vectorStore.StoreTopicIndexAsync(
-                $"doc-{i}",
+                docId,
                 $"Document {i}",
                 CreateTestEmbedding(384),
-                $"/test/doc{i}.txt",
-                $"hash{i}");
+                GetUniquePath($"/test/doc{i}.txt"),
+                GetUniqueHash());
 
             for (int j = 0; j < chunksPerDoc; j++)
             {
                 await vectorStore.StoreChunkAsync(
-                    $"doc-{i}",
+                    docId,
                     $"Chunk {j}",
                     CreateTestEmbedding(384),
                     j);
@@ -167,12 +172,13 @@ public class TwoTierIndexServiceIntegrationTests
         var indexService = _fixture.ServiceProvider.GetRequiredService<ITwoTierIndexService>();
 
         // Store test data
+        var docId = $"doc-1-{Guid.NewGuid():N}";
         await vectorStore.StoreTopicIndexAsync(
-            "doc-1",
+            docId,
             "Document 1",
             CreateTestEmbedding(384),
-            "/test/doc1.txt",
-            "hash1");
+            GetUniquePath("/test/doc1.txt"),
+            GetUniqueHash());
 
         // Initialize index
         await indexService.InitializeAsync();
@@ -186,7 +192,7 @@ public class TwoTierIndexServiceIntegrationTests
         // Assert
         Assert.Equal(0, statsAfter.CachedTopicEmbeddings);
         // But data should still exist in database
-        var topic = await vectorStore.GetTopicIndexAsync("doc-1");
+        var topic = await vectorStore.GetTopicIndexAsync(docId);
         Assert.NotNull(topic);
     }
 
@@ -198,10 +204,10 @@ public class TwoTierIndexServiceIntegrationTests
         var indexService = _fixture.ServiceProvider.GetRequiredService<ITwoTierIndexService>();
 
         // Store a single document with multiple chunks
-        var docId = "doc-1";
+        var docId = $"doc-1-{Guid.NewGuid():N}";
         var embedding = CreateTestEmbedding(384);
         
-        await vectorStore.StoreTopicIndexAsync(docId, "Main document", embedding, "/test/doc1.txt", "hash1");
+        await vectorStore.StoreTopicIndexAsync(docId, "Main document", embedding, GetUniquePath("/test/doc1.txt"), GetUniqueHash());
         
         for (int i = 0; i < 5; i++)
         {
@@ -229,11 +235,11 @@ public class TwoTierIndexServiceIntegrationTests
 
         // Store test data
         await vectorStore.StoreTopicIndexAsync(
-            "doc-1",
+            $"doc-1-{Guid.NewGuid():N}",
             "Document 1",
             CreateTestEmbedding(384),
-            "/test/doc1.txt",
-            "hash1");
+            GetUniquePath("/test/doc1.txt"),
+            GetUniqueHash());
 
         // Act & Assert - should not throw when called multiple times
         await indexService.InitializeAsync();
@@ -276,11 +282,11 @@ public class TwoTierIndexServiceIntegrationTests
         for (int i = 0; i < 3; i++)
         {
             await vectorStore.StoreTopicIndexAsync(
-                $"doc-{i}",
+                $"doc-{i}-{Guid.NewGuid():N}",
                 $"Document {i}",
                 CreateTestEmbedding(dimensions),
-                $"/test/doc{i}.txt",
-                $"hash{i}");
+                GetUniquePath($"/test/doc{i}.txt"),
+                GetUniqueHash());
         }
 
         // Initialize and search
@@ -305,11 +311,11 @@ public class TwoTierIndexServiceIntegrationTests
         for (int i = 0; i < 5; i++)
         {
             await vectorStore.StoreTopicIndexAsync(
-                $"doc-{i}",
+                $"doc-{i}-{Guid.NewGuid():N}",
                 $"Document {i}",
                 CreateTestEmbedding(384),
-                $"/test/doc{i}.txt",
-                $"hash{i}");
+                GetUniquePath($"/test/doc{i}.txt"),
+                GetUniqueHash());
         }
 
         await indexService.InitializeAsync();
