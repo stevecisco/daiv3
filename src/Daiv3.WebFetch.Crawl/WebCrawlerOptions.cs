@@ -52,4 +52,18 @@ public class WebCrawlerOptions
     /// Default: 1000ms.
     /// </summary>
     public int RateLimitDelayMs { get; set; } = 1000;
+
+    /// <summary>
+    /// Gets or sets the maximum number of requests allowed per host in a single crawl execution.
+    /// Set to 0 or less to disable this guardrail.
+    /// Default: 50.
+    /// </summary>
+    public int MaxRequestsPerHostPerCrawl { get; set; } = 50;
+
+    /// <summary>
+    /// Gets or sets the target maximum requests-per-minute for any host.
+    /// Set to 0 or less to disable threshold evaluation.
+    /// Default: 30.
+    /// </summary>
+    public int TargetMaxRequestsPerMinutePerHost { get; set; } = 30;
 }

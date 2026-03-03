@@ -13,6 +13,7 @@ public class WebCrawler : IWebCrawler
     private readonly IHtmlParser _htmlParser;
     private readonly ILogger<WebCrawler> _logger;
     private readonly WebCrawlerOptions _options;
+    private readonly ICrawlLoadMetrics _crawlLoadMetrics;
     private readonly Dictionary<string, RobotsRules> _robotsRulesByHost = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTimeOffset> _lastRequestAtByHost = new(StringComparer.OrdinalIgnoreCase);
 
@@ -27,12 +28,14 @@ public class WebCrawler : IWebCrawler
         IWebFetcher webFetcher,
         IHtmlParser htmlParser,
         ILogger<WebCrawler> logger,
-        WebCrawlerOptions? options = null)
+        WebCrawlerOptions? options = null,
+        ICrawlLoadMetrics? crawlLoadMetrics = null)
     {
         _webFetcher = webFetcher ?? throw new ArgumentNullException(nameof(webFetcher));
         _htmlParser = htmlParser ?? throw new ArgumentNullException(nameof(htmlParser));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? new WebCrawlerOptions();
+        _crawlLoadMetrics = crawlLoadMetrics ?? new CrawlLoadMetrics();
     }
 
     /// <inheritdoc />
@@ -68,6 +71,14 @@ public class WebCrawler : IWebCrawler
 
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var enqueued = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var requestsByHost = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var firstRequestAtByHost = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        var lastRequestAtByHost = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        var hostThresholdBreaches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var robotsPolicySkipCount = 0;
+        var hostRequestCapSkipCount = 0;
+        long totalAppliedRateLimitDelayMs = 0;
+        var rateLimitedRequestCount = 0;
 
         var normalizedStartUrl = NormalizeUri(startUri);
         queue.Enqueue((startUri, 0, null));
@@ -94,15 +105,48 @@ public class WebCrawler : IWebCrawler
                 continue;
             }
 
+            var hostKey = GetHostKey(current.Url);
             var robotsRules = await GetRobotsRulesForHostAsync(current.Url, cancellationToken);
             if (_options.RespectRobotsTxt && !robotsRules.IsAllowed(current.Url.PathAndQuery))
             {
                 _logger.LogInformation("Skipping URL due to robots.txt policy: {Url}", current.Url.AbsoluteUri);
                 skippedUrls.Add(current.Url.AbsoluteUri);
+                robotsPolicySkipCount++;
+                _crawlLoadMetrics.RecordRobotsBlocked(hostKey);
                 continue;
             }
 
-            await ApplyRateLimitAsync(current.Url, robotsRules, cancellationToken);
+            var hostRequestCount = requestsByHost.GetValueOrDefault(hostKey);
+            if (_options.MaxRequestsPerHostPerCrawl > 0 && hostRequestCount >= _options.MaxRequestsPerHostPerCrawl)
+            {
+                _logger.LogWarning(
+                    "Skipping URL due to host request cap. Host: {HostKey}, cap: {Cap}, url: {Url}",
+                    hostKey,
+                    _options.MaxRequestsPerHostPerCrawl,
+                    current.Url.AbsoluteUri);
+
+                skippedUrls.Add(current.Url.AbsoluteUri);
+                hostRequestCapSkipCount++;
+                _crawlLoadMetrics.RecordHostRequestCapSkip(hostKey);
+                continue;
+            }
+
+            var appliedDelayMs = await ApplyRateLimitAsync(current.Url, robotsRules, cancellationToken);
+            totalAppliedRateLimitDelayMs += appliedDelayMs;
+            if (appliedDelayMs > 0)
+            {
+                rateLimitedRequestCount++;
+            }
+
+            var requestTimestamp = DateTimeOffset.UtcNow;
+            if (!firstRequestAtByHost.ContainsKey(hostKey))
+            {
+                firstRequestAtByHost[hostKey] = requestTimestamp;
+            }
+
+            lastRequestAtByHost[hostKey] = requestTimestamp;
+            requestsByHost[hostKey] = hostRequestCount + 1;
+            _crawlLoadMetrics.RecordRequest(hostKey, appliedDelayMs);
 
             WebFetchResult fetchResult;
             try
@@ -168,12 +212,43 @@ public class WebCrawler : IWebCrawler
             }
         }
 
+        var requestsPerMinuteByHost = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var hostEntry in requestsByHost)
+        {
+            var hostKey = hostEntry.Key;
+            var requestCount = hostEntry.Value;
+
+            var firstRequestAt = firstRequestAtByHost[hostKey];
+            var lastRequestAt = lastRequestAtByHost[hostKey];
+            var observedDurationMs = Math.Max(1000d, (lastRequestAt - firstRequestAt).TotalMilliseconds);
+            var requestsPerMinute = requestCount / (observedDurationMs / 60000d);
+
+            requestsPerMinuteByHost[hostKey] = requestsPerMinute;
+
+            if (_options.TargetMaxRequestsPerMinutePerHost > 0
+                && requestsPerMinute > _options.TargetMaxRequestsPerMinutePerHost)
+            {
+                hostThresholdBreaches.Add(hostKey);
+                _crawlLoadMetrics.RecordRequestsPerMinuteThresholdBreach(hostKey);
+
+                _logger.LogWarning(
+                    "Host request rate exceeded target threshold. Host: {HostKey}, rpm: {RequestsPerMinute:F2}, target: {TargetRpm}",
+                    hostKey,
+                    requestsPerMinute,
+                    _options.TargetMaxRequestsPerMinutePerHost);
+            }
+        }
+
         var completedAt = DateTime.UtcNow;
         _logger.LogInformation(
-            "Crawl complete for {StartUrl}. Pages crawled: {PageCount}, skipped: {SkippedCount}",
+            "Crawl complete for {StartUrl}. Pages crawled: {PageCount}, skipped: {SkippedCount}, rate-limited requests: {RateLimitedCount}, total applied delay-ms: {TotalDelayMs}, host-cap skips: {HostCapSkips}, robots skips: {RobotsSkips}",
             startUri.AbsoluteUri,
             pages.Count,
-            skippedUrls.Count);
+            skippedUrls.Count,
+            rateLimitedRequestCount,
+            totalAppliedRateLimitDelayMs,
+            hostRequestCapSkipCount,
+            robotsPolicySkipCount);
 
         return new CrawlResult
         {
@@ -183,7 +258,14 @@ public class WebCrawler : IWebCrawler
             StartedAt = startedAt,
             CompletedAt = completedAt,
             Pages = pages,
-            SkippedUrls = skippedUrls
+            SkippedUrls = skippedUrls,
+            RequestsByHost = requestsByHost,
+            RequestsPerMinuteByHost = requestsPerMinuteByHost,
+            TotalAppliedRateLimitDelayMs = totalAppliedRateLimitDelayMs,
+            RateLimitedRequestCount = rateLimitedRequestCount,
+            RobotsPolicySkipCount = robotsPolicySkipCount,
+            HostRequestCapSkipCount = hostRequestCapSkipCount,
+            RequestsPerMinuteThresholdBreaches = hostThresholdBreaches.ToArray()
         };
     }
 
@@ -298,11 +380,11 @@ public class WebCrawler : IWebCrawler
         }
     }
 
-    private async Task ApplyRateLimitAsync(Uri url, RobotsRules robotsRules, CancellationToken cancellationToken)
+    private async Task<int> ApplyRateLimitAsync(Uri url, RobotsRules robotsRules, CancellationToken cancellationToken)
     {
         if (!_options.ApplyRateLimit)
         {
-            return;
+            return 0;
         }
 
         var configuredDelay = Math.Max(0, _options.RateLimitDelayMs);
@@ -311,10 +393,12 @@ public class WebCrawler : IWebCrawler
 
         if (effectiveDelayMs <= 0)
         {
-            return;
+            return 0;
         }
 
         var hostKey = GetHostKey(url);
+        var appliedDelayMs = 0;
+
         if (_lastRequestAtByHost.TryGetValue(hostKey, out var lastRequestAt))
         {
             var elapsedMs = (DateTimeOffset.UtcNow - lastRequestAt).TotalMilliseconds;
@@ -322,16 +406,19 @@ public class WebCrawler : IWebCrawler
 
             if (remainingDelayMs > 0)
             {
+                appliedDelayMs = (int)Math.Ceiling(remainingDelayMs);
+
                 _logger.LogDebug(
                     "Applying crawl rate limit delay for {HostKey}: {DelayMs}ms",
                     hostKey,
-                    (int)Math.Ceiling(remainingDelayMs));
+                    appliedDelayMs);
 
                 await Task.Delay(TimeSpan.FromMilliseconds(remainingDelayMs), cancellationToken);
             }
         }
 
         _lastRequestAtByHost[hostKey] = DateTimeOffset.UtcNow;
+        return appliedDelayMs;
     }
 
     private static string GetHostKey(Uri uri)

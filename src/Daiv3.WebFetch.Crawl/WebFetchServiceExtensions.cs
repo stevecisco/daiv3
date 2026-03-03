@@ -157,6 +157,7 @@ public static class WebFetchServiceExtensions
         configureOptions?.Invoke(options);
 
         services.AddSingleton(options);
+        services.AddSingleton<ICrawlLoadMetrics, CrawlLoadMetrics>();
         services.AddScoped<IWebCrawler, WebCrawler>();
 
         return services;
@@ -179,12 +180,14 @@ public static class WebFetchServiceExtensions
             throw new ArgumentNullException(nameof(optionsFactory));
 
         services.AddSingleton(optionsFactory);
+        services.AddSingleton<ICrawlLoadMetrics, CrawlLoadMetrics>();
         services.AddScoped<IWebCrawler>(sp =>
             new WebCrawler(
                 sp.GetRequiredService<IWebFetcher>(),
                 sp.GetRequiredService<IHtmlParser>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<WebCrawler>>(),
-                optionsFactory(sp)));
+                optionsFactory(sp),
+                sp.GetRequiredService<ICrawlLoadMetrics>()));
 
         return services;
     }

@@ -321,8 +321,11 @@ public class WebFetchServiceExtensionsTests
 
         // Assert
         var crawler = provider.GetService<IWebCrawler>();
+        var crawlMetrics = provider.GetService<ICrawlLoadMetrics>();
         Assert.NotNull(crawler);
         Assert.IsType<WebCrawler>(crawler);
+        Assert.NotNull(crawlMetrics);
+        Assert.IsType<CrawlLoadMetrics>(crawlMetrics);
     }
 
     [Fact]
@@ -347,6 +350,8 @@ public class WebFetchServiceExtensionsTests
         Assert.Equal("Daiv3Crawler", options.RobotsUserAgent);
         Assert.True(options.ApplyRateLimit);
         Assert.Equal(1000, options.RateLimitDelayMs);
+        Assert.Equal(50, options.MaxRequestsPerHostPerCrawl);
+        Assert.Equal(30, options.TargetMaxRequestsPerMinutePerHost);
     }
 
     [Fact]

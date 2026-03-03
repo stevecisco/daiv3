@@ -229,6 +229,53 @@ public class WebCrawlerTests
 
         Assert.Equal(2, result.PagesCrawled);
         Assert.True(stopwatch.ElapsedMilliseconds >= 120, $"Expected rate limit delay to apply, actual elapsed: {stopwatch.ElapsedMilliseconds}ms");
+        Assert.True(result.RateLimitedRequestCount >= 1);
+        Assert.True(result.TotalAppliedRateLimitDelayMs >= 100);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_WhenHostRequestCapReached_SkipsAdditionalRequestsForHost()
+    {
+        var handler = new RouteHttpMessageHandler();
+        handler.AddHtml("http://example.com", "<a href='/a'>A</a><a href='/b'>B</a>");
+        handler.AddHtml("http://example.com/a", "<p>a</p>");
+        handler.AddHtml("http://example.com/b", "<p>b</p>");
+
+        var crawler = CreateCrawler(handler, new WebCrawlerOptions
+        {
+            RespectRobotsTxt = false,
+            ApplyRateLimit = false,
+            MaxRequestsPerHostPerCrawl = 2
+        });
+
+        var result = await crawler.CrawlAsync("http://example.com", maxDepth: 1);
+
+        Assert.Equal(2, result.PagesCrawled);
+        Assert.Equal(1, result.HostRequestCapSkipCount);
+        Assert.Contains(result.SkippedUrls, url => url.EndsWith("/b", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CrawlAsync_PopulatesHostRequestMetricsAndThresholdBreaches()
+    {
+        var handler = new RouteHttpMessageHandler();
+        handler.AddHtml("http://example.com", "<a href='/a'>A</a>");
+        handler.AddHtml("http://example.com/a", "<p>child</p>");
+
+        var crawler = CreateCrawler(handler, new WebCrawlerOptions
+        {
+            RespectRobotsTxt = false,
+            ApplyRateLimit = false,
+            TargetMaxRequestsPerMinutePerHost = 1
+        });
+
+        var result = await crawler.CrawlAsync("http://example.com", maxDepth: 1);
+
+        Assert.Equal(2, result.PagesCrawled);
+        Assert.True(result.RequestsByHost.TryGetValue("http://example.com", out var requestCount));
+        Assert.Equal(2, requestCount);
+        Assert.Contains("http://example.com", result.RequestsPerMinuteThresholdBreaches);
+        Assert.True(result.RequestsPerMinuteByHost["http://example.com"] > 1);
     }
 }
 

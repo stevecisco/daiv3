@@ -75,6 +75,41 @@ public record CrawlResult
     /// Gets the number of pages successfully crawled.
     /// </summary>
     public int PagesCrawled => Pages.Count;
+
+    /// <summary>
+    /// Gets request counts by host observed during this crawl.
+    /// </summary>
+    public IReadOnlyDictionary<string, int> RequestsByHost { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>
+    /// Gets requests-per-minute values by host observed during this crawl.
+    /// </summary>
+    public IReadOnlyDictionary<string, double> RequestsPerMinuteByHost { get; init; } = new Dictionary<string, double>();
+
+    /// <summary>
+    /// Gets total delay applied by rate limiting before requests.
+    /// </summary>
+    public long TotalAppliedRateLimitDelayMs { get; init; }
+
+    /// <summary>
+    /// Gets the number of requests where rate-limit delay was applied.
+    /// </summary>
+    public int RateLimitedRequestCount { get; init; }
+
+    /// <summary>
+    /// Gets number of URLs skipped due to robots.txt policy.
+    /// </summary>
+    public int RobotsPolicySkipCount { get; init; }
+
+    /// <summary>
+    /// Gets number of URLs skipped due to host request cap.
+    /// </summary>
+    public int HostRequestCapSkipCount { get; init; }
+
+    /// <summary>
+    /// Gets hosts that exceeded configured requests-per-minute target.
+    /// </summary>
+    public IReadOnlyList<string> RequestsPerMinuteThresholdBreaches { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
