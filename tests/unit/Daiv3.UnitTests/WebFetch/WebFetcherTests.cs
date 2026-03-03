@@ -60,6 +60,126 @@ public class WebFetcherTests
     }
 
     [Fact]
+    public async Task FetchAsync_IncludesContentHash_ForChangeDetection()
+    {
+        // Arrange
+        var mockHttpClientFactory = new MockHttpClientFactory();
+        var mockHtmlParser = CreateMockHtmlParser();
+        var mockLogger = CreateMockLogger();
+        var options = CreateDefaultOptions();
+
+        var htmlContent = "<html><body>Test</body></html>";
+        var response = new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(htmlContent),
+            RequestMessage = new HttpRequestMessage { RequestUri = new Uri("http://example.com") }
+        };
+        response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
+        mockHttpClientFactory.SetupResponse(response);
+
+        var httpClient = mockHttpClientFactory.CreateHttpClient();
+        var fetcher = new WebFetcher(httpClient, mockLogger.Object, mockHtmlParser.Object, options);
+
+        // Act
+        var result = await fetcher.FetchAsync("http://example.com");
+
+        // Assert
+        Assert.NotNull(result.ContentHash);
+        Assert.NotEmpty(result.ContentHash);
+        Assert.Equal(64, result.ContentHash.Length); // SHA256 hex string is 64 characters
+    }
+
+    [Fact]
+    public async Task FetchAsync_DifferentContent_ProducesDifferentContentHash()
+    {
+        // Arrange
+        var mockHtmlParser = CreateMockHtmlParser();
+        var mockLogger = CreateMockLogger();
+        var options = CreateDefaultOptions();
+
+        var content1 = "<html><body>Content 1</body></html>";
+        var content2 = "<html><body>Content 2</body></html>";
+
+        // First request
+        var mockHttpClientFactory1 = new MockHttpClientFactory();
+        var response1 = new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(content1),
+            RequestMessage = new HttpRequestMessage { RequestUri = new Uri("http://example.com") }
+        };
+        response1.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
+        mockHttpClientFactory1.SetupResponse(response1);
+
+        var httpClient1 = mockHttpClientFactory1.CreateHttpClient();
+        var fetcher1 = new WebFetcher(httpClient1, mockLogger.Object, mockHtmlParser.Object, options);
+        var result1 = await fetcher1.FetchAsync("http://example.com");
+
+        // Second request with different content
+        var mockHttpClientFactory2 = new MockHttpClientFactory();
+        var response2 = new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(content2),
+            RequestMessage = new HttpRequestMessage { RequestUri = new Uri("http://example.com") }
+        };
+        response2.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
+        mockHttpClientFactory2.SetupResponse(response2);
+
+        var httpClient2 = mockHttpClientFactory2.CreateHttpClient();
+        var fetcher2 = new WebFetcher(httpClient2, mockLogger.Object, mockHtmlParser.Object, options);
+        var result2 = await fetcher2.FetchAsync("http://example.com");
+
+        // Assert
+        Assert.NotEqual(result1.ContentHash, result2.ContentHash);
+    }
+
+    [Fact]
+    public async Task FetchAsync_IdenticalContent_ProducesSameContentHash()
+    {
+        // Arrange
+        var htmlContent = "<html><body>Identical Content</body></html>";
+        var mockHtmlParser = CreateMockHtmlParser();
+        var mockLogger = CreateMockLogger();
+        var options = CreateDefaultOptions();
+
+        // First request
+        var mockHttpClientFactory1 = new MockHttpClientFactory();
+        var response1 = new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(htmlContent),
+            RequestMessage = new HttpRequestMessage { RequestUri = new Uri("http://example.com") }
+        };
+        response1.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
+        mockHttpClientFactory1.SetupResponse(response1);
+
+        var httpClient1 = mockHttpClientFactory1.CreateHttpClient();
+        var fetcher1 = new WebFetcher(httpClient1, mockLogger.Object, mockHtmlParser.Object, options);
+        var result1 = await fetcher1.FetchAsync("http://example.com");
+
+        // Second request with same content
+        var mockHttpClientFactory2 = new MockHttpClientFactory();
+        var response2 = new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(htmlContent),
+            RequestMessage = new HttpRequestMessage { RequestUri = new Uri("http://example.com") }
+        };
+        response2.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
+        mockHttpClientFactory2.SetupResponse(response2);
+
+        var httpClient2 = mockHttpClientFactory2.CreateHttpClient();
+        var fetcher2 = new WebFetcher(httpClient2, mockLogger.Object, mockHtmlParser.Object, options);
+        var result2 = await fetcher2.FetchAsync("http://example.com");
+
+        // Assert
+        Assert.Equal(result1.ContentHash, result2.ContentHash);
+    }
+
+
+    [Fact]
     public async Task FetchAsync_WithNullUrl_ThrowsArgumentNullException()
     {
         // Arrange

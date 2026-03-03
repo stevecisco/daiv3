@@ -1,4 +1,6 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Logging;
 
 namespace Daiv3.WebFetch.Crawl;
@@ -9,6 +11,8 @@ namespace Daiv3.WebFetch.Crawl;
 /// <remarks>
 /// Uses HttpClient for efficient HTTP request handling with support for
 /// redirects, timeouts, and content size validation.
+/// Also calculates content hashes for change detection and metadata storage.
+/// Implements partial WFC-REQ-007: calculates metadata that can be stored by higher-level services.
 /// </remarks>
 public class WebFetcher : IWebFetcher
 {
@@ -150,6 +154,9 @@ public class WebFetcher : IWebFetcher
                 bytesRead,
                 response.StatusCode);
 
+            // Calculate content hash for change detection (WFC-REQ-007)
+            var contentHash = CalculateContentHash(htmlContent);
+
             return new WebFetchResult
             {
                 Url = url,
@@ -157,7 +164,8 @@ public class WebFetcher : IWebFetcher
                 StatusCode = (int)response.StatusCode,
                 ContentType = contentType,
                 HtmlContent = htmlContent,
-                FetchedAt = DateTime.UtcNow
+                FetchedAt = DateTime.UtcNow,
+                ContentHash = contentHash
             };
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
@@ -235,5 +243,18 @@ public class WebFetcher : IWebFetcher
             "text/xml" => true,
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Calculates the SHA256 hash of HTML content.
+    /// Used for change detection and metadata storage (WFC-REQ-007).
+    /// </summary>
+    /// <param name="content">The HTML content to hash.</param>
+    /// <returns>The SHA256 hash as a hexadecimal string (lowercase).</returns>
+    private static string CalculateContentHash(string content)
+    {
+        using var sha256 = SHA256.Create();
+        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(content));
+        return BitConverter.ToString(hashedBytes).Replace("-", "").ToLowerInvariant();
     }
 }

@@ -34,6 +34,13 @@ public record WebFetchResult
     /// Gets the timestamp when the content was fetched.
     /// </summary>
     public required DateTime FetchedAt { get; init; }
+
+    /// <summary>
+    /// Gets the SHA256 hash of the fetched content (optional).
+    /// Used for change detection when refetching content.
+    /// Implements WFC-REQ-007: metadata storage.
+    /// </summary>
+    public string? ContentHash { get; init; }
 }
 
 /// <summary>

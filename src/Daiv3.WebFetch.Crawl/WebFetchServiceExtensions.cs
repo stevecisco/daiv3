@@ -294,4 +294,24 @@ public static class WebFetchServiceExtensions
 
         return services;
     }
-}
+
+    /// <summary>
+    /// Adds web fetch metadata storage services to the dependency injection container.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <remarks>
+    /// This method requires IWebFetchRepository to be registered in the persistence layer.
+    /// The metadata service provides utilities for storing source URLs, fetch dates, and content hashes.
+    /// Implements WFC-REQ-007: The system SHALL store source URL and fetch date as metadata.
+    /// </remarks>
+    public static IServiceCollection AddWebFetchMetadataService(this IServiceCollection services)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        // Register the web fetch metadata service
+        services.AddScoped<IWebFetchMetadataService, WebFetchMetadataService>();
+
+        return services;
+    }}
