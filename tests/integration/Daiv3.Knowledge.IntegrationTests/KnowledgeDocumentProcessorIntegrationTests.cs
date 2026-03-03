@@ -147,6 +147,88 @@ public class KnowledgeDocumentProcessorIntegrationTests
         Assert.NotNull(topic2);
     }
 
+    /// <summary>
+    /// KM-ACC-002: Updating a document triggers re-indexing only for that document.
+    /// Verifies that when one document is updated, other documents remain unchanged.
+    /// </summary>
+    [Fact]
+    public async Task UpdateDocument_ReindexesOnlyThatDocument_NotOthers()
+    {
+        // Arrange - Create and process three documents
+        var doc1Path = CreateTestFile("doc1.txt", "First document original content");
+        var doc2Path = CreateTestFile("doc2.txt", "Second document content that will be updated");
+        var doc3Path = CreateTestFile("doc3.txt", "Third document original content");
+        
+        var processor = CreateDocumentProcessor();
+        var vectorStore = _fixture.ServiceProvider.GetRequiredService<IVectorStoreService>();
+
+        // Process all three documents initially
+        var result1 = await processor.ProcessDocumentAsync(doc1Path);
+        var result2 = await processor.ProcessDocumentAsync(doc2Path);
+        var result3 = await processor.ProcessDocumentAsync(doc3Path);
+
+        var doc1Id = result1.DocumentId;
+        var doc2Id = result2.DocumentId;
+        var doc3Id = result3.DocumentId;
+
+        // Get initial state of all documents
+        var doc1TopicBefore = await vectorStore.GetTopicIndexAsync(doc1Id);
+        var doc2TopicBefore = await vectorStore.GetTopicIndexAsync(doc2Id);
+        var doc3TopicBefore = await vectorStore.GetTopicIndexAsync(doc3Id);
+        
+        var doc1ChunksBefore = await vectorStore.GetChunksByDocumentAsync(doc1Id);
+        var doc2ChunksBefore = await vectorStore.GetChunksByDocumentAsync(doc2Id);
+        var doc3ChunksBefore = await vectorStore.GetChunksByDocumentAsync(doc3Id);
+
+        Assert.NotNull(doc1TopicBefore);
+        Assert.NotNull(doc2TopicBefore);
+        Assert.NotNull(doc3TopicBefore);
+
+        var doc1OriginalFileHash = doc1TopicBefore.FileHash;
+        var doc2OriginalFileHash = doc2TopicBefore.FileHash;
+        var doc3OriginalFileHash = doc3TopicBefore.FileHash;
+
+        var doc1OriginalIngestedAt = doc1TopicBefore.IngestedAt;
+        var doc2OriginalIngestedAt = doc2TopicBefore.IngestedAt;
+        var doc3OriginalIngestedAt = doc3TopicBefore.IngestedAt;
+
+        // Wait at least 1 second to ensure IngestedAt timestamp will differ (stored in seconds)
+        await Task.Delay(1100);
+
+        // Act - Update ONLY doc2
+        File.WriteAllText(doc2Path, "Second document with completely NEW updated content");
+        var result2Updated = await processor.ProcessDocumentAsync(doc2Path);
+
+        // Assert - Verify doc2 was re-indexed
+        Assert.True(result2Updated.Success);
+        var doc2TopicAfter = await vectorStore.GetTopicIndexAsync(doc2Id);
+        Assert.NotNull(doc2TopicAfter);
+        
+        // Doc2 should have new hash and new ingestion timestamp
+        Assert.NotEqual(doc2OriginalFileHash, doc2TopicAfter.FileHash);
+        Assert.NotEqual(doc2OriginalIngestedAt, doc2TopicAfter.IngestedAt);
+
+        // Assert - Verify doc1 and doc3 were NOT affected
+        var doc1TopicAfter = await vectorStore.GetTopicIndexAsync(doc1Id);
+        var doc3TopicAfter = await vectorStore.GetTopicIndexAsync(doc3Id);
+
+        Assert.NotNull(doc1TopicAfter);
+        Assert.NotNull(doc3TopicAfter);
+
+        // Doc1 and Doc3 should have unchanged hashes and timestamps
+        Assert.Equal(doc1OriginalFileHash, doc1TopicAfter.FileHash);
+        Assert.Equal(doc3OriginalFileHash, doc3TopicAfter.FileHash);
+        Assert.Equal(doc1OriginalIngestedAt, doc1TopicAfter.IngestedAt);
+        Assert.Equal(doc3OriginalIngestedAt, doc3TopicAfter.IngestedAt);
+
+        // Verify chunk counts remain consistent for doc1 and doc3
+        var doc1ChunksAfter = await vectorStore.GetChunksByDocumentAsync(doc1Id);
+        var doc3ChunksAfter = await vectorStore.GetChunksByDocumentAsync(doc3Id);
+        
+        Assert.Equal(doc1ChunksBefore.Count, doc1ChunksAfter.Count);
+        Assert.Equal(doc3ChunksBefore.Count, doc3ChunksAfter.Count);
+    }
+
     [Fact]
     public async Task RemoveDocumentAsync_DeletesDocumentAndChunks()
     {
