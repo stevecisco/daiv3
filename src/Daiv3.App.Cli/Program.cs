@@ -6,6 +6,7 @@ using Daiv3.Infrastructure.Shared.Logging;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
+using Daiv3.Knowledge;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Scheduler;
 using Daiv3.Orchestration;
@@ -750,6 +751,20 @@ public class Program
         settingsCommand.AddCommand(settingsShowCommand);
         rootCommand.AddCommand(settingsCommand);
 
+        // Knowledge commands
+        var knowledgeCommand = new Command("knowledge", "Knowledge layer management (indexing and search)");
+        
+        var knowledgeLoadCommand = new Command("load-index", "Load topic embeddings into memory for fast search");
+        knowledgeLoadCommand.SetHandler(async () =>
+        {
+            var host = CreateHost();
+            var exitCode = await KnowledgeLoadIndexCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        knowledgeCommand.AddCommand(knowledgeLoadCommand);
+        rootCommand.AddCommand(knowledgeCommand);
+
         // Embedding commands
         var embeddingCommand = new Command("embedding", "Embedding generation and testing");
         
@@ -944,6 +959,9 @@ public class Program
                 {
                     options.ModelPath = modelPath;
                 });
+
+                // Add knowledge layer (Tier 1/2 vector indexing and search)
+                services.AddKnowledgeLayer();
 
                 // Add scheduler
                 services.AddScheduler(options =>
@@ -2998,6 +3016,52 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to supersede learning: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> KnowledgeLoadIndexCommand(IHost host)
+    {
+        try
+        {
+            Console.WriteLine("KNOWLEDGE INDEX LOADING");
+            Console.WriteLine("=======================");
+            Console.WriteLine();
+            Console.Write("Loading topic embeddings into memory... ");
+            
+            await host.Services.InitializeKnowledgeLayerAsync().ConfigureAwait(false);
+            
+            Console.WriteLine("✓ Success!");
+            Console.WriteLine();
+            
+            var indexService = host.Services.GetRequiredService<ITwoTierIndexService>();
+            var stats = await indexService.GetStatisticsAsync().ConfigureAwait(false);
+            
+            Console.WriteLine("INDEX STATISTICS");
+            Console.WriteLine("================");
+            Console.WriteLine($"Total documents: {stats.DocumentCount}");
+            Console.WriteLine($"Total chunks (Tier 2): {stats.ChunkCount}");
+            Console.WriteLine($"Cached topic embeddings: {stats.CachedTopicEmbeddings}");
+            
+            if (stats.EstimatedMemoryBytes > 0)
+            {
+                var memoryMB = stats.EstimatedMemoryBytes / (1024.0 * 1024.0);
+                Console.WriteLine($"Memory usage: {memoryMB:F2} MB");
+            }
+            
+            Console.WriteLine();
+            Console.WriteLine("✓ Knowledge index is ready for semantic search");
+            
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to load knowledge index:");
+            Console.WriteLine($"  Error: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"  Details: {ex.InnerException.Message}");
+            }
             return 1;
         }
     }

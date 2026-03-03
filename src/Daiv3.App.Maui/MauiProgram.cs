@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Daiv3.App.Maui.Pages;
 using Daiv3.App.Maui.ViewModels;
+using Daiv3.Knowledge;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Infrastructure.Shared.Logging;
 
@@ -46,6 +47,9 @@ public static class MauiProgram
 		{
 			options.ModelPath = modelPath;
 		});
+
+		// Add knowledge layer (Tier 1/2 vector indexing and search)
+		builder.Services.AddKnowledgeLayer();
 
 		var app = builder.Build();
 
