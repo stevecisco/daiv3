@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Diagnostics;
 using Xunit;
 
 namespace Daiv3.UnitTests.WebFetch;
@@ -31,7 +32,11 @@ public class WebCrawlerTests
             fetcher,
             htmlParser,
             new Mock<ILogger<WebCrawler>>().Object,
-            crawlerOptions ?? new WebCrawlerOptions());
+            crawlerOptions ?? new WebCrawlerOptions
+            {
+                RespectRobotsTxt = false,
+                ApplyRateLimit = false
+            });
     }
 
     [Fact]
@@ -157,6 +162,73 @@ public class WebCrawlerTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => crawler.CrawlAsync("http://example.com", maxDepth: 2));
 
         Assert.Contains("exceeds configured maximum", ex.Message);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_WhenRobotsDisallowsPath_SkipsDisallowedUrl()
+    {
+        var handler = new RouteHttpMessageHandler();
+        handler.AddHtml("http://example.com/robots.txt", "User-agent: *\nDisallow: /private");
+        handler.AddHtml("http://example.com", "<a href='/private/page'>private</a><a href='/public'>public</a>");
+        handler.AddHtml("http://example.com/public", "<p>ok</p>");
+        handler.AddHtml("http://example.com/private/page", "<p>blocked</p>");
+
+        var crawler = CreateCrawler(handler, new WebCrawlerOptions
+        {
+            RespectRobotsTxt = true,
+            RobotsUserAgent = "Daiv3Crawler",
+            ApplyRateLimit = false
+        });
+
+        var result = await crawler.CrawlAsync("http://example.com", maxDepth: 1);
+
+        Assert.Equal(2, result.PagesCrawled);
+        Assert.Contains(result.Pages, p => p.Url == "http://example.com/");
+        Assert.Contains(result.Pages, p => p.Url == "http://example.com/public");
+        Assert.DoesNotContain(result.Pages, p => p.Url.Contains("/private/", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.SkippedUrls, u => u.Contains("/private/page", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CrawlAsync_WhenRobotsAllowOverridesDisallow_CrawlsAllowedPath()
+    {
+        var handler = new RouteHttpMessageHandler();
+        handler.AddHtml("http://example.com/robots.txt", "User-agent: *\nDisallow: /private\nAllow: /private/safe");
+        handler.AddHtml("http://example.com", "<a href='/private/safe/page'>safe</a>");
+        handler.AddHtml("http://example.com/private/safe/page", "<p>ok</p>");
+
+        var crawler = CreateCrawler(handler, new WebCrawlerOptions
+        {
+            RespectRobotsTxt = true,
+            ApplyRateLimit = false
+        });
+
+        var result = await crawler.CrawlAsync("http://example.com", maxDepth: 1);
+
+        Assert.Equal(2, result.PagesCrawled);
+        Assert.Contains(result.Pages, p => p.Url == "http://example.com/private/safe/page");
+    }
+
+    [Fact]
+    public async Task CrawlAsync_WhenRateLimitEnabled_AppliesDelayBetweenHostRequests()
+    {
+        var handler = new RouteHttpMessageHandler();
+        handler.AddHtml("http://example.com", "<a href='/a'>A</a>");
+        handler.AddHtml("http://example.com/a", "<p>child</p>");
+
+        var crawler = CreateCrawler(handler, new WebCrawlerOptions
+        {
+            RespectRobotsTxt = false,
+            ApplyRateLimit = true,
+            RateLimitDelayMs = 150
+        });
+
+        var stopwatch = Stopwatch.StartNew();
+        var result = await crawler.CrawlAsync("http://example.com", maxDepth: 1);
+        stopwatch.Stop();
+
+        Assert.Equal(2, result.PagesCrawled);
+        Assert.True(stopwatch.ElapsedMilliseconds >= 120, $"Expected rate limit delay to apply, actual elapsed: {stopwatch.ElapsedMilliseconds}ms");
     }
 }
 

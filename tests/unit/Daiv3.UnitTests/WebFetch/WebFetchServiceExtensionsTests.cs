@@ -343,6 +343,10 @@ public class WebFetchServiceExtensionsTests
         Assert.Equal(1, options.DefaultMaxDepth);
         Assert.Equal(5, options.MaxAllowedDepth);
         Assert.True(options.RestrictToSameDomain);
+        Assert.True(options.RespectRobotsTxt);
+        Assert.Equal("Daiv3Crawler", options.RobotsUserAgent);
+        Assert.True(options.ApplyRateLimit);
+        Assert.Equal(1000, options.RateLimitDelayMs);
     }
 
     [Fact]
@@ -359,6 +363,10 @@ public class WebFetchServiceExtensionsTests
             opts.DefaultMaxDepth = 2;
             opts.MaxAllowedDepth = 10;
             opts.RestrictToSameDomain = false;
+            opts.RespectRobotsTxt = false;
+            opts.RobotsUserAgent = "CustomCrawler";
+            opts.ApplyRateLimit = false;
+            opts.RateLimitDelayMs = 250;
         });
         var provider = services.BuildServiceProvider();
 
@@ -368,6 +376,10 @@ public class WebFetchServiceExtensionsTests
         Assert.Equal(2, options.DefaultMaxDepth);
         Assert.Equal(10, options.MaxAllowedDepth);
         Assert.False(options.RestrictToSameDomain);
+        Assert.False(options.RespectRobotsTxt);
+        Assert.Equal("CustomCrawler", options.RobotsUserAgent);
+        Assert.False(options.ApplyRateLimit);
+        Assert.Equal(250, options.RateLimitDelayMs);
     }
 
     [Fact]

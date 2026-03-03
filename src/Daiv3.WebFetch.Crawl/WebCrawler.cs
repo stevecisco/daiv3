@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Daiv3.WebFetch.Crawl;
 
@@ -11,6 +13,8 @@ public class WebCrawler : IWebCrawler
     private readonly IHtmlParser _htmlParser;
     private readonly ILogger<WebCrawler> _logger;
     private readonly WebCrawlerOptions _options;
+    private readonly Dictionary<string, RobotsRules> _robotsRulesByHost = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTimeOffset> _lastRequestAtByHost = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebCrawler"/> class.
@@ -89,6 +93,16 @@ public class WebCrawler : IWebCrawler
                 skippedUrls.Add(currentNormalizedUrl);
                 continue;
             }
+
+            var robotsRules = await GetRobotsRulesForHostAsync(current.Url, cancellationToken);
+            if (_options.RespectRobotsTxt && !robotsRules.IsAllowed(current.Url.PathAndQuery))
+            {
+                _logger.LogInformation("Skipping URL due to robots.txt policy: {Url}", current.Url.AbsoluteUri);
+                skippedUrls.Add(current.Url.AbsoluteUri);
+                continue;
+            }
+
+            await ApplyRateLimitAsync(current.Url, robotsRules, cancellationToken);
 
             WebFetchResult fetchResult;
             try
@@ -244,5 +258,246 @@ public class WebCrawler : IWebCrawler
         }
 
         return normalizedLinks.ToArray();
+    }
+
+    private async Task<RobotsRules> GetRobotsRulesForHostAsync(Uri url, CancellationToken cancellationToken)
+    {
+        if (!_options.RespectRobotsTxt)
+        {
+            return RobotsRules.AllowAll;
+        }
+
+        var hostKey = GetHostKey(url);
+        if (_robotsRulesByHost.TryGetValue(hostKey, out var cachedRules))
+        {
+            return cachedRules;
+        }
+
+        var robotsUri = new Uri($"{url.Scheme}://{url.Authority}/robots.txt", UriKind.Absolute);
+
+        try
+        {
+            var fetchResult = await _webFetcher.FetchAsync(robotsUri.AbsoluteUri, cancellationToken);
+            var parsedRules = ParseRobots(fetchResult.HtmlContent, _options.RobotsUserAgent);
+            _robotsRulesByHost[hostKey] = parsedRules;
+
+            _logger.LogDebug(
+                "Loaded robots.txt for {HostKey}. Allow rules: {AllowCount}, disallow rules: {DisallowCount}, crawl-delay-ms: {CrawlDelayMs}",
+                hostKey,
+                parsedRules.AllowPatterns.Count,
+                parsedRules.DisallowPatterns.Count,
+                parsedRules.CrawlDelayMs);
+
+            return parsedRules;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unable to load robots.txt for {HostKey}. Proceeding with allow-all policy.", hostKey);
+            _robotsRulesByHost[hostKey] = RobotsRules.AllowAll;
+            return RobotsRules.AllowAll;
+        }
+    }
+
+    private async Task ApplyRateLimitAsync(Uri url, RobotsRules robotsRules, CancellationToken cancellationToken)
+    {
+        if (!_options.ApplyRateLimit)
+        {
+            return;
+        }
+
+        var configuredDelay = Math.Max(0, _options.RateLimitDelayMs);
+        var robotsDelay = robotsRules.CrawlDelayMs.GetValueOrDefault(0);
+        var effectiveDelayMs = Math.Max(configuredDelay, robotsDelay);
+
+        if (effectiveDelayMs <= 0)
+        {
+            return;
+        }
+
+        var hostKey = GetHostKey(url);
+        if (_lastRequestAtByHost.TryGetValue(hostKey, out var lastRequestAt))
+        {
+            var elapsedMs = (DateTimeOffset.UtcNow - lastRequestAt).TotalMilliseconds;
+            var remainingDelayMs = effectiveDelayMs - elapsedMs;
+
+            if (remainingDelayMs > 0)
+            {
+                _logger.LogDebug(
+                    "Applying crawl rate limit delay for {HostKey}: {DelayMs}ms",
+                    hostKey,
+                    (int)Math.Ceiling(remainingDelayMs));
+
+                await Task.Delay(TimeSpan.FromMilliseconds(remainingDelayMs), cancellationToken);
+            }
+        }
+
+        _lastRequestAtByHost[hostKey] = DateTimeOffset.UtcNow;
+    }
+
+    private static string GetHostKey(Uri uri)
+    {
+        return $"{uri.Scheme}://{uri.Authority}";
+    }
+
+    private static RobotsRules ParseRobots(string robotsContent, string userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(robotsContent))
+        {
+            return RobotsRules.AllowAll;
+        }
+
+        var effectiveUserAgent = string.IsNullOrWhiteSpace(userAgent)
+            ? "*"
+            : userAgent.Trim();
+
+        var allowPatterns = new List<string>();
+        var disallowPatterns = new List<string>();
+        int? crawlDelayMs = null;
+
+        var groupAgents = new List<string>();
+        var groupHasDirectives = false;
+
+        foreach (var rawLine in robotsContent.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            var commentIndex = line.IndexOf('#');
+            if (commentIndex >= 0)
+            {
+                line = line[..commentIndex].Trim();
+            }
+
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            var separatorIndex = line.IndexOf(':');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            var directive = line[..separatorIndex].Trim();
+            var value = line[(separatorIndex + 1)..].Trim();
+
+            if (directive.Equals("User-agent", StringComparison.OrdinalIgnoreCase))
+            {
+                if (groupHasDirectives)
+                {
+                    groupAgents.Clear();
+                    groupHasDirectives = false;
+                }
+
+                groupAgents.Add(value);
+                continue;
+            }
+
+            if (groupAgents.Count == 0)
+            {
+                continue;
+            }
+
+            groupHasDirectives = true;
+            var applies = groupAgents.Any(agent =>
+                agent.Equals("*", StringComparison.Ordinal)
+                || agent.Equals(effectiveUserAgent, StringComparison.OrdinalIgnoreCase));
+
+            if (!applies)
+            {
+                continue;
+            }
+
+            if (directive.Equals("Allow", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    allowPatterns.Add(value);
+                }
+
+                continue;
+            }
+
+            if (directive.Equals("Disallow", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    disallowPatterns.Add(value);
+                }
+
+                continue;
+            }
+
+            if (directive.Equals("Crawl-delay", StringComparison.OrdinalIgnoreCase)
+                && double.TryParse(value, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var seconds)
+                && seconds >= 0)
+            {
+                var parsedDelayMs = (int)Math.Round(seconds * 1000, MidpointRounding.AwayFromZero);
+                crawlDelayMs = Math.Max(crawlDelayMs.GetValueOrDefault(0), parsedDelayMs);
+            }
+        }
+
+        if (allowPatterns.Count == 0 && disallowPatterns.Count == 0 && crawlDelayMs is null)
+        {
+            return RobotsRules.AllowAll;
+        }
+
+        return new RobotsRules(allowPatterns, disallowPatterns, crawlDelayMs);
+    }
+
+    private sealed record RobotsRules(
+        IReadOnlyList<string> AllowPatterns,
+        IReadOnlyList<string> DisallowPatterns,
+        int? CrawlDelayMs)
+    {
+        public static RobotsRules AllowAll { get; } = new(Array.Empty<string>(), Array.Empty<string>(), null);
+
+        public bool IsAllowed(string pathAndQuery)
+        {
+            var normalizedPath = string.IsNullOrWhiteSpace(pathAndQuery) ? "/" : pathAndQuery;
+
+            var bestAllowLength = GetBestMatchLength(AllowPatterns, normalizedPath);
+            var bestDisallowLength = GetBestMatchLength(DisallowPatterns, normalizedPath);
+
+            if (bestAllowLength == 0 && bestDisallowLength == 0)
+            {
+                return true;
+            }
+
+            return bestAllowLength >= bestDisallowLength;
+        }
+
+        private static int GetBestMatchLength(IReadOnlyList<string> patterns, string candidatePath)
+        {
+            var bestLength = 0;
+
+            foreach (var pattern in patterns)
+            {
+                if (PatternMatches(pattern, candidatePath))
+                {
+                    bestLength = Math.Max(bestLength, pattern.Length);
+                }
+            }
+
+            return bestLength;
+        }
+
+        private static bool PatternMatches(string pattern, string candidatePath)
+        {
+            if (string.IsNullOrWhiteSpace(pattern))
+            {
+                return false;
+            }
+
+            var regexPattern = "^" + Regex.Escape(pattern)
+                .Replace("\\*", ".*")
+                .Replace("\\$", "$");
+
+            return Regex.IsMatch(candidatePath, regexPattern, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        }
     }
 }

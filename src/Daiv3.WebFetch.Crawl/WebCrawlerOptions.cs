@@ -28,4 +28,28 @@ public class WebCrawlerOptions
     /// Default: true.
     /// </summary>
     public bool RestrictToSameDomain { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether robots.txt rules are respected during crawling.
+    /// Default: true.
+    /// </summary>
+    public bool RespectRobotsTxt { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the user-agent token used when evaluating robots.txt rules.
+    /// Default: Daiv3Crawler.
+    /// </summary>
+    public string RobotsUserAgent { get; set; } = "Daiv3Crawler";
+
+    /// <summary>
+    /// Gets or sets whether request rate limiting is applied between requests to the same host.
+    /// Default: true.
+    /// </summary>
+    public bool ApplyRateLimit { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the default delay in milliseconds between requests to the same host.
+    /// Default: 1000ms.
+    /// </summary>
+    public int RateLimitDelayMs { get; set; } = 1000;
 }
