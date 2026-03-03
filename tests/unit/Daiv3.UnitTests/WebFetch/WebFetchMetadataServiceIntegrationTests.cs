@@ -14,25 +14,40 @@ namespace Daiv3.UnitTests.WebFetch;
 /// </summary>
 public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
 {
-    private DatabaseContext _context = null!;
-    private IWebFetchRepository _repository = null!;
+    private IDatabaseContext _context = null!;
+    private WebFetchRepository _repository = null!;
+    private DocumentRepository _documentRepository = null!;
     private IWebFetchMetadataService _service = null!;
+    private string _testDbPath = null!;
 
     public async Task InitializeAsync()
     {
-        // Set up in-memory database
+        // Set up test database
+        _testDbPath = Path.Combine(Path.GetTempPath(), $"web-fetch-metadata-test-{Guid.NewGuid()}.db");
+        
         var services = new ServiceCollection();
-        services.AddPersistenceServices(":memory:");
-        services.AddLogging(config => config.AddConsole());
+        services.AddLogging();
+        services.Configure<PersistenceOptions>(options =>
+        {
+            options.DatabasePath = _testDbPath;
+        });
+        services.AddPersistence();
         services.AddScoped<IWebFetchMetadataService, WebFetchMetadataService>();
 
         var serviceProvider = services.BuildServiceProvider();
-        _context = serviceProvider.GetRequiredService<DatabaseContext>();
-        _repository = serviceProvider.GetRequiredService<IWebFetchRepository>();
+        _context = serviceProvider.GetRequiredService<IDatabaseContext>();
+        _repository = new WebFetchRepository(
+            _context,
+            serviceProvider.GetRequiredService<ILogger<WebFetchRepository>>()
+        );
+        _documentRepository = new DocumentRepository(
+            _context,
+            serviceProvider.GetRequiredService<ILogger<DocumentRepository>>()
+        );
         _service = serviceProvider.GetRequiredService<IWebFetchMetadataService>();
 
         // Create schema
-        await _context.InitializeDatabaseAsync();
+        await _context.InitializeAsync();
     }
 
     public async Task DisposeAsync()
@@ -40,6 +55,18 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
         if (_context != null)
         {
             await _context.DisposeAsync();
+        }
+        
+        try
+        {
+            if (!string.IsNullOrEmpty(_testDbPath) && File.Exists(_testDbPath))
+            {
+                File.Delete(_testDbPath);
+            }
+        }
+        catch
+        {
+            // Ignore cleanup errors
         }
     }
 
@@ -57,14 +84,16 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
         var doc = new Document
         {
             DocId = docId,
-            FileName = "test.html",
             SourcePath = sourceUrl,
             FileHash = "test-hash",
-            ProcessingStatus = "complete",
+            Format = "web",
+            SizeBytes = htmlContent.Length,
+            LastModified = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Status = "indexed",
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            MetadataJson = null
         };
-        await _repository.GetType().BaseType?.GetMethod("AddAsync")?.Invoke(_repository, new object[] { doc, CancellationToken.None }) ?? Task.CompletedTask;
+        await _documentRepository.AddAsync(doc);
 
         // Act
         var result = await _service.StoreMetadataAsync(sourceUrl, docId, htmlContent, title, description);
@@ -102,28 +131,30 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
         var doc1 = new Document
         {
             DocId = docId1,
-            FileName = "page1.html",
             SourcePath = url1,
             FileHash = "hash1",
-            ProcessingStatus = "complete",
+            Format = "web",
+            SizeBytes = content1.Length,
+            LastModified = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Status = "indexed",
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            MetadataJson = null
         };
         var doc2 = new Document
         {
             DocId = docId2,
-            FileName = "page2.html",
             SourcePath = url2,
             FileHash = "hash2",
-            ProcessingStatus = "complete",
+            Format = "web",
+            SizeBytes = content2.Length,
+            LastModified = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Status = "indexed",
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            MetadataJson = null
         };
 
-        var docRepository = _context.Set<Document>();
-        docRepository.Add(doc1);
-        docRepository.Add(doc2);
-        await _context.SaveChangesAsync();
+        await _documentRepository.AddAsync(doc1);
+        await _documentRepository.AddAsync(doc2);
 
         // Act
         var result1 = await _service.StoreMetadataAsync(url1, docId1, content1);
@@ -155,18 +186,16 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
 
         // Create document
         var doc = new Document
-        {
-            DocId = docId,
-            FileName = "changing.html",
-            SourcePath = sourceUrl,
+        {SourcePath = sourceUrl,
             FileHash = "hash-initial",
-            ProcessingStatus = "complete",
+            Format = "web",
+            SizeBytes = contentV1.Length,
+            LastModified = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Status = "indexed",
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            MetadataJson = null
         };
-        var docRepository = _context.Set<Document>();
-        docRepository.Add(doc);
-        await _context.SaveChangesAsync();
+        await _documentRepository.AddAsync(doc);
 
         // Act - Store initial fetch
         var result1 = await _service.StoreMetadataAsync(sourceUrl, docId, contentV1);
@@ -212,16 +241,16 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
         var doc = new Document
         {
             DocId = docId,
-            FileName = "test.html",
             SourcePath = sourceUrl,
             FileHash = "hash-test",
-            ProcessingStatus = "complete",
+            Format = "web",
+            SizeBytes = content.Length,
+            LastModified = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Status = "indexed",
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            MetadataJson = null
         };
-        var docRepository = _context.Set<Document>();
-        docRepository.Add(doc);
-        await _context.SaveChangesAsync();
+        await _documentRepository.AddAsync(doc);
 
         // Act
         var result = await _service.StoreMetadataAsync(sourceUrl, docId, content);

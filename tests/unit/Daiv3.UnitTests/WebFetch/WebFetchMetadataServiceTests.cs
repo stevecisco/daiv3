@@ -6,6 +6,7 @@ using Moq;
 using System.Security.Cryptography;
 using System.Text;
 using Xunit;
+using WebFetchEntity = Daiv3.Persistence.Entities.WebFetch;
 
 namespace Daiv3.UnitTests.WebFetch;
 
@@ -34,11 +35,11 @@ public class WebFetchMetadataServiceTests
         var title = "Example Article";
         var description = "A test article";
 
-        WebFetch capturedEntity = null!;
+        WebFetchEntity capturedEntity = null!;
         _mockRepository
-            .Setup(r => r.AddAsync(It.IsAny<WebFetch>(), It.IsAny<CancellationToken>()))
-            .Callback<WebFetch, CancellationToken>((entity, _) => capturedEntity = entity)
-            .Returns(Task.CompletedTask);
+            .Setup(r => r.AddAsync(It.IsAny<WebFetchEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<WebFetchEntity, CancellationToken>((entity, _) => capturedEntity = entity)
+            .ReturnsAsync("web-fetch-id");
 
         // Act
         var result = await _service.StoreMetadataAsync(sourceUrl, docId, htmlContent, title, description);
@@ -54,7 +55,7 @@ public class WebFetchMetadataServiceTests
         Assert.True(result.FetchDate > 0); // Unix timestamp should be positive
 
         // Verify repository was called
-        _mockRepository.Verify(r => r.AddAsync(It.IsAny<WebFetch>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<WebFetchEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
         // Verify the captured entity had correct values
         Assert.NotNull(capturedEntity);
@@ -112,8 +113,8 @@ public class WebFetchMetadataServiceTests
         var htmlContent = "<html></html>";
 
         _mockRepository
-            .Setup(r => r.AddAsync(It.IsAny<WebFetch>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Setup(r => r.AddAsync(It.IsAny<WebFetchEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("web-fetch-id");
 
         // Act
         var result = await _service.StoreMetadataAsync(sourceUrl, docId, htmlContent, null, null);
@@ -131,7 +132,7 @@ public class WebFetchMetadataServiceTests
     {
         // Arrange
         _mockRepository
-            .Setup(r => r.AddAsync(It.IsAny<WebFetch>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.AddAsync(It.IsAny<WebFetchEntity>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new System.Data.DataException("Database error"));
 
         // Act & Assert
@@ -147,7 +148,7 @@ public class WebFetchMetadataServiceTests
         cts.Cancel();
 
         _mockRepository
-            .Setup(r => r.AddAsync(It.IsAny<WebFetch>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.AddAsync(It.IsAny<WebFetchEntity>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new OperationCanceledException());
 
         // Act & Assert
@@ -263,9 +264,9 @@ public class WebFetchMetadataServiceTests
         var storedIds = new List<string>();
 
         _mockRepository
-            .Setup(r => r.AddAsync(It.IsAny<WebFetch>(), It.IsAny<CancellationToken>()))
-            .Callback<WebFetch, CancellationToken>((entity, _) => storedIds.Add(entity.WebFetchId))
-            .Returns(Task.CompletedTask);
+            .Setup(r => r.AddAsync(It.IsAny<WebFetchEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<WebFetchEntity, CancellationToken>((entity, _) => storedIds.Add(entity.WebFetchId))
+            .ReturnsAsync("web-fetch-id");
 
         // Act
         await _service.StoreMetadataAsync(sourceUrl, docId, htmlContent);
@@ -285,11 +286,11 @@ public class WebFetchMetadataServiceTests
         var docId = "doc-123";
         var htmlContent = "<html></html>";
 
-        WebFetch capturedEntity = null!;
+        WebFetchEntity capturedEntity = null!;
         _mockRepository
-            .Setup(r => r.AddAsync(It.IsAny<WebFetch>(), It.IsAny<CancellationToken>()))
-            .Callback<WebFetch, CancellationToken>((entity, _) => capturedEntity = entity)
-            .Returns(Task.CompletedTask);
+            .Setup(r => r.AddAsync(It.IsAny<WebFetchEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<WebFetchEntity, CancellationToken>((entity, _) => capturedEntity = entity)
+            .ReturnsAsync("web-fetch-id");
 
         // Act
         await _service.StoreMetadataAsync(sourceUrl, docId, htmlContent);

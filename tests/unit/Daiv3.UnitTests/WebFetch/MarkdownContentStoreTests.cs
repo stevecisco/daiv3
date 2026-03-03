@@ -9,6 +9,9 @@ namespace Daiv3.UnitTests.WebFetch;
 public class MarkdownContentStoreTests : IDisposable
 {
     private readonly string _tempDir;
+    private IMarkdownContentStore? _storeField;
+    
+    private IMarkdownContentStore _store => _storeField ??= CreateStore();
 
     public MarkdownContentStoreTests()
     {

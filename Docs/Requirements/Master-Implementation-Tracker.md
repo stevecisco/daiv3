@@ -223,8 +223,8 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 | 158 | [WFC-REQ-006](Reqs/WFC-REQ-006.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | The system SHALL add fetched content to knowledge ingestion pipeline. | WFC-REQ-005, KM-REQ-001 | Complete | 100% | **✅ COMPLETE** - IWebContentIngestionService interface + WebContentIngestionService implementation (463 LOC) with IngestContentAsync, IngestPendingContentAsync, StartMonitoringAsync, StopMonitoringAsync; WebContentIngestionOptions configuration (6 properties, sensible defaults: MaxConcurrentIngestions=3, FileDetectionDelayMs=1000ms); WebContentIngestionResult + WebContentIngestionStatistics data contracts; FileSystemWatcher-based automatic directory monitoring with debouncing; SemaphoreSlim-enforced concurrency control; deduplication via file path+size caching; metadata extraction from .metadata.json sidecar files; IKnowledgeDocumentProcessor integration for chunking/embeddings/storage; DI registration (scoped); 17 unit tests (421 LOC) covering single/batch ingestion, file monitoring, configuration, error handling, statistics; builds for net10.0/net10.0-windows10.0.26100; 0 compilation errors, baseline warnings only. See WFC-REQ-006.md for complete documentation. |
 | 159 | [WFC-REQ-007](Reqs/WFC-REQ-007.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | The system SHALL store source URL and fetch date as metadata. | WFC-DATA-001 | Complete | 100% | **COMPLETE** - IWebFetchMetadataService with SHA256 hash calculation, database persistence via IWebFetchRepository. WebFetchResult enhanced with ContentHash field. WebFetcher calculates hashes for all fetches. DI registration via AddWebFetchMetadataService(). 13+ unit tests + 5+ integration tests passing. Supports WFC-REQ-008 change detection. See WFC-REQ-007.md for details. |
 | 160 | [WFC-REQ-008](Reqs/WFC-REQ-008.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | The system SHALL support scheduled refetch intervals. | WFC-REQ-001, PTS-REQ-007 | Complete | 100% | **✅ COMPLETE** - IWebRefreshScheduler interface with ScheduleRefetchAsync, CancelRefetchAsync, GetScheduledRefetchesAsync, GetRefetchMetadataAsync, UpdateRefetchIntervalAsync. WebRefreshScheduler implementation (286 LOC) with in-memory ConcurrentDictionary tracking of scheduled URLs, integration with IScheduler (PTS-REQ-007) for job execution. RefreshScheduledJob (145 LOC) implements IScheduledJob for periodic refetch execution via IWebFetcher (WFC-REQ-001) and IMarkdownContentStore (WFC-REQ-005). WebRefreshSchedulerOptions configuration class (80 LOC) with 10 configurable properties (min/max intervals, concurrent/total limits, timeout, reindex on change, etc.). DI registration via AddWebRefreshScheduler() in WebFetchServiceExtensions. Unit tests: 14+ tests in WebRefreshSchedulerTests.cs covering scheduling, cancellation, updates, queries, validation, errors. Build: 0 errors, 4 IDISP006 warnings (test infrastructure). Project reference added: Daiv3.Scheduler. |
-| 161 | [WFC-ACC-001](Reqs/WFC-ACC-001.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | A fetched page appears in local Markdown storage and is indexed. | WFC-REQ-006 | Not Started | 0% | Acceptance: Fetch-to-index |
-| 162 | [WFC-ACC-002](Reqs/WFC-ACC-002.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | Crawl mode respects depth and domain limits. | WFC-REQ-003, WFC-REQ-004 | Not Started | 0% | Acceptance: Crawl behavior |
+| 161 | [WFC-ACC-001](Reqs/WFC-ACC-001.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | A fetched page appears in local Markdown storage and is indexed. | WFC-REQ-006 | Complete | 100% | **✅ COMPLETE** - WebFetchAcceptanceTests.cs (tests/integration/Daiv3.Orchestration.IntegrationTests/) validates end-to-end fetch→storage→indexing pipeline via IWebContentIngestionService. Three comprehensive scenarios: 1) Single fetch with VectorStoreService indexing, 2) Multi-source batch ingestion, 3) Metadata preservation through pipeline. Real DatabaseContext + repositories + VectorStoreService; mock IMarkdownContentStore/IKnowledgeDocumentProcessor for test control. Test database: temp SQLite with IAsyncLifetime cleanup. Confirms fetched pages reach Markdown storage (via mock capture) and are indexed in vector store (via real persistence validation). All 3 acceptance tests passing. Dependencies: WFC-REQ-006 (ingestion service), WFC-REQ-005 (storage), KLC-REQ-007 (parser), KM-REQ-001 (indexing). |
+| 162 | [WFC-ACC-002](Reqs/WFC-ACC-002.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | Crawl mode respects depth and domain limits. | WFC-REQ-003, WFC-REQ-004 | Complete | 100% | Acceptance tests added in `WebCrawlerAcceptanceTests.cs` covering depth and same-domain boundary behavior. All tests passing (2/2). Fixed pre-existing compilation errors in WebFetchMetadataServiceTests, WebFetchMetadataServiceIntegrationTests, MarkdownContentStoreTests. Solution builds with 0 errors. |
 | 163 | [WFC-ACC-003](Reqs/WFC-ACC-003.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | Refetch updates stored content and reindexes when changed. | WFC-REQ-008 | Not Started | 0% | Acceptance: Update detection |
 | 164 | [WFC-NFR-001](Reqs/WFC-NFR-001.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | Fetch operations SHOULD be cancellable. | WFC-REQ-001 | Not Started | 0% | User control |
 | 165 | [WFC-NFR-002](Reqs/WFC-NFR-002.md) | [10. Web Fetch, Crawl & Content Ingestion](Specs/10-Web-Fetch-Crawl-Ingestion.md) | Crawling SHOULD avoid excessive network load. | WFC-REQ-004 | Not Started | 0% | Network politeness |
@@ -314,8 +314,26 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 ---
 
-**Last Updated:** February 28, 2026  
-**Total Requirements:** 212  
-**Completed:** 1 (AST-REQ-008)  
-**In Progress:** 9 (4% - Model Management 80-85%, SQLite Persistence 50%)  
-**Not Started:** 202 (96%)
+**Last Updated:** March 3, 2026  
+**Total Requirements:** 213  
+**Completed:** 135 (63%)  
+**In Progress:** 8 (4%)  
+**Not Started:** 70 (33%)
+
+**Phase Progress Summary:**
+- **Phase 1 (Foundation):** 32/32 Complete (100%)
+- **Phase 2 (Knowledge Layer):** 19/25 Complete (76%)
+- **Phase 3 (Model Execution):** 32/33 Complete (97%)
+- **Phase 4 (Orchestration):** 15/15 Complete (100%)
+- **Phase 5 (Advanced Features):** 35/41 Complete (85%)
+- **Phase 6 (User Experience):** 0/16 Complete (0%)
+- **Executive Summary & Product Goals:** 0/15 Complete (0%)
+- **Glossary & Future:** 0/13 Complete (0%)
+- **Backlog (v0.2+):** 2/6 Complete (33%)
+
+**Recent Completions (Last 7 Days):**
+- KBP-NFR-002: Provenance storage for promotions
+- KLC-REQ-007: HTML parsing library (AngleSharp)
+- WFC-REQ-001: Web fetch single URL
+- WFC-REQ-003: Web crawl with depth limits
+- WFC-REQ-007: Store fetch metadata
