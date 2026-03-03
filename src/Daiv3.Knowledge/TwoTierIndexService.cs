@@ -9,6 +9,8 @@ namespace Daiv3.Knowledge;
 /// </summary>
 public class TwoTierIndexService : ITwoTierIndexService
 {
+    private const int Tier2CandidateDocumentLimit = 3;
+
     private readonly IVectorStoreService _vectorStore;
     private readonly IVectorSimilarityService _vectorSimilarity;
     private readonly ILogger<TwoTierIndexService> _logger;
@@ -125,7 +127,7 @@ public class TwoTierIndexService : ITwoTierIndexService
             // Tier 2: Search chunks from top Tier 1 candidates
             var tier2Results = new List<SearchResult>();
 
-            foreach (var tier1Result in tier1Results.Take(3)) // Limit Tier 2 search to top 3 documents
+            foreach (var tier1Result in tier1Results.Take(Tier2CandidateDocumentLimit))
             {
                 var chunks = await _vectorStore.GetChunksByDocumentAsync(tier1Result.DocumentId, ct)
                     .ConfigureAwait(false);
@@ -138,15 +140,24 @@ public class TwoTierIndexService : ITwoTierIndexService
                 // Search chunks from this document
                 var flattenedChunkEmbeddings = FlattenEmbeddings(chunks, out int chunkDimensions);
 
+                if (queryEmbedding.Length != chunkDimensions)
+                {
+                    _logger.LogWarning(
+                        "Skipping Tier 2 search for document {DocId}: query dimensions ({QueryDimensions}) do not match chunk dimensions ({ChunkDimensions})",
+                        tier1Result.DocumentId,
+                        queryEmbedding.Length,
+                        chunkDimensions);
+                    continue;
+                }
+
                 _vectorSimilarity.BatchCosineSimilarity(
-                    queryEmbedding.AsSpan(0, Math.Min(queryEmbedding.Length, chunkDimensions)),
+                    queryEmbedding.AsSpan(),
                     flattenedChunkEmbeddings,
                     chunks.Count,
                     chunkDimensions,
                     chunkScores);
 
                 // Get top K results from this document's chunks
-                var documentChunkIds = chunks.Select(c => c.ChunkId).ToArray();
                 var docChunkResults = GetTopChunkResults(
                     chunkScores,
                     chunks,

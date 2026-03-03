@@ -490,6 +490,130 @@ public class TwoTierIndexServiceTests
         Assert.NotNull(results2);
     }
 
+    [Fact]
+    public async Task SearchAsync_LoadsChunksOnlyForTopThreeTier1Candidates()
+    {
+        // Arrange
+        var topics = new List<TopicIndex>();
+        for (int i = 0; i < 5; i++)
+        {
+            topics.Add(new TopicIndex
+            {
+                DocId = $"doc{i}",
+                SummaryText = $"Document {i}",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
+                EmbeddingDimensions = 384,
+                SourcePath = $"/docs/file{i}.txt"
+            });
+        }
+
+        _mockVectorStore
+            .Setup(x => x.GetAllTopicIndicesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(topics);
+
+        _mockVectorStore
+            .Setup(x => x.GetTopicIndexCountAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(5);
+
+        _mockVectorStore
+            .Setup(x => x.GetChunkIndexCountAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(5);
+
+        _mockVectorStore
+            .Setup(x => x.GetChunksByDocumentAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ChunkIndex>
+            {
+                new()
+                {
+                    ChunkId = "chunk-1",
+                    DocId = "doc0",
+                    ChunkText = "Chunk content",
+                    EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
+                    EmbeddingDimensions = 384,
+                    ChunkOrder = 0
+                }
+            });
+
+        await _service.InitializeAsync(CancellationToken.None);
+
+        // Act
+        var queryEmbedding = new float[384];
+        await _service.SearchAsync(queryEmbedding, tier1TopK: 5, tier2TopK: 2, CancellationToken.None);
+
+        // Assert
+        _mockVectorStore.Verify(
+            x => x.GetChunksByDocumentAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(3));
+        _mockVectorStore.Verify(
+            x => x.GetChunksByDocumentAsync("doc0", It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockVectorStore.Verify(
+            x => x.GetChunksByDocumentAsync("doc1", It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockVectorStore.Verify(
+            x => x.GetChunksByDocumentAsync("doc2", It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockVectorStore.Verify(
+            x => x.GetChunksByDocumentAsync("doc3", It.IsAny<CancellationToken>()),
+            Times.Never);
+        _mockVectorStore.Verify(
+            x => x.GetChunksByDocumentAsync("doc4", It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task SearchAsync_WithMismatchedChunkDimensions_SkipsTier2ResultsWithoutThrowing()
+    {
+        // Arrange
+        var topics = new List<TopicIndex>
+        {
+            new()
+            {
+                DocId = "doc1",
+                SummaryText = "Document 1",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
+                EmbeddingDimensions = 384,
+                SourcePath = "/docs/file1.txt"
+            }
+        };
+
+        _mockVectorStore
+            .Setup(x => x.GetAllTopicIndicesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(topics);
+
+        _mockVectorStore
+            .Setup(x => x.GetTopicIndexCountAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockVectorStore
+            .Setup(x => x.GetChunkIndexCountAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockVectorStore
+            .Setup(x => x.GetChunksByDocumentAsync("doc1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ChunkIndex>
+            {
+                new()
+                {
+                    ChunkId = "doc1_chunk_0",
+                    DocId = "doc1",
+                    ChunkText = "Tier 2 chunk",
+                    EmbeddingBlob = ConvertEmbeddingToBytes(new float[768]),
+                    EmbeddingDimensions = 768,
+                    ChunkOrder = 0
+                }
+            });
+
+        await _service.InitializeAsync(CancellationToken.None);
+
+        // Act
+        var results = await _service.SearchAsync(new float[384], tier1TopK: 1, tier2TopK: 3, CancellationToken.None);
+
+        // Assert
+        Assert.Single(results.Tier1Results);
+        Assert.Empty(results.Tier2Results);
+    }
+
     // Helper to convert float[] to byte[] for embedding blob
 
     private byte[] ConvertEmbeddingToBytes(float[] embedding)
