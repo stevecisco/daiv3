@@ -1,3 +1,4 @@
+using Daiv3.Knowledge.Embedding;
 using Daiv3.Mcp.Integration;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Messaging;
@@ -19,6 +20,9 @@ public static class OrchestrationServiceExtensions
     public static IServiceCollection AddOrchestrationServices(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // Register embedding services (required for learning and knowledge management)
+        services.AddEmbeddingServices();
 
         // Register MCP integration services (required by ToolRoutingService)
         services.AddMcpIntegration();

@@ -195,7 +195,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
             title: "Test view operation",
             description: "This tests the view functionality with detailed info",
             triggerType: "SelfCorrection",
-            scope: "Task",
+            scope: "Skill",
             confidence: 0.92,
             sourceAgent: "agent-view-test",
             sourceTaskId: "task-123",
@@ -211,7 +211,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         Assert.Equal("Test view operation", learning.Title);
         Assert.Equal("This tests the view functionality with detailed info", learning.Description);
         Assert.Equal("SelfCorrection", learning.TriggerType);
-        Assert.Equal("Task", learning.Scope);
+        Assert.Equal("Skill", learning.Scope);
         Assert.Equal(0.92, learning.Confidence);
         Assert.Equal("agent-view-test", learning.SourceAgent);
         Assert.Equal("task-123", learning.SourceTaskId);

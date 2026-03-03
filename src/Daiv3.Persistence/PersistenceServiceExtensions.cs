@@ -70,6 +70,9 @@ public static class PersistenceServiceExtensions
         // MQ-REQ-013: Model queue repository for offline queueing
         services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
 
+        // WFC-DATA-001: Web fetch repository for web fetch metadata persistence
+        services.AddScoped<IWebFetchRepository, WebFetchRepository>();
+
         // LM-NFR-002: Learning metrics collector for transparency and auditability
         services.AddSingleton<LearningMetricsCollector>(serviceProvider =>
         {

@@ -17,7 +17,9 @@ public class SkillExecutorTests
         var services = new ServiceCollection();
         services.AddLogging(x => x.AddDebug());
         services.AddOptions<OrchestrationOptions>();
+        services.AddOptions<SkillSandboxConfiguration>();
         services.AddSingleton<ISkillRegistry, SkillRegistry>();
+        services.AddScoped<SkillPermissionValidator>();
         services.AddScoped<ISkillExecutor, SkillExecutor>();
 
         _serviceProvider = services.BuildServiceProvider();
