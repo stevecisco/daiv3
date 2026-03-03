@@ -61,10 +61,10 @@ public class KnowledgePromotionSummarizationIntegrationTests : IAsyncLifetime
 
         // Create services
         _learningService = new LearningStorageService(
-            Moq.Mock.Of<Microsoft.Extensions.Logging.ILogger<LearningStorageService>>(),
             learningRepository,
-            promotionRepository,
-            mockEmbeddingGenerator.Object);
+            Moq.Mock.Of<Microsoft.Extensions.Logging.ILogger<LearningStorageService>>(),
+            null,  // Optional metricsCollector
+            promotionRepository);
 
         _summaryService = new KnowledgeSummaryService(
             Moq.Mock.Of<Microsoft.Extensions.Logging.ILogger<KnowledgeSummaryService>>());
