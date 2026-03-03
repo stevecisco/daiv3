@@ -130,4 +130,60 @@ public static class WebFetchServiceExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Adds HTML to Markdown converter services to the dependency injection container.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configureOptions">An optional action to configure HTML to Markdown conversion options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddHtmlToMarkdownConverter(
+        this IServiceCollection services,
+        Action<HtmlToMarkdownOptions>? configureOptions = null)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        // Create default options
+        var options = new HtmlToMarkdownOptions();
+
+        // Apply custom configuration if provided
+        configureOptions?.Invoke(options);
+
+        // Register options as singleton
+        services.AddSingleton(options);
+
+        // Register the HTML to Markdown converter
+        services.AddScoped<IHtmlToMarkdownConverter, HtmlToMarkdownConverter>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds HTML to Markdown converter services with configuration from a delegate.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="optionsFactory">A delegate that creates HTML to Markdown conversion options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddHtmlToMarkdownConverter(
+        this IServiceCollection services,
+        Func<IServiceProvider, HtmlToMarkdownOptions> optionsFactory)
+    {
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+
+        if (optionsFactory == null)
+            throw new ArgumentNullException(nameof(optionsFactory));
+
+        // Register options factory
+        services.AddSingleton(optionsFactory);
+
+        // Register the HTML to Markdown converter
+        services.AddScoped<IHtmlToMarkdownConverter>(sp =>
+            new HtmlToMarkdownConverter(
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HtmlToMarkdownConverter>>(),
+                optionsFactory(sp)));
+
+        return services;
+    }
 }

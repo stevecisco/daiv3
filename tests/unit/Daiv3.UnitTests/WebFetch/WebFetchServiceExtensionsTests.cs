@@ -306,4 +306,161 @@ public class WebFetchServiceExtensionsTests
         Assert.NotNull(parserOptions);
         Assert.NotNull(fetcherOptions);
     }
+
+    [Fact]
+    public void AddHtmlToMarkdownConverter_RegistersConverterService()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddHtmlToMarkdownConverter();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var converter = provider.GetService<IHtmlToMarkdownConverter>();
+        Assert.NotNull(converter);
+        Assert.IsType<HtmlToMarkdownConverter>(converter);
+    }
+
+    [Fact]
+    public void AddHtmlToMarkdownConverter_RegistersWithDefaultOptions()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddHtmlToMarkdownConverter();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var options = provider.GetService<HtmlToMarkdownOptions>();
+        Assert.NotNull(options);
+        Assert.Equal(5 * 1024 * 1024, options.MaxContentLength);
+        Assert.True(options.KeepLinks);
+        Assert.False(options.KeepImages);
+        Assert.True(options.KeepCodeBlocks);
+    }
+
+    [Fact]
+    public void AddHtmlToMarkdownConverter_WithCustomOptions_UsesCustomConfiguration()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddHtmlToMarkdownConverter(opts =>
+        {
+            opts.MaxContentLength = 1_000_000;
+            opts.KeepImages = true;
+            opts.RemoveEmptyLines = false;
+        });
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var options = provider.GetService<HtmlToMarkdownOptions>();
+        Assert.NotNull(options);
+        Assert.Equal(1_000_000, options.MaxContentLength);
+        Assert.True(options.KeepImages);
+        Assert.False(options.RemoveEmptyLines);
+    }
+
+    [Fact]
+    public void AddHtmlToMarkdownConverter_WithOptionsFactory_UsesFactory()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+        var factoryCalled = false;
+
+        // Act
+        services.AddHtmlToMarkdownConverter(_ =>
+        {
+            factoryCalled = true;
+            return new HtmlToMarkdownOptions { MaxContentLength = 2_000_000 };
+        });
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var converter = provider.GetRequiredService<IHtmlToMarkdownConverter>();
+        Assert.NotNull(converter);
+        Assert.True(factoryCalled);
+    }
+
+    [Fact]
+    public void AddHtmlToMarkdownConverter_ReturnsServiceCollection()
+    {
+        // Arrange & Act
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var result = services.AddHtmlToMarkdownConverter();
+
+        // Assert - verify it returns IServiceCollection for chaining
+        Assert.Same(services, result);
+    }
+
+    [Fact]
+    public void AddHtmlToMarkdownConverter_Multiple_ReturnsDifferentInstancesInDifferentScopes()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddHtmlToMarkdownConverter();
+        var provider = services.BuildServiceProvider();
+
+        // Get converters in different scopes
+        IHtmlToMarkdownConverter? converter1;
+        IHtmlToMarkdownConverter? converter2;
+        using (var scope1 = provider.CreateScope())
+        {
+            converter1 = scope1.ServiceProvider.GetRequiredService<IHtmlToMarkdownConverter>();
+        }
+
+        using (var scope2 = provider.CreateScope())
+        {
+            converter2 = scope2.ServiceProvider.GetRequiredService<IHtmlToMarkdownConverter>();
+        }
+
+        // Assert - scoped services should return different instances across different scopes
+        Assert.NotSame(converter1, converter2);
+    }
+
+    [Fact]
+    public void AddHtmlToMarkdownConverter_NullServices_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => ((IServiceCollection)null!).AddHtmlToMarkdownConverter());
+    }
+
+    [Fact]
+    public void AddHtmlToMarkdownConverter_WithNullFactory_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => services.AddHtmlToMarkdownConverter((Func<IServiceProvider, HtmlToMarkdownOptions>)null!));
+    }
+
+    [Fact]
+    public void AllWebFetchServices_CanBeUsedTogether()
+    {
+        // Arrange
+        var services = CreateServiceCollection();
+
+        // Act
+        services.AddHtmlParser();
+        services.AddWebFetcher();
+        services.AddHtmlToMarkdownConverter();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var parser = provider.GetRequiredService<IHtmlParser>();
+        var fetcher = provider.GetRequiredService<IWebFetcher>();
+        var converter = provider.GetRequiredService<IHtmlToMarkdownConverter>();
+
+        Assert.NotNull(parser);
+        Assert.NotNull(fetcher);
+        Assert.NotNull(converter);
+    }
 }
