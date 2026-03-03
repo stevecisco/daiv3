@@ -27,6 +27,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Daiv3.FoundryLocal.Management\Daiv3.FoundryLocal.Management.csproj" />
+  </ItemGroup>
+
   <Import Project="ExcludeExtraLibs.props" />
 
 </Project>

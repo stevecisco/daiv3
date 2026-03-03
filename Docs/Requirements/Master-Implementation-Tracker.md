@@ -108,10 +108,10 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 | 61 | [MM-REQ-007](Reqs/MM-REQ-007.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | The system SHALL download models to Foundry Local shared model cache directory. | KLC-REQ-005 | Code Complete | 100% | **✅ COMPLETE** - ServiceCatalogClient.DownloadModelAsync() fully implemented with progress tracking; KLC-REQ-005 blocker cleared; ready for UI integration. |
 | 62 | [MM-REQ-014](Reqs/MM-REQ-014.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | The system SHALL enumerate all cached models in Foundry Local directory. | KLC-REQ-005 | Code Complete | 100% | **✅ COMPLETE** - ServiceCatalogClient.GetCachedModelIdsAsync() and FoundryLocalManagementService.ListCachedModelsAsync() fully implemented; KLC-REQ-005 blocker cleared. |
 | 63 | [MM-REQ-019](Reqs/MM-REQ-019.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | The system SHALL support deletion of cached models by name or ID. | KLC-REQ-005 | Code Complete | 100% | **✅ COMPLETE** - ServiceCatalogClient.DeleteModelAsync() fully implemented; KLC-REQ-005 blocker cleared; ready for UI integration. |
-| 64 | [MM-ACC-001](Reqs/MM-ACC-001.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can list all available models with variants, device types, file sizes. | MM-REQ-001 | In Progress | 85% | CLI listing working with Foundry service |
-| 65 | [MM-ACC-002](Reqs/MM-ACC-002.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can download a model by name/version/device type to shared cache. | MM-REQ-007 | In Progress | 80% | CLI download with progress bar |
-| 66 | [MM-ACC-003](Reqs/MM-ACC-003.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can list all cached models and see which are available on disk. | MM-REQ-014 | In Progress | 85% | CLI cached list implemented |
-| 67 | [MM-ACC-004](Reqs/MM-ACC-004.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can delete a cached model and reclaim disk space. | MM-REQ-019 | In Progress | 80% | CLI delete model implemented |
+| 64 | [MM-ACC-001](Reqs/MM-ACC-001.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can list all available models with variants, device types, file sizes. | MM-REQ-001 | Complete | 100% | **✅ COMPLETE** - CLI listing working with Foundry service; acceptance test created in ModelManagementAcceptanceTests |
+| 65 | [MM-ACC-002](Reqs/MM-ACC-002.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can download a model by name/version/device type to shared cache. | MM-REQ-007 | Complete | 100% | **✅ COMPLETE** - CLI download with progress bar; acceptance test created (skipped by default for CI speed) |
+| 66 | [MM-ACC-003](Reqs/MM-ACC-003.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can list all cached models and see which are available on disk. | MM-REQ-014 | Complete | 100% | **✅ COMPLETE** - CLI cached list implemented; acceptance test created in ModelManagementAcceptanceTests |
+| 67 | [MM-ACC-004](Reqs/MM-ACC-004.md) | [4. Model Management & Lifecycle](Specs/04-Model-Management.md) | User can delete a cached model and reclaim disk space. | MM-REQ-019 | Complete | 100% | **✅ COMPLETE** - CLI delete model implemented; acceptance test created (skipped by default, requires pre-cached model) |
 | 68 | [MQ-DATA-001](Reqs/MQ-DATA-001.md) | [5. Model Execution & Queue Management](Specs/05-Model-Execution-Queue.md) | The system SHALL persist queue state in a model_queue table. | KLC-REQ-004 | Complete | 100% | model_queue table created with status, priority, payload columns |
 | 69 | [MQ-REQ-001](Reqs/MQ-REQ-001.md) | [5. Model Execution & Queue Management](Specs/05-Model-Execution-Queue.md) | The system SHALL enforce constraint that only one Foundry Local model is loaded at a time. | KLC-REQ-005 | Code Complete | 100% | **✅ COMPLETE** - IModelLifecycleManager interface + ModelLifecycleManager implementation with thread-safe constraint enforcement; 48+ unit tests passing; KLC-REQ-005 SDK integration complete—lifecycle now delegates to FoundryLocalManagementService for actual load/unload. See MQ-REQ-001-Implementation.md |
 | 70 | [MQ-REQ-002](Reqs/MQ-REQ-002.md) | [5. Model Execution & Queue Management](Specs/05-Model-Execution-Queue.md) | The system SHALL provide three priority levels: P0 (Immediate), P1 (Normal), P2 (Background). | MQ-REQ-001 | Code Complete | 100% | **? COMPLETE** - IModelQueue interface + ModelQueue three-tier priority channels (P0/P1/P2); 28 unit tests passing; see MQ-REQ-002-Implementation.md |
@@ -316,14 +316,14 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 **Last Updated:** March 3, 2026  
 **Total Requirements:** 213  
-**Completed:** 135 (63%)  
-**In Progress:** 8 (4%)  
+**Completed:** 139 (65%)  
+**In Progress:** 4 (2%)  
 **Not Started:** 70 (33%)
 
 **Phase Progress Summary:**
 - **Phase 1 (Foundation):** 32/32 Complete (100%)
 - **Phase 2 (Knowledge Layer):** 19/25 Complete (76%)
-- **Phase 3 (Model Execution):** 32/33 Complete (97%)
+- **Phase 3 (Model Execution):** 33/33 Complete (100%) ✨
 - **Phase 4 (Orchestration):** 15/15 Complete (100%)
 - **Phase 5 (Advanced Features):** 35/41 Complete (85%)
 - **Phase 6 (User Experience):** 0/16 Complete (0%)
@@ -332,8 +332,10 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 - **Backlog (v0.2+):** 2/6 Complete (33%)
 
 **Recent Completions (Last 7 Days):**
+- MM-ACC-001: List available models with variants and sizes
+- MM-ACC-002: Download model with progress tracking
+- MM-ACC-003: List cached models on disk
+- MM-ACC-004: Delete cached model and reclaim space
 - KBP-NFR-002: Provenance storage for promotions
 - KLC-REQ-007: HTML parsing library (AngleSharp)
 - WFC-REQ-001: Web fetch single URL
-- WFC-REQ-003: Web crawl with depth limits
-- WFC-REQ-007: Store fetch metadata
