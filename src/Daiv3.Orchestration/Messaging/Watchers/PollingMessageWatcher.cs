@@ -9,7 +9,7 @@ namespace Daiv3.Orchestration.Messaging.Watchers;
 /// Polling-based message watcher for Azure Blob Storage backend.
 /// Periodically checks for new messages and delivers them to subscribers.
 /// </summary>
-public class PollingMessageWatcher : IMessageWatcher
+public sealed class PollingMessageWatcher : IMessageWatcher
 {
     private readonly ILogger<PollingMessageWatcher> _logger;
     private readonly IMessageStore _messageStore;

@@ -9,7 +9,7 @@ namespace Daiv3.Orchestration.Messaging.Watchers;
 /// File system-based message watcher using polling.
 /// Periodically checks the file system message store for new messages and delivers them to subscribers.
 /// </summary>
-public class FileSystemMessageWatcher : IMessageWatcher
+public sealed class FileSystemMessageWatcher : IMessageWatcher
 {
     private readonly ILogger<FileSystemMessageWatcher> _logger;
     private readonly IMessageStore _messageStore;

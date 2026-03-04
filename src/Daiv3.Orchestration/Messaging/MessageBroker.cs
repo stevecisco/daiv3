@@ -11,7 +11,7 @@ namespace Daiv3.Orchestration.Messaging;
 /// Core message broker implementation coordinating storage-based agent communication.
 /// Manages pub/sub, message persistence, and automated message watchers.
 /// </summary>
-public class MessageBroker : IMessageBroker, IAsyncDisposable
+public sealed class MessageBroker : IMessageBroker, IAsyncDisposable
 {
     private readonly ILogger<MessageBroker> _logger;
     private readonly IMessageStore _messageStore;
