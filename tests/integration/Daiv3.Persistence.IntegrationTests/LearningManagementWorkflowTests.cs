@@ -248,7 +248,9 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         learning.Tags = "updated,modified";
         learning.Scope = "Project";
 
-        await Task.Delay(100); // Ensure timestamp will be different
+        // Ensure at least 1 second passes to guarantee different ToUnixTimeSeconds() value
+        // (timestamps are stored as Unix seconds, not milliseconds)
+        await Task.Delay(1100);
         await learningService.UpdateLearningAsync(learning);
 
         // Assert: Verify updates persisted
@@ -360,11 +362,18 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
             confidence: 0.95);
 
         await learningService.CreateLearningAsync(
-            title: "Medium confidence",
+            title: "Medium confidence 1",
             description: "Description",
             triggerType: "Explicit",
             scope: "Global",
             confidence: 0.75);
+
+        await learningService.CreateLearningAsync(
+            title: "Medium confidence 2",
+            description: "Description",
+            triggerType: "Explicit",
+            scope: "Global",
+            confidence: 0.65);
 
         await learningService.CreateLearningAsync(
             title: "Low confidence",

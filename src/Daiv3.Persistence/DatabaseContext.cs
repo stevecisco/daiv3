@@ -314,6 +314,27 @@ public sealed class DatabaseContext : IDatabaseContext
 
     public async ValueTask DisposeAsync()
     {
+        // Perform WAL checkpoint to ensure all data is written to main database file
+        try
+        {
+            if (_initialized)
+            {
+                await using var connection = new SqliteConnection(_connectionString);
+                await connection.OpenAsync().ConfigureAwait(false);
+                
+                // Execute PRAGMA checkpoint to finalize WAL
+                await using var checkpointCmd = connection.CreateCommand();
+                checkpointCmd.CommandText = "PRAGMA checkpoint(RESTART)";
+                await checkpointCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+                
+                _logger.LogDebug("Performed WAL checkpoint on database");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to perform WAL checkpoint during disposal");
+        }
+
         _initLock.Dispose();
         await Task.CompletedTask;
     }

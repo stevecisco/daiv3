@@ -444,6 +444,7 @@ public class LearningStorageService : ILearningStorageService
                         PromotedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                         PromotedBy = promotedBy,
                         SourceTaskId = taskId,
+                        SourceAgent = learning.SourceAgent,
                         Notes = selection.Notes
                     };
 

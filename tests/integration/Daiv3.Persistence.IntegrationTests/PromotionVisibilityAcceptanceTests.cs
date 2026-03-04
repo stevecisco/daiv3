@@ -62,9 +62,45 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
             await _context.DisposeAsync();
         }
 
+        // Try to delete database files with retries to handle WAL/lock file release delays
         if (File.Exists(_testDatabasePath))
         {
-            File.Delete(_testDatabasePath);
+            int maxRetries = 3;
+            IOException? lastException = null;
+            
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    File.Delete(_testDatabasePath);
+                    
+                    // Clean up associated WAL and SHM files
+                    var walPath = _testDatabasePath + "-wal";
+                    var shmPath = _testDatabasePath + "-shm";
+                    if (File.Exists(walPath))
+                        File.Delete(walPath);
+                    if (File.Exists(shmPath))
+                        File.Delete(shmPath);
+                    
+                    lastException = null; // Success - clear any previous exception
+                    break;
+                }
+                catch (IOException ex)
+                {
+                    lastException = ex;
+                    if (i < maxRetries - 1)
+                    {
+                        // Wait before retrying in case file handles are being released
+                        await Task.Delay(100);
+                    }
+                }
+            }
+            
+            // Log warning if we couldn't delete but don't fail the test
+            if (lastException != null && File.Exists(_testDatabasePath))
+            {
+                // Silently fail - file lock will be released when process exits
+            }
         }
     }
 
