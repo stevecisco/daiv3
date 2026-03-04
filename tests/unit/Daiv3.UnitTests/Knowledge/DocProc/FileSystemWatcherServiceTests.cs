@@ -4,6 +4,8 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
+#pragma warning disable IDISP016 // Tests intentionally verify behavior after disposal
+
 namespace Daiv3.UnitTests.Knowledge.DocProc;
 
 /// <summary>

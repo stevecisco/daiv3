@@ -4,6 +4,8 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
+#pragma warning disable IDISP016 // Tests intentionally validate idempotent disposal behavior
+
 namespace Daiv3.UnitTests.Persistence;
 
 /// <summary>
