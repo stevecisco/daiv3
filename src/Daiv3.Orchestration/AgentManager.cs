@@ -431,7 +431,10 @@ public class AgentManager : IAgentManager
                 linkedCts.Token.ThrowIfCancellationRequested();
 
                 // Notify iteration start
-                await _metricsCollector.OnIterationStartedAsync(result.ExecutionId, iteration).ConfigureAwait(false);
+                if (_metricsCollector is not null)
+                {
+                    await _metricsCollector.OnIterationStartedAsync(result.ExecutionId, iteration).ConfigureAwait(false);
+                }
 
                 var iterationStopwatch = Stopwatch.StartNew();
 
@@ -480,8 +483,11 @@ public class AgentManager : IAgentManager
                 metrics.ExecutionStatus = control?.IsPaused == true ? "Paused" : "Running";
 
                 // Notify iteration completion
-                var metricsSnapshot = metrics.CreateSnapshot();
-                await _metricsCollector.OnIterationCompletedAsync(result.ExecutionId, iteration, metricsSnapshot).ConfigureAwait(false);
+                if (_metricsCollector is not null)
+                {
+                    var metricsSnapshot = metrics.CreateSnapshot();
+                    await _metricsCollector.OnIterationCompletedAsync(result.ExecutionId, iteration, metricsSnapshot).ConfigureAwait(false);
+                }
 
                 // Check token budget
                 if (result.TokensConsumed >= options.TokenBudget)

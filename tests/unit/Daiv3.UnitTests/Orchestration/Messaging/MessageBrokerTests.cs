@@ -114,7 +114,7 @@ public class MessageBrokerTests
     {
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => 
-            _broker.SubscribeAsync<object>((string?)null, async (m, ct) => await Task.CompletedTask));
+            _broker.SubscribeAsync<object>(null!, async (m, ct) => await Task.CompletedTask));
     }
 
     [Fact]

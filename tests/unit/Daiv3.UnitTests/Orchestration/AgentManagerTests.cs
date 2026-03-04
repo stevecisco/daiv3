@@ -451,8 +451,8 @@ public class AgentManagerTests
         Assert.False(result.Success);
         Assert.Equal("TokenBudgetExceeded", result.TerminationReason);
         Assert.True(result.TokensConsumed >= 50);
-        Assert.NotEmpty(result.ErrorMessage);
-        Assert.Contains("Token budget exceeded", result.ErrorMessage);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+        Assert.Contains("Token budget exceeded", result.ErrorMessage ?? string.Empty);
     }
 
     [Fact]
@@ -491,8 +491,8 @@ public class AgentManagerTests
         if (result.TerminationReason == "Timeout")
         {
             Assert.False(result.Success);
-            Assert.NotEmpty(result.ErrorMessage);
-            Assert.Contains("timeout", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+            Assert.Contains("timeout", result.ErrorMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
         }
         
         Assert.NotNull(result.CompletedAt);

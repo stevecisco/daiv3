@@ -1,0 +1,54 @@
+BUILD WARNINGS SUMMARY
+================================================================================
+
+Count: 80
+Code:  CS0618
+Message: 'Frame' is obsolete: 'Frame is obsolete as of .NET 9. Please use Border instead.'
+--------------------------------------------------------------------------------
+
+Count: 38
+Code:  NU1903
+Message: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv
+--------------------------------------------------------------------------------
+
+Count: 38
+Code:  NU1903
+Message: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj
+--------------------------------------------------------------------------------
+
+Count: 16
+Code:  CS8625
+Message: Cannot convert null literal to non-nullable reference type.
+--------------------------------------------------------------------------------
+
+Count: 12
+Code:  CS8602
+Message: Dereference of a possibly null reference.
+--------------------------------------------------------------------------------
+
+Count: 8
+Code:  CS8604
+Message: Possible null reference argument for parameter 'collection' in 'void Assert.NotEmpty(IEnumerable collection)'.
+--------------------------------------------------------------------------------
+
+Count: 6
+Code:  NU1510
+Message: PackageReference System.Text.Json will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary.
+--------------------------------------------------------------------------------
+
+Count: 4
+Code:  CS8618
+Message: Non-nullable property 'Description' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the property as nullable.
+--------------------------------------------------------------------------------
+
+Count: 4
+Code:  CS8618
+Message: Non-nullable property 'Name' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the property as nullable.
+--------------------------------------------------------------------------------
+
+Count: 4
+Code:  CS8633
+Message: Nullability in constraints for type parameter 'TState' of method 'HtmlToMarkdownConverterIntegrationTests.SimpleTestLogger.BeginScope<TState>(TState)' doesn't match the constraints for type parameter 'TState' of interface method 'ILogger.BeginScope<TState>(TState)'. Consider using an explicit interface implementation instead.
+--------------------------------------------------------------------------------
+
+

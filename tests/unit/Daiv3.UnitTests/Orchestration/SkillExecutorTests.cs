@@ -31,8 +31,8 @@ public class SkillExecutorTests
 
     private class TestSkill : ISkill
     {
-        public string Name { get; set; }
-        public string Description { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
         public SkillCategory Category { get; set; } = SkillCategory.ReasoningAndAnalysis;
         public List<ParameterMetadata> Inputs { get; set; } = new();
         public OutputSchema OutputSchema { get; set; } = new() { Type = "string", Description = "Test output" };
@@ -125,7 +125,7 @@ public class SkillExecutorTests
     {
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _skillExecutor.ExecuteAsync(null));
+            () => _skillExecutor.ExecuteAsync(null!));
     }
 
     [Fact]
@@ -371,7 +371,7 @@ public class SkillExecutorTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(
-            () => _skillExecutor.ValidateParameters("TestSkill", null));
+            () => _skillExecutor.ValidateParameters("TestSkill", null!));
     }
 
     [Fact]
@@ -415,7 +415,7 @@ public class SkillExecutorTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(
-            () => _skillExecutor.CanExecute(null));
+            () => _skillExecutor.CanExecute(null!));
     }
 
     [Fact]

@@ -171,7 +171,7 @@ public class FileSystemMessageWatcher : IMessageWatcher
                             var message = await _messageStore.LoadMessageAsync(messageId, ct).ConfigureAwait(false);
                             if (message != null && message.Status == MessageStatus.Pending)
                             {
-                                if (_watchedTopics.TryGetValue(topic, out var registration))
+                                if (_watchedTopics.TryGetValue(topic, out var registration) && registration.Handler is not null)
                                 {
                                     await registration.Handler(message).ConfigureAwait(false);
                                     _processedMessages.TryAdd(messageId, DateTimeOffset.UtcNow);

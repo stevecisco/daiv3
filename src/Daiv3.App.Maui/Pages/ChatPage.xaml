@@ -17,12 +17,13 @@
                           ColumnDefinitions="Auto,*,Auto">
                         
                         <!-- User Message (right-aligned) -->
-                        <Frame Grid.Column="2"
-                               BackgroundColor="{StaticResource Primary}"
-                               Padding="10"
-                               CornerRadius="10"
-                               Margin="50,5,0,5"
-                               IsVisible="{Binding IsUser}">
+                        <Border Grid.Column="2"
+                            BackgroundColor="{StaticResource Primary}"
+                            Padding="10"
+                            StrokeShape="RoundRectangle 10"
+                            StrokeThickness="0"
+                            Margin="50,5,0,5"
+                            IsVisible="{Binding IsUser}">
                             <VerticalStackLayout>
                                 <Label Text="{Binding Text}"
                                        TextColor="White"
@@ -33,15 +34,16 @@
                                        Opacity="0.7"
                                        HorizontalOptions="End" />
                             </VerticalStackLayout>
-                        </Frame>
+                        </Border>
 
                         <!-- AI Message (left-aligned) -->
-                        <Frame Grid.Column="0"
-                               BackgroundColor="{StaticResource Gray200}"
-                               Padding="10"
-                               CornerRadius="10"
-                               Margin="0,5,50,5"
-                               IsVisible="{Binding IsUser, Converter={StaticResource InvertedBoolConverter}}">
+                        <Border Grid.Column="0"
+                            BackgroundColor="{StaticResource Gray200}"
+                            Padding="10"
+                            StrokeShape="RoundRectangle 10"
+                            StrokeThickness="0"
+                            Margin="0,5,50,5"
+                            IsVisible="{Binding IsUser, Converter={StaticResource InvertedBoolConverter}}">
                             <VerticalStackLayout>
                                 <Label Text="{Binding Text}"
                                        TextColor="Black"
@@ -52,7 +54,7 @@
                                        Opacity="0.5"
                                        HorizontalOptions="Start" />
                             </VerticalStackLayout>
-                        </Frame>
+                        </Border>
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

@@ -148,7 +148,7 @@ public class PollingMessageWatcher : IMessageWatcher
                     var messages = await _messageStore.QueryMessagesAsync(query, ct).ConfigureAwait(false);
 
                     // Deliver messages that are newer than last processed
-                    if (_watchedTopics.TryGetValue(topic, out var registration))
+                    if (_watchedTopics.TryGetValue(topic, out var registration) && registration.Handler is not null)
                     {
                         var lastProcessed = _lastProcessedTimestamp.GetOrAdd(topic, DateTimeOffset.UtcNow);
 

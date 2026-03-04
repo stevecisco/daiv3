@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="System.IO.Packaging" Version="9.0.0" />
   </ItemGroup>
 
 </Project>
