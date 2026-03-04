@@ -7,6 +7,7 @@ using Xunit;
 #pragma warning disable IDISP001 // Dispose created
 #pragma warning disable IDISP003 // Dispose previous before re-assigning
 #pragma warning disable IDISP006 // Implement IDisposable
+#pragma warning disable IDISP025 // Class with no virtual dispose method should be sealed
 
 namespace Daiv3.UnitTests.WebFetch;
 

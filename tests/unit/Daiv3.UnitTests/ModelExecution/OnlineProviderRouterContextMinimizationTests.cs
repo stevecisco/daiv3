@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
+#pragma warning disable IDISP025 // Class with no virtual dispose method should be sealed
+
 namespace Daiv3.UnitTests.ModelExecution;
 
 /// <summary>

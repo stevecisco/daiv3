@@ -2,12 +2,11 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace Daiv3.Orchestration;
-
 /// <summary>
 /// Monitors resource usage during skill execution.
 /// Tracks memory and CPU consumption, triggers cancellation on violations.
 /// </summary>
-public class SkillResourceMonitor : IDisposable
+public sealed class SkillResourceMonitor : IDisposable
 {
     private readonly ILogger<SkillResourceMonitor> _logger;
     private readonly SkillSandboxConfiguration _sandboxConfig;

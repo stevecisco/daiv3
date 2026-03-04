@@ -16,7 +16,7 @@ namespace Daiv3.ModelExecution;
 /// Implements MQ-REQ-013: Queues online tasks when offline and marks them as pending.
 /// Smart provider selection considers task type, budget availability, and configured mappings.
 /// </remarks>
-public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
+public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
 {
     private readonly ILogger<OnlineProviderRouter> _logger;
     private readonly OnlineProviderOptions _options;

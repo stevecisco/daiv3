@@ -5,7 +5,7 @@ namespace Daiv3.Orchestration;
 /// <summary>
 /// Provides control over a running agent execution, allowing pause, resume, and stop operations.
 /// </summary>
-public class AgentExecutionControl : IDisposable
+public sealed class AgentExecutionControl : IDisposable
 {
     private readonly ManualResetEventSlim _pauseEvent = new(initialState: true);
     private readonly CancellationTokenSource _stopTokenSource = new();

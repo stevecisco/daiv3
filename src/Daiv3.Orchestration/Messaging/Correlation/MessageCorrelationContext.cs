@@ -6,7 +6,7 @@ namespace Daiv3.Orchestration.Messaging.Correlation;
 /// Manages in-flight message correlations for request/reply patterns.
 /// Tracks pending replies and handles timeout-based cleanup.
 /// </summary>
-public class MessageCorrelationContext : IDisposable
+public sealed class MessageCorrelationContext : IDisposable
 {
     /// <summary>
     /// Maps correlation IDs to their pending reply completions.
