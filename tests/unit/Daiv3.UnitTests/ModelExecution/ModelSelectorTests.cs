@@ -2,6 +2,7 @@ using Daiv3.ModelExecution;
 using Daiv3.ModelExecution.Interfaces;
 using Daiv3.ModelExecution.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -16,7 +17,7 @@ public class ModelSelectorTests
 
     public ModelSelectorTests()
     {
-        _logger = new LoggerFactory().CreateLogger<ModelSelector>();
+        _logger = NullLogger<ModelSelector>.Instance;
     }
 
     private ModelSelectorOptions GetDefaultOptions()

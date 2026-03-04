@@ -13,12 +13,14 @@ namespace Daiv3.UnitTests.WebFetch;
 /// </summary>
 public class WebCrawlerTests
 {
+    private static HttpClient CreateHttpClient(HttpMessageHandler handler) => new(handler);
+
     private static WebCrawler CreateCrawler(RouteHttpMessageHandler handler, WebCrawlerOptions? crawlerOptions = null)
     {
         var htmlParser = new HtmlParser(new Mock<ILogger<HtmlParser>>().Object);
 
         var fetcher = new WebFetcher(
-            new HttpClient(handler),
+            CreateHttpClient(handler),
             new Mock<ILogger<WebFetcher>>().Object,
             htmlParser,
             new WebFetcherOptions

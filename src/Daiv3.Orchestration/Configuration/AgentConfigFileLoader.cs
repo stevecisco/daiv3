@@ -201,17 +201,27 @@ public class AgentConfigFileLoader
             // Parse enabled skills if present
             if (root.TryGetProperty("enabledSkills", out var skillsArray))
             {
-                config.EnabledSkills = skillsArray.EnumerateArray()
-                    .Select(s => s.GetString() ?? string.Empty)
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .ToList();
+                var enabledSkills = new List<string>();
+                using var skillsEnumerator = skillsArray.EnumerateArray();
+                while (skillsEnumerator.MoveNext())
+                {
+                    var skill = skillsEnumerator.Current.GetString() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(skill))
+                    {
+                        enabledSkills.Add(skill);
+                    }
+                }
+
+                config.EnabledSkills = enabledSkills;
             }
 
             // Parse config if present
             if (root.TryGetProperty("config", out var configObj))
             {
-                foreach (var prop in configObj.EnumerateObject())
+                using var configEnumerator = configObj.EnumerateObject();
+                while (configEnumerator.MoveNext())
                 {
+                    var prop = configEnumerator.Current;
                     var value = prop.Value.ValueKind switch
                     {
                         JsonValueKind.String => prop.Value.GetString(),
@@ -345,8 +355,10 @@ public class AgentConfigFileLoader
             // Parse metadata if present
             if (root.TryGetProperty("metadata", out var metadataObj))
             {
-                foreach (var prop in metadataObj.EnumerateObject())
+                using var metadataEnumerator = metadataObj.EnumerateObject();
+                while (metadataEnumerator.MoveNext())
                 {
+                    var prop = metadataEnumerator.Current;
                     batch.Metadata[prop.Name] = prop.Value.GetString() ?? string.Empty;
                 }
             }
@@ -354,8 +366,10 @@ public class AgentConfigFileLoader
             // Parse agents array
             if (root.TryGetProperty("agents", out var agentsArray))
             {
-                foreach (var agentElem in agentsArray.EnumerateArray())
+                using var agentsEnumerator = agentsArray.EnumerateArray();
+                while (agentsEnumerator.MoveNext())
                 {
+                    var agentElem = agentsEnumerator.Current;
                     var agent = ParseJsonAgentElement(agentElem);
                     batch.Agents.Add(agent);
                 }
@@ -392,16 +406,26 @@ public class AgentConfigFileLoader
 
         if (agentElem.TryGetProperty("enabledSkills", out var skillsArray))
         {
-            config.EnabledSkills = skillsArray.EnumerateArray()
-                .Select(s => s.GetString() ?? string.Empty)
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .ToList();
+            var enabledSkills = new List<string>();
+            using var skillsEnumerator = skillsArray.EnumerateArray();
+            while (skillsEnumerator.MoveNext())
+            {
+                var skill = skillsEnumerator.Current.GetString() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(skill))
+                {
+                    enabledSkills.Add(skill);
+                }
+            }
+
+            config.EnabledSkills = enabledSkills;
         }
 
         if (agentElem.TryGetProperty("config", out var configObj))
         {
-            foreach (var prop in configObj.EnumerateObject())
+            using var configEnumerator = configObj.EnumerateObject();
+            while (configEnumerator.MoveNext())
             {
+                var prop = configEnumerator.Current;
                 var value = prop.Value.ValueKind switch
                 {
                     JsonValueKind.String => prop.Value.GetString(),

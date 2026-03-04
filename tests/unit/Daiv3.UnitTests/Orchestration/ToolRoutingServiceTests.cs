@@ -29,7 +29,7 @@ public class ToolRoutingServiceTests
 
         // Setup a basic HttpClient for the mock factory
         _mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>()))
-            .Returns(new HttpClient());
+            .Returns(() => new HttpClient());
 
         _routingService = new ToolRoutingService(
             _mockLogger.Object,

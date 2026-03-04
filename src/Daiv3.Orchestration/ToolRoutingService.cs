@@ -259,7 +259,7 @@ public sealed class ToolRoutingService : IToolInvoker
             HttpResponseMessage? response = null;
             Exception? lastException = null;
             var attemptCount = config.RetryCount + 1;
-            HttpRequestMessage? lastRequest = null;
+            var requestHeaderSize = 0;
 
             for (int attempt = 0; attempt < attemptCount; attempt++)
             {
@@ -267,7 +267,7 @@ public sealed class ToolRoutingService : IToolInvoker
                 {
                     // Create a new request for each attempt (HttpRequestMessage can only be sent once)
                     using var request = BuildHttpRequest(url, config.HttpMethod, config, parameters);
-                    lastRequest = request;
+                    requestHeaderSize = request.Headers.ToString().Length;
 
                     response = await httpClient.SendAsync(request, cancellationToken);
                     break; // Success, exit retry loop
@@ -285,39 +285,40 @@ public sealed class ToolRoutingService : IToolInvoker
             {
                 throw lastException ?? new HttpRequestException("Request failed without exception");
             }
+            using var finalResponse = response;
 
             // Read response
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            var responseBody = await finalResponse.Content.ReadAsStringAsync(cancellationToken);
 
             // Check if status code is expected
-            var isSuccess = IsSuccessStatusCode(response.StatusCode, config.ExpectedStatusCodes);
+            var isSuccess = IsSuccessStatusCode(finalResponse.StatusCode, config.ExpectedStatusCodes);
 
             if (isSuccess)
             {
                 _logger.LogInformation("REST API tool '{ToolId}' completed successfully: {StatusCode} (invocation #{InvocationId})",
-                    tool.ToolId, (int)response.StatusCode, invocationId);
+                    tool.ToolId, (int)finalResponse.StatusCode, invocationId);
             }
             else
             {
                 _logger.LogWarning("REST API tool '{ToolId}' returned non-success status: {StatusCode} (invocation #{InvocationId})",
-                    tool.ToolId, (int)response.StatusCode, invocationId);
+                    tool.ToolId, (int)finalResponse.StatusCode, invocationId);
             }
 
             // Estimate context token cost (headers + body)
-            var contextTokenCost = EstimateRestApiTokenCost(lastRequest!, responseBody);
+            var contextTokenCost = EstimateRestApiTokenCost(requestHeaderSize, responseBody);
 
             return new ToolInvocationResult
             {
                 Success = isSuccess,
                 Result = responseBody,
-                ErrorMessage = isSuccess ? null : $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}",
-                ErrorCode = isSuccess ? null : $"HTTP_{(int)response.StatusCode}",
+                ErrorMessage = isSuccess ? null : $"HTTP {(int)finalResponse.StatusCode}: {finalResponse.ReasonPhrase}",
+                ErrorCode = isSuccess ? null : $"HTTP_{(int)finalResponse.StatusCode}",
                 BackendUsed = ToolBackendType.RestAPI,
                 ContextTokenCost = contextTokenCost,
                 Metadata = new Dictionary<string, string>
                 {
-                    ["HttpStatusCode"] = ((int)response.StatusCode).ToString(),
-                    ["HttpReasonPhrase"] = response.ReasonPhrase ?? string.Empty
+                    ["HttpStatusCode"] = ((int)finalResponse.StatusCode).ToString(),
+                    ["HttpReasonPhrase"] = finalResponse.ReasonPhrase ?? string.Empty
                 }
             };
         }
@@ -749,13 +750,12 @@ public sealed class ToolRoutingService : IToolInvoker
         return code >= 200 && code < 300;
     }
 
-    private static int EstimateRestApiTokenCost(HttpRequestMessage request, string responseBody)
+    private static int EstimateRestApiTokenCost(int requestHeaderSize, string responseBody)
     {
         // Estimate token cost based on headers and body
         // Rough approximation: 4 characters = 1 token
-        var headerSize = request.Headers.ToString().Length;
         var bodySize = responseBody?.Length ?? 0;
-        var totalChars = headerSize + bodySize;
+        var totalChars = requestHeaderSize + bodySize;
         return totalChars / 4;
     }
 }

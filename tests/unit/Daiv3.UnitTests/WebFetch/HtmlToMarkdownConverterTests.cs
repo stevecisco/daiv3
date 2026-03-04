@@ -1,5 +1,6 @@
 using Daiv3.WebFetch.Crawl;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Daiv3.UnitTests.WebFetch;
@@ -11,7 +12,7 @@ public class HtmlToMarkdownConverterTests
 {
     private IHtmlToMarkdownConverter CreateConverter(HtmlToMarkdownOptions? options = null)
     {
-        var logger = new LoggerFactory().CreateLogger<HtmlToMarkdownConverter>();
+        var logger = NullLogger<HtmlToMarkdownConverter>.Instance;
         var opts = options ?? new HtmlToMarkdownOptions();
         return new HtmlToMarkdownConverter(logger, opts);
     }

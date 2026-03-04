@@ -2,6 +2,7 @@ using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -54,15 +55,15 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         _learningRepository = new LearningRepository(
             _databaseContext,
-            LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<LearningRepository>());
+            NullLogger<LearningRepository>.Instance);
 
         _promotionRepository = new PromotionRepository(
             _databaseContext,
-            LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PromotionRepository>());
+            NullLogger<PromotionRepository>.Instance);
 
         _learningService = new LearningStorageService(
             _learningRepository,
-            LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<LearningStorageService>(),
+            NullLogger<LearningStorageService>.Instance,
             null,
             _promotionRepository);
     }

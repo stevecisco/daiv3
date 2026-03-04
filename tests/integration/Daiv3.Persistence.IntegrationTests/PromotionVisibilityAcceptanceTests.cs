@@ -3,6 +3,7 @@ using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -45,12 +46,12 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
         _context = new DatabaseContext(_logger, persistenceOptions);
         await _context.InitializeAsync();
 
-        _learningRepository = new LearningRepository(_context, LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<LearningRepository>());
-        _promotionRepository = new PromotionRepository(_context, LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PromotionRepository>());
+        _learningRepository = new LearningRepository(_context, NullLogger<LearningRepository>.Instance);
+        _promotionRepository = new PromotionRepository(_context, NullLogger<PromotionRepository>.Instance);
 
         _learningService = new LearningStorageService(
             _learningRepository,
-            LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<LearningStorageService>(),
+            NullLogger<LearningStorageService>.Instance,
             null,
             _promotionRepository);
     }

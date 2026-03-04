@@ -400,8 +400,8 @@ public class AzureBlobMessageStore : IMessageStore
 
                     if (shouldDelete)
                     {
-                        var blobClient = _containerClient.GetBlobClient(blobItem.Name);
-                        await blobClient.DeleteAsync(cancellationToken: ct).ConfigureAwait(false);
+                        var blobClient = GetBlobClient(blobItem.Name);
+                        using var deleteResponse = await blobClient.DeleteAsync(cancellationToken: ct).ConfigureAwait(false);
                         deletedCount++;
 
                         _logger.LogDebug(
@@ -568,6 +568,11 @@ public class AzureBlobMessageStore : IMessageStore
         var message = new AgentMessage(topic, senderAgentId, obj.Payload, metadata);
         message.SetStatus(obj.Status);
         return message;
+    }
+
+    private BlobClient GetBlobClient(string blobName)
+    {
+        return _containerClient.GetBlobClient(blobName);
     }
 
     /// <summary>

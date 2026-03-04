@@ -249,8 +249,10 @@ public class SkillConfigFileLoader
             // Parse inputs
             if (root.TryGetProperty("inputs", out var inputsElement))
             {
-                foreach (var paramElement in inputsElement.EnumerateArray())
+                using var inputsEnumerator = inputsElement.EnumerateArray();
+                while (inputsEnumerator.MoveNext())
                 {
+                    var paramElement = inputsEnumerator.Current;
                     var param = new SkillParameterConfiguration
                     {
                         Name = GetRequiredString(paramElement, "name"),
@@ -293,8 +295,10 @@ public class SkillConfigFileLoader
             // Parse permissions
             if (root.TryGetProperty("permissions", out var permissionsElement))
             {
-                foreach (var permElement in permissionsElement.EnumerateArray())
+                using var permissionsEnumerator = permissionsElement.EnumerateArray();
+                while (permissionsEnumerator.MoveNext())
                 {
+                    var permElement = permissionsEnumerator.Current;
                     var perm = permElement.GetString();
                     if (!string.IsNullOrWhiteSpace(perm))
                     {
@@ -306,8 +310,10 @@ public class SkillConfigFileLoader
             // Parse custom config
             if (root.TryGetProperty("config", out var configElement))
             {
-                foreach (var prop in configElement.EnumerateObject())
+                using var configEnumerator = configElement.EnumerateObject();
+                while (configEnumerator.MoveNext())
                 {
+                    var prop = configEnumerator.Current;
                     config.Config[prop.Name] = prop.Value.GetString() ?? string.Empty;
                 }
             }
@@ -420,8 +426,10 @@ public class SkillConfigFileLoader
             // Parse skills
             if (root.TryGetProperty("skills", out var skillsElement))
             {
-                foreach (var skillElement in skillsElement.EnumerateArray())
+                using var skillsEnumerator = skillsElement.EnumerateArray();
+                while (skillsEnumerator.MoveNext())
                 {
+                    var skillElement = skillsEnumerator.Current;
                     var config = new SkillConfigurationFile
                     {
                         Name = GetRequiredString(skillElement, "name"),
@@ -447,8 +455,10 @@ public class SkillConfigFileLoader
             // Parse metadata
             if (root.TryGetProperty("metadata", out var metadataElement))
             {
-                foreach (var prop in metadataElement.EnumerateObject())
+                using var metadataEnumerator = metadataElement.EnumerateObject();
+                while (metadataEnumerator.MoveNext())
                 {
+                    var prop = metadataEnumerator.Current;
                     batch.Metadata[prop.Name] = prop.Value.GetString() ?? string.Empty;
                 }
             }
