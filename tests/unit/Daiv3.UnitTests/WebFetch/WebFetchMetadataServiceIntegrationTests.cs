@@ -25,7 +25,7 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
         // Set up test database
         _testDbPath = Path.Combine(Path.GetTempPath(), $"web-fetch-metadata-test-{Guid.NewGuid()}.db");
 
-        using var services = new ServiceCollection();
+        var services = new ServiceCollection();
         services.AddLogging();
         services.Configure<PersistenceOptions>(options =>
         {
