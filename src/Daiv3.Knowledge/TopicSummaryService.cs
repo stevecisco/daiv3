@@ -40,7 +40,7 @@ public sealed class TopicSummaryService : ITopicSummaryService
     {
         // Extract sentences from text
         var sentences = ExtractSentences(text);
-        
+
         if (sentences.Count == 0)
         {
             _logger.LogWarning("No sentences extracted from document text");
@@ -105,7 +105,7 @@ public sealed class TopicSummaryService : ITopicSummaryService
         // This regex captures sentences WITH their ending punctuation
         var sentencePattern = new Regex(@"[^.!?]*[.!?]+");
         var matches = sentencePattern.Matches(text);
-        
+
         var sentences = new List<string>();
         foreach (Match match in matches)
         {
@@ -184,7 +184,7 @@ public sealed class TopicSummaryService : ITopicSummaryService
             return text;
 
         var truncated = text[.._options.MaxCharacters];
-        
+
         // Find last sentence boundary to avoid cutting mid-sentence
         var lastBoundary = truncated.LastIndexOfAny(new[] { '.', '!', '?' });
         if (lastBoundary > 0 && lastBoundary > _options.MaxCharacters - 100)

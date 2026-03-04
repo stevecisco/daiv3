@@ -25,7 +25,7 @@ public sealed class DatabaseContext : IDatabaseContext
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        
+
         DatabasePath = _options.GetExpandedDatabasePath();
         _connectionString = _options.BuildConnectionString();
 
@@ -120,7 +120,7 @@ public sealed class DatabaseContext : IDatabaseContext
     private async Task MigrateToLatestInternalAsync(SqliteConnection connection, CancellationToken ct)
     {
         _logger.LogInformation("Starting database migration");
-        
+
         _logger.LogDebug("Getting current schema version");
         var currentVersion = await GetSchemaVersionInternalAsync(connection, ct).ConfigureAwait(false);
         _logger.LogInformation("Current schema version: {Version}", currentVersion);
@@ -139,7 +139,7 @@ public sealed class DatabaseContext : IDatabaseContext
         foreach (var migration in pendingMigrations)
         {
             _logger.LogInformation("Applying migration {Version}: {Description}", migration.Version, migration.Description);
-            
+
             var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
             await using (transaction.ConfigureAwait(false))
             {
@@ -147,7 +147,7 @@ public sealed class DatabaseContext : IDatabaseContext
                 {
                     // Execute migration SQL - split into individual statements
                     _logger.LogDebug("Executing migration SQL (length: {Length} chars)", migration.Sql.Length);
-                    
+
                     // Split SQL into individual statements (separated by semicolons)
                     // Keep comments as they're part of the statements
                     var statements = migration.Sql
@@ -157,7 +157,7 @@ public sealed class DatabaseContext : IDatabaseContext
                         .ToList();
 
                     _logger.LogDebug("Executing {Count} SQL statements", statements.Count);
-                    
+
                     foreach (var statement in statements)
                     {
                         await using var command = connection.CreateCommand();
@@ -165,7 +165,7 @@ public sealed class DatabaseContext : IDatabaseContext
                         command.CommandText = statement;
                         await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
                     }
-                    
+
                     _logger.LogDebug("All migration SQL statements executed successfully");
 
                     // Update schema version
@@ -321,12 +321,12 @@ public sealed class DatabaseContext : IDatabaseContext
             {
                 await using var connection = new SqliteConnection(_connectionString);
                 await connection.OpenAsync().ConfigureAwait(false);
-                
+
                 // Execute PRAGMA checkpoint to finalize WAL
                 await using var checkpointCmd = connection.CreateCommand();
                 checkpointCmd.CommandText = "PRAGMA checkpoint(RESTART)";
                 await checkpointCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                
+
                 _logger.LogDebug("Performed WAL checkpoint on database");
             }
         }

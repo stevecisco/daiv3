@@ -148,7 +148,7 @@ public class MessageContractTests
     public void AgentMessage_Generic_ThrowsWhenTopicNull()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new AgentMessage<string>(null!, "agent-1", "payload"));
     }
 
@@ -156,7 +156,7 @@ public class MessageContractTests
     public void AgentMessage_Generic_ThrowsWhenSenderIdNull()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new AgentMessage<string>("topic", null!, "payload"));
     }
 
@@ -230,7 +230,7 @@ public class MessageContractTests
     public void AgentMessage_NonGeneric_ThrowsWhenTopicNull()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new AgentMessage(null!, "agent-1", "payload"));
     }
 

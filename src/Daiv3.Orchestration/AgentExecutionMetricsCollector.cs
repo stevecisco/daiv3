@@ -107,7 +107,7 @@ public class AgentExecutionMetricsCollector : IAgentExecutionObserver
             return;
 
         _logger.LogInformation("Agent execution started: ExecutionId={ExecutionId}, AgentId={AgentId}, Goal={Goal}", executionId, agentId, taskGoal);
-        
+
         await NotifyObserversAsync(observer => observer.OnExecutionStartedAsync(executionId, agentId, taskGoal)).ConfigureAwait(false);
     }
 
@@ -118,7 +118,7 @@ public class AgentExecutionMetricsCollector : IAgentExecutionObserver
             return;
 
         _logger.LogDebug("Iteration {IterationNumber} started for execution {ExecutionId}", iterationNumber, executionId);
-        
+
         await NotifyObserversAsync(observer => observer.OnIterationStartedAsync(executionId, iterationNumber)).ConfigureAwait(false);
     }
 

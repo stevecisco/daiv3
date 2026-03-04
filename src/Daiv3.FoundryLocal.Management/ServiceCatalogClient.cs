@@ -39,7 +39,8 @@ internal sealed class ServiceCatalogClient : IAsyncDisposable
             // Get all model directories (they're under publisher folders like Microsoft\)
             // and have version suffixes like -1, -2, etc.
             var allDirs = Directory.GetDirectories(cacheDir, "*", SearchOption.AllDirectories)
-                .Where(d => {
+                .Where(d =>
+                {
                     var parent = Path.GetFileName(Path.GetDirectoryName(d));
                     // Model directories are under publisher folders, not directly under cache/models
                     return !string.IsNullOrEmpty(parent) && !parent.Equals("models", StringComparison.OrdinalIgnoreCase);
@@ -54,7 +55,7 @@ internal sealed class ServiceCatalogClient : IAsyncDisposable
                     var dirName = Path.GetFileName(dir);
                     // Remove version suffix like "-1", "-2" to get the cached model name
                     var cachedName = System.Text.RegularExpressions.Regex.Replace(dirName ?? "", @"-\d+$", "");
-                    
+
                     if (!string.IsNullOrEmpty(cachedName) && !modelIds.Contains(cachedName, StringComparer.OrdinalIgnoreCase))
                     {
                         modelIds.Add(cachedName);

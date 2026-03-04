@@ -64,7 +64,7 @@ public class DependencyResolver : IDependencyResolver
         var duration = DateTime.UtcNow - startTime;
         var maxExecutionOrder = resolvedTasks.Count > 0 ? resolvedTasks.Max(t => t.ExecutionOrder) : 0;
         var orderedTaskIds = string.Join(",", resolvedTasks.Select(t => t.TaskId));
-        
+
         _logger.LogInformation(
             "Resolved {Count} dependencies for task {TaskId} in {Duration}ms. Max execution order: {MaxOrder}. Resolution sequence: [{Sequence}]",
             resolvedTasks.Count, taskId, duration.TotalMilliseconds, maxExecutionOrder, orderedTaskIds);

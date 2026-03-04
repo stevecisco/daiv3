@@ -16,7 +16,8 @@ public class SkillConfigurationTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillConfigFileLoader>>();
         var loader = new SkillConfigFileLoader(logger);
 
@@ -41,7 +42,8 @@ public class SkillConfigurationTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillConfigFileLoader>>();
         var loader = new SkillConfigFileLoader(logger);
 
@@ -66,7 +68,8 @@ public class SkillConfigurationTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillConfigFileLoader>>();
         var loader = new SkillConfigFileLoader(logger);
 
@@ -90,7 +93,8 @@ public class SkillConfigurationTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillConfigFileLoader>>();
         var loader = new SkillConfigFileLoader(logger);
 
@@ -104,8 +108,8 @@ public class SkillConfigurationTests
             {
                 new() { Name = "input1", Type = "string", Required = true }
             },
-            Output = new SkillOutputSchemaConfiguration 
-            { 
+            Output = new SkillOutputSchemaConfiguration
+            {
                 Type = "string",
                 Description = "Output"
             },

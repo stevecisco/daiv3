@@ -84,14 +84,14 @@ public class LearningStorageService : ILearningStorageService
         _logger.LogInformation(
             "Created learning {LearningId} with title '{Title}' (scope: {Scope}, confidence: {Confidence})",
             learningId, title, scope, confidence);
-        
+
         // Fire observability event
         if (_metricsCollector != null)
         {
             await _metricsCollector.OnLearningCreatedAsync(
                 learningId, title, triggerType, scope, confidence, sourceAgent, createdAtUnix).ConfigureAwait(false);
         }
-        
+
         return learningId;
     }
 
@@ -180,10 +180,10 @@ public class LearningStorageService : ILearningStorageService
     public async Task UpdateLearningAsync(Learning learning, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(learning);
-        
+
         learning.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
-        
+
         _logger.LogInformation("Updated learning {LearningId}", learning.LearningId);
     }
 
@@ -193,7 +193,7 @@ public class LearningStorageService : ILearningStorageService
     public async Task SuppressLearningAsync(string learningId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(learningId);
-        
+
         var learning = await GetLearningAsync(learningId, ct).ConfigureAwait(false);
         if (learning == null)
         {
@@ -206,9 +206,9 @@ public class LearningStorageService : ILearningStorageService
         var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         learning.UpdatedAt = updatedAtUnix;
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
-        
+
         _logger.LogInformation("Suppressed learning {LearningId}", learningId);
-        
+
         // Fire observability event
         if (_metricsCollector != null)
         {
@@ -224,7 +224,7 @@ public class LearningStorageService : ILearningStorageService
     public async Task SupersedeLearningAsync(string learningId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(learningId);
-        
+
         var learning = await GetLearningAsync(learningId, ct).ConfigureAwait(false);
         if (learning == null)
         {
@@ -237,9 +237,9 @@ public class LearningStorageService : ILearningStorageService
         var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         learning.UpdatedAt = updatedAtUnix;
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
-        
+
         _logger.LogInformation("Marked learning {LearningId} as superseded", learningId);
-        
+
         // Fire observability event
         if (_metricsCollector != null)
         {
@@ -273,7 +273,7 @@ public class LearningStorageService : ILearningStorageService
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(learningId);
-        
+
         var learning = await GetLearningAsync(learningId, ct).ConfigureAwait(false);
         if (learning == null)
         {
@@ -304,7 +304,7 @@ public class LearningStorageService : ILearningStorageService
         var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         learning.UpdatedAt = updatedAtUnix;
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
-        
+
         // KBP-DATA-001/002: Record promotion history with source task/session, target scope, and timestamp
         if (_promotionRepository != null)
         {
@@ -323,17 +323,17 @@ public class LearningStorageService : ILearningStorageService
 
             await _promotionRepository.AddAsync(promotion, ct).ConfigureAwait(false);
         }
-        
+
         _logger.LogInformation(
             "Promoted learning {LearningId} from {OldScope} to {NewScope}",
             learningId, oldScope, newScope);
-        
+
         // Fire observability event
         if (_metricsCollector != null)
         {
             await _metricsCollector.OnLearningPromotedAsync(learningId, oldScope, newScope, updatedAtUnix).ConfigureAwait(false);
         }
-        
+
         return newScope;
     }
 
@@ -406,7 +406,7 @@ public class LearningStorageService : ILearningStorageService
 
                 // Promote the learning directly to the target scope
                 var normalizedTargetScope = char.ToUpperInvariant(selection.TargetScope[0]) + selection.TargetScope[1..].ToLowerInvariant();
-                
+
                 // Check if already at or beyond target scope
                 var scopeHierarchy = new[] { "Skill", "Agent", "Project", "Domain", "Global" };
                 var currentIndex = Array.IndexOf(scopeHierarchy, learning.Scope);
@@ -431,7 +431,7 @@ public class LearningStorageService : ILearningStorageService
                 var updatedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 learning.UpdatedAt = updatedAtUnix;
                 await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
-                
+
                 // Record promotion history with source task
                 if (_promotionRepository != null)
                 {
@@ -450,12 +450,12 @@ public class LearningStorageService : ILearningStorageService
 
                     await _promotionRepository.AddAsync(promotion, ct).ConfigureAwait(false);
                 }
-                
+
                 result.SuccessfulPromotions.Add(selection);
                 _logger.LogInformation(
                     "Promoted learning {LearningId} from {OldScope} to {NewScope} as part of task {TaskId}",
                     selection.LearningId, oldScope, normalizedTargetScope, taskId);
-                
+
                 // Fire observability event
                 if (_metricsCollector != null)
                 {
@@ -609,7 +609,7 @@ public class LearningStorageService : ILearningStorageService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(learningId);
         ArgumentNullException.ThrowIfNull(embeddingBlob);
-        
+
         if (embeddingDimensions <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(embeddingDimensions), "Must be greater than 0");
@@ -625,7 +625,7 @@ public class LearningStorageService : ILearningStorageService
         learning.EmbeddingBlob = embeddingBlob;
         learning.EmbeddingDimensions = embeddingDimensions;
         learning.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        
+
         await _repository.UpdateAsync(learning, ct).ConfigureAwait(false);
         _logger.LogInformation(
             "Set embedding for learning {LearningId} ({Dimensions} dimensions)",
@@ -638,7 +638,7 @@ public class LearningStorageService : ILearningStorageService
     public async Task<LearningStatistics> GetStatisticsAsync(CancellationToken ct = default)
     {
         var all = await _repository.GetAllAsync(ct).ConfigureAwait(false);
-        
+
         return new LearningStatistics
         {
             TotalLearnings = all.Count,

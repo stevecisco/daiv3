@@ -13,7 +13,7 @@ public class KnowledgeLayerTelemetry : IKnowledgeLayerTelemetry
 {
     private readonly ILogger<KnowledgeLayerTelemetry> _logger;
     private readonly KnowledgeLayerGuardrails _guardrails;
-    
+
     private readonly List<SearchMetricsContext> _searchMetrics = new();
     private readonly List<IndexingMetricsContext> _indexingMetrics = new();
     private readonly object _lockObject = new();
@@ -157,7 +157,7 @@ public class KnowledgeLayerTelemetry : IKnowledgeLayerTelemetry
             var metrics = GetCurrentMetrics();
 
             // Check Tier 1 search latency
-            if (metrics.Tier1SearchLatencyMs > 0 && 
+            if (metrics.Tier1SearchLatencyMs > 0 &&
                 metrics.Tier1SearchLatencyMs > _guardrails.MaxTier1SearchLatencyMs)
             {
                 result.ViolationDetails.Add(
@@ -171,7 +171,7 @@ public class KnowledgeLayerTelemetry : IKnowledgeLayerTelemetry
             }
 
             // Check total search latency
-            if (metrics.SearchTotalLatencyMs > 0 && 
+            if (metrics.SearchTotalLatencyMs > 0 &&
                 metrics.SearchTotalLatencyMs > _guardrails.MaxSearchTotalLatencyMs)
             {
                 result.ViolationDetails.Add(
@@ -185,7 +185,7 @@ public class KnowledgeLayerTelemetry : IKnowledgeLayerTelemetry
             }
 
             // Check indexing latency
-            if (metrics.DocumentIndexLatencyMs > 0 && 
+            if (metrics.DocumentIndexLatencyMs > 0 &&
                 metrics.DocumentIndexLatencyMs > _guardrails.MaxIndexLatencyMs)
             {
                 result.ViolationDetails.Add(
@@ -215,7 +215,7 @@ public class KnowledgeLayerTelemetry : IKnowledgeLayerTelemetry
             if (result.HasViolations)
             {
                 result.HealthStatus = HealthStatus.Critical;
-                _logger.LogError("Knowledge Layer guardrails violated: {Violations}", 
+                _logger.LogError("Knowledge Layer guardrails violated: {Violations}",
                     string.Join("; ", result.ViolationDetails));
             }
             else if (result.PassingMetrics.Any())
@@ -292,11 +292,11 @@ public class KnowledgeLayerTelemetry : IKnowledgeLayerTelemetry
             {
                 SearchOperationCount = _searchMetrics.Count,
                 IndexingOperationCount = _indexingMetrics.Count,
-                AverageSearchLatencyMs = _searchMetrics.Any() 
-                    ? _searchMetrics.Average(s => s.TotalLatencyMs) 
+                AverageSearchLatencyMs = _searchMetrics.Any()
+                    ? _searchMetrics.Average(s => s.TotalLatencyMs)
                     : 0,
-                AverageIndexingLatencyMs = _indexingMetrics.Any() 
-                    ? _indexingMetrics.Average(i => i.TotalLatencyMs) 
+                AverageIndexingLatencyMs = _indexingMetrics.Any()
+                    ? _indexingMetrics.Average(i => i.TotalLatencyMs)
                     : 0,
                 TotalDocumentsIndexed = _indexingMetrics
                     .Select(i => i.DocumentId)
@@ -314,7 +314,7 @@ public class KnowledgeLayerTelemetry : IKnowledgeLayerTelemetry
     {
         var violations = new List<string>();
 
-        if (context.Tier1SearchLatencyMs.HasValue && 
+        if (context.Tier1SearchLatencyMs.HasValue &&
             context.Tier1SearchLatencyMs > _guardrails.MaxTier1SearchLatencyMs)
         {
             violations.Add($"Tier 1 search: {context.Tier1SearchLatencyMs:F2}ms");

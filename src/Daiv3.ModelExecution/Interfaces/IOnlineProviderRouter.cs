@@ -122,4 +122,5 @@ public interface IOnlineProviderRouter
     Task<ExecutionResult> ExecuteWithConfirmationAsync(
         ExecutionRequest request,
         string? provider = null,
-        CancellationToken ct = default);}
+        CancellationToken ct = default);
+}

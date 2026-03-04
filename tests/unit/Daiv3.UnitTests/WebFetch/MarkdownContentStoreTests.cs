@@ -12,7 +12,7 @@ public class MarkdownContentStoreTests : IDisposable
 {
     private readonly string _tempDir;
     private IMarkdownContentStore? _storeField;
-    
+
     private IMarkdownContentStore _store => _storeField ??= CreateStore();
 
     public MarkdownContentStoreTests()
@@ -54,7 +54,7 @@ public class MarkdownContentStoreTests : IDisposable
                 opts.IncludeFrontMatter = configureOptions.IncludeFrontMatter;
             }
         });
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         return provider.GetRequiredService<IMarkdownContentStore>();
     }
 
@@ -159,7 +159,8 @@ public class MarkdownContentStoreTests : IDisposable
             options.StorageDirectory = _tempDir;
             options.MaxContentSizeBytes = 100; // Very small limit
         });
-        var provider = services.BuildServiceProvider();
+
+        using var provider = services.BuildServiceProvider();
         var store = provider.GetRequiredService<IMarkdownContentStore>();
 
         var url = "https://example.com/test";
@@ -240,7 +241,8 @@ public class MarkdownContentStoreTests : IDisposable
                 options.StorageDirectory = tempDir2;
                 options.OrganizeByDomain = true;
             });
-            var provider = services.BuildServiceProvider();
+
+            using var provider = services.BuildServiceProvider();
             var store = provider.GetRequiredService<IMarkdownContentStore>();
 
             var url = "https://example.com/article";
@@ -277,7 +279,7 @@ public class MarkdownContentStoreTests : IDisposable
 
         var json = File.ReadAllText(metadataFile);
         var metadata = JsonSerializer.Deserialize<StoredContentMetadata>(
-            json, 
+            json,
             new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         Assert.NotNull(metadata);
         Assert.Equal("Test", metadata.Title);
@@ -587,11 +589,12 @@ public class MarkdownContentStoreTests : IDisposable
                 options.StorageDirectory = tempDir2;
                 options.OrganizeByDomain = true;
             });
-            var provider = services.BuildServiceProvider();
+
+            using var provider = services.BuildServiceProvider();
             var store = provider.GetRequiredService<IMarkdownContentStore>();
 
-            var urls = new[] 
-            { 
+            var urls = new[]
+            {
                 "https://example.com/article1",
                 "https://example.com/article2",
                 "https://www.example.com/article3"

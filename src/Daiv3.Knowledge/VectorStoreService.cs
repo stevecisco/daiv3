@@ -164,7 +164,7 @@ public class VectorStoreService : IVectorStoreService
 
         // Delete chunks first (due to foreign key constraints)
         var chunkCount = await _chunkIndexRepository.DeleteByDocumentIdAsync(docId, ct).ConfigureAwait(false);
-        
+
         // Delete topic index
         await _topicIndexRepository.DeleteAsync(docId, ct).ConfigureAwait(false);
 
@@ -206,7 +206,7 @@ public class VectorStoreService : IVectorStoreService
     private async Task EnsureDocumentExistsAsync(string docId, string sourcePath, string fileHash, CancellationToken ct)
     {
         var existingDoc = await _documentRepository.GetByIdAsync(docId, ct).ConfigureAwait(false);
-        
+
         if (existingDoc is null)
         {
             // Create minimal placeholder document to satisfy foreign key constraint

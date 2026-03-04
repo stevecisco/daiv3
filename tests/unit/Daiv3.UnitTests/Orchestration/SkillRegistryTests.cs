@@ -180,8 +180,8 @@ public class SkillRegistryTests
     {
         // Arrange
         var skill = new TestSkill(
-            "CodeReviewSkill", 
-            "Reviews code", 
+            "CodeReviewSkill",
+            "Reviews code",
             category: SkillCategory.Code);
         _registry.RegisterSkill(skill);
 
@@ -204,7 +204,7 @@ public class SkillRegistryTests
             Schema = "{\"type\": \"object\", \"properties\": {\"score\": {\"type\": \"number\"}}}"
         };
         var skill = new TestSkill(
-            "AnalysisSkill", 
+            "AnalysisSkill",
             "Analyzes data",
             outputSchema: outputSchema);
         _registry.RegisterSkill(skill);
@@ -226,7 +226,7 @@ public class SkillRegistryTests
         // Arrange
         var permissions = new List<string> { "FileSystem.Read", "Network.Access" };
         var skill = new TestSkill(
-            "WebFetchSkill", 
+            "WebFetchSkill",
             "Fetches web content",
             permissions: permissions);
         _registry.RegisterSkill(skill);
@@ -284,7 +284,7 @@ public class SkillRegistryTests
             Description = "Test skill",
             Outputs = new OutputSchema { Type = "string" }
         };
-        
+
         var parameter = new ParameterMetadata
         {
             Name = "input1",
@@ -296,10 +296,10 @@ public class SkillRegistryTests
         metadata.Inputs.Add(parameter);
 
         // Assert
-        #pragma warning disable CS0618 // Type or member is obsolete
+#pragma warning disable CS0618 // Type or member is obsolete
         Assert.Single(metadata.Parameters);
         Assert.Equal("input1", metadata.Parameters[0].Name);
-        #pragma warning restore CS0618 // Type or member is obsolete
+#pragma warning restore CS0618 // Type or member is obsolete
     }
 
     /// <summary>
@@ -308,7 +308,7 @@ public class SkillRegistryTests
     private class TestSkill : ISkill
     {
         public TestSkill(
-            string name, 
+            string name,
             string description,
             SkillCategory category = SkillCategory.Unspecified,
             OutputSchema? outputSchema = null,

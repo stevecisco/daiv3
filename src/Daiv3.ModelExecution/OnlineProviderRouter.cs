@@ -90,7 +90,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         if (_connectivityService != null && _queueRepository != null)
         {
             var isOnline = await _connectivityService.IsOnlineAsync(ct);
-            
+
             if (!isOnline)
             {
                 _logger.LogWarning(
@@ -389,7 +389,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
 
         // Get pending requests
         var pendingRequests = await _queueRepository.GetPendingRequestsAsync(ct);
-        
+
         if (pendingRequests.Count == 0)
         {
             _logger.LogDebug("No pending requests to retry");
@@ -513,7 +513,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
 
         var providerName = provider ?? SelectProvider(request);
         var estimatedTokens = EstimateTokens(request.Content);
-        
+
         var details = new ConfirmationDetails
         {
             ProviderName = providerName,
@@ -533,15 +533,15 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         // Determine confirmation reason based on mode
         details.ConfirmationReason = _options.ConfirmationMode switch
         {
-            ConfirmationMode.Always => 
+            ConfirmationMode.Always =>
                 "Confirmation required for all online requests (ConfirmationMode: Always)",
-            
-            ConfirmationMode.AboveThreshold when estimatedTokens > _options.ConfirmationThreshold => 
+
+            ConfirmationMode.AboveThreshold when estimatedTokens > _options.ConfirmationThreshold =>
                 $"Estimated tokens ({estimatedTokens}) exceed threshold ({_options.ConfirmationThreshold})",
-            
-            ConfirmationMode.AutoWithinBudget when details.ExceedsBudget => 
+
+            ConfirmationMode.AutoWithinBudget when details.ExceedsBudget =>
                 $"Request would exceed daily budget ({details.RemainingDailyBudget} tokens remaining)",
-            
+
             _ => "Confirmation required"
         };
 
@@ -566,7 +566,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         if (_connectivityService != null && _queueRepository != null)
         {
             var isOnline = await _connectivityService.IsOnlineAsync(ct);
-            
+
             if (!isOnline)
             {
                 _logger.LogWarning(
@@ -604,7 +604,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         await WaitForProviderRateLimitSlotAsync(providerName, ct);
 
         var minimizedRequest = MinimizeContextForOnlineProvider(request);
-        var providerLimiter = GetProviderConcurrencyLimiter(providerName);
+        using var providerLimiter = GetProviderConcurrencyLimiter(providerName);
 
         await providerLimiter.WaitAsync(ct);
         try
@@ -864,7 +864,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             {
                 // Calculate remaining budget
                 var remainingBudget = config.MaxContextTokens - minimizedContextTokens;
-                
+
                 if (remainingBudget <= 0)
                 {
                     // No budget left, skip this key
@@ -878,7 +878,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
                 // Truncate value to fit remaining budget
                 var truncatedValue = TruncateToTokenLimit(value, remainingBudget);
                 var truncatedTokens = EstimateTokens(truncatedValue);
-                
+
                 minimizedRequest.Context[key] = truncatedValue;
                 minimizedContextTokens += truncatedTokens;
                 keysTruncated.Add(key);
@@ -894,7 +894,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
             {
                 var truncatedValue = TruncateToTokenLimit(value, config.MaxTokensPerKey);
                 var truncatedTokens = EstimateTokens(truncatedValue);
-                
+
                 minimizedRequest.Context[key] = truncatedValue;
                 minimizedContextTokens += truncatedTokens;
                 keysTruncated.Add(key);
@@ -961,7 +961,7 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         // Truncate and add ellipsis
         var ellipsis = "...";
         var truncatedLength = Math.Max(0, maxChars - ellipsis.Length);
-        
+
         return text.Substring(0, truncatedLength) + ellipsis;
     }
 

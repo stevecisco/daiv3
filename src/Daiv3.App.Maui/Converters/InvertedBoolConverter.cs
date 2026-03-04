@@ -11,7 +11,7 @@ public class InvertedBoolConverter : IValueConverter
     {
         if (value is bool boolValue)
             return !boolValue;
-        
+
         return value;
     }
 
@@ -19,7 +19,7 @@ public class InvertedBoolConverter : IValueConverter
     {
         if (value is bool boolValue)
             return !boolValue;
-        
+
         return value;
     }
 }

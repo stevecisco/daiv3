@@ -131,7 +131,7 @@ public class ToolRegistryTests
         var directTool2 = CreateTestTool("direct-2", "Direct 2", ToolBackendType.Direct);
         var cliTool = CreateTestTool("cli-1", "CLI 1", ToolBackendType.CLI);
         var mcpTool = CreateTestTool("mcp-1", "MCP 1", ToolBackendType.MCP);
-        
+
         await _registry.RegisterToolAsync(directTool1);
         await _registry.RegisterToolAsync(directTool2);
         await _registry.RegisterToolAsync(cliTool);
@@ -145,10 +145,10 @@ public class ToolRegistryTests
         // Assert
         Assert.Equal(2, directTools.Count);
         Assert.All(directTools, t => Assert.Equal(ToolBackendType.Direct, t.Backend));
-        
+
         Assert.Single(cliTools);
         Assert.Equal(ToolBackendType.CLI, cliTools[0].Backend);
-        
+
         Assert.Single(mcpTools);
         Assert.Equal(ToolBackendType.MCP, mcpTools[0].Backend);
     }
@@ -163,7 +163,7 @@ public class ToolRegistryTests
         tool2.IsAvailable = false;
         var tool3 = CreateTestTool("tool-3", "Tool 3", ToolBackendType.MCP);
         tool3.IsAvailable = true;
-        
+
         await _registry.RegisterToolAsync(tool1);
         await _registry.RegisterToolAsync(tool2);
         await _registry.RegisterToolAsync(tool3);
@@ -209,13 +209,13 @@ public class ToolRegistryTests
         // Arrange
         var directTool = CreateTestTool("direct-1", "Direct Tool", ToolBackendType.Direct);
         directTool.EstimatedTokenCost = 0;
-        
+
         var cliTool = CreateTestTool("cli-1", "CLI Tool", ToolBackendType.CLI);
         cliTool.EstimatedTokenCost = 5;
-        
+
         var mcpTool = CreateTestTool("mcp-1", "MCP Tool", ToolBackendType.MCP);
         mcpTool.EstimatedTokenCost = 150;
-        
+
         await _registry.RegisterToolAsync(directTool);
         await _registry.RegisterToolAsync(cliTool);
         await _registry.RegisterToolAsync(mcpTool);

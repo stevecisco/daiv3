@@ -328,7 +328,7 @@ public class SkillExecutorSandboxingTests
         _sandboxConfig.DefaultMode = SkillSandboxMode.PermissionChecks;
         _sandboxConfig.GlobalAllowedPermissions.Clear();
         _sandboxConfig.GlobalAllowedPermissions.Add(SkillPermissions.FileSystemRead);
-        
+
         _sandboxConfig.SkillOverrides["PrivilegedSkill"] = new SkillSandboxOverride
         {
             AllowedPermissions = new List<string>

@@ -17,7 +17,7 @@ public class EmbeddingTokenizerImplementationTests
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
         var vocabPath = Path.Combine(tempDir, "vocab.txt");
-        
+
         try
         {
             // Create minimal vocab file
@@ -53,7 +53,7 @@ public class EmbeddingTokenizerImplementationTests
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
         var vocabPath = Path.Combine(tempDir, "vocab.txt");
-        
+
         try
         {
             var vocabLines = new[]
@@ -64,9 +64,9 @@ public class EmbeddingTokenizerImplementationTests
             File.WriteAllLines(vocabPath, vocabLines);
 
             var tokenizer = new BertWordPieceTokenizer(NullLogger<BertWordPieceTokenizer>.Instance, "test-model", vocabPath);
-            
+
             var tokens = tokenizer.Tokenize("hello world");
-            
+
             Assert.NotEmpty(tokens);
             Assert.All(tokens, token => Assert.True(token >= 0 && token < tokenizer.VocabularySize));
         }
@@ -82,22 +82,22 @@ public class EmbeddingTokenizerImplementationTests
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
         var vocabPath = Path.Combine(tempDir, "vocab.txt");
-        
+
         try
         {
             var vocabLines = Enumerable.Range(0, 100).Select(i => $"token_{i}").ToArray();
             File.WriteAllLines(vocabPath, vocabLines);
 
             var tokenizer = new BertWordPieceTokenizer(NullLogger<BertWordPieceTokenizer>.Instance, "test-model", vocabPath);
-            
+
             // Valid tokens
             var validTokens = new long[] { 0, 50, 99 };
             Assert.True(tokenizer.ValidateTokenIds(validTokens));
-            
+
             // Invalid: token >= vocabulary size
             var invalidTokens = new long[] { 0, 100 };
             Assert.False(tokenizer.ValidateTokenIds(invalidTokens));
-            
+
             // Invalid: negative token
             var negativeTokens = new long[] { -1, 50 };
             Assert.False(tokenizer.ValidateTokenIds(negativeTokens));
@@ -137,9 +137,9 @@ public class EmbeddingTokenizerImplementationTests
         try
         {
             var tokenizer = new SentencePieceTokenizer(NullLogger<SentencePieceTokenizer>.Instance, "test-model", tempDir);
-            
+
             var tokens = tokenizer.Tokenize("hello world");
-            
+
             Assert.NotEmpty(tokens);
             Assert.All(tokens, token => Assert.True(token >= 0 && token < tokenizer.VocabularySize));
         }
@@ -159,11 +159,11 @@ public class EmbeddingTokenizerImplementationTests
         {
             var tokenizer = new SentencePieceTokenizer(NullLogger<SentencePieceTokenizer>.Instance, "test-model", tempDir);
             var vocabSize = tokenizer.VocabularySize;
-            
+
             // Valid tokens
             var validTokens = new long[] { 0, vocabSize / 2, vocabSize - 1 };
             Assert.True(tokenizer.ValidateTokenIds(validTokens));
-            
+
             // Invalid: token >= vocabulary size
             var invalidTokens = new long[] { 0, vocabSize };
             Assert.False(tokenizer.ValidateTokenIds(invalidTokens));
@@ -197,7 +197,8 @@ public class EmbeddingTokenizerImplementationTests
     [Fact]
     public void EmbeddingTokenizerRegistry_RegistersAndRetrievesTokenizers()
     {
-        var loggerFactory = new NullLoggerFactory();
+
+        using var loggerFactory = new NullLoggerFactory();
         var registry = new EmbeddingTokenizerRegistry(loggerFactory);
 
         var testTokenizer = new StubEmbeddingTokenizer();
@@ -212,7 +213,7 @@ public class EmbeddingTokenizerImplementationTests
     [Fact]
     public void EmbeddingTokenizerRegistry_ThrowsOn_UnregisteredModel()
     {
-        var loggerFactory = new NullLoggerFactory();
+        using var loggerFactory = new NullLoggerFactory();
         var registry = new EmbeddingTokenizerRegistry(loggerFactory);
 
         Assert.Throws<KeyNotFoundException>(() => registry.GetTokenizer("unknown-model"));

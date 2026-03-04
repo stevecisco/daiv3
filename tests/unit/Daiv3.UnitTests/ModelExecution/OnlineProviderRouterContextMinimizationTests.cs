@@ -23,7 +23,7 @@ public class OnlineProviderRouterContextMinimizationTests : IDisposable
     {
         _mockLogger = new Mock<ILogger<OnlineProviderRouter>>();
         _mockConnectivity = new Mock<INetworkConnectivityService>();
-        
+
         // Default: system is online
         _mockConnectivity.Setup(x => x.IsOnlineAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);

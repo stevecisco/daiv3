@@ -24,12 +24,12 @@ public class Intent
     /// The intent type (e.g., "chat", "search", "create", "analyze").
     /// </summary>
     public required string Type { get; set; }
-    
+
     /// <summary>
     /// Extracted entities from the user input.
     /// </summary>
     public Dictionary<string, string> Entities { get; set; } = new();
-    
+
     /// <summary>
     /// Confidence score for the intent classification (0.0 to 1.0).
     /// </summary>

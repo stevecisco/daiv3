@@ -100,9 +100,9 @@ public sealed class ModelManagementAcceptanceTests : IAsyncLifetime, IDisposable
             // Verify each variant has device type and size information
             foreach (var variant in model.Variants)
             {
-                Assert.True(variant.FileSizeMb.HasValue || variant.Id != null, 
+                Assert.True(variant.FileSizeMb.HasValue || variant.Id != null,
                     $"Variant {variant.Id} should have file size or valid ID");
-                
+
                 _logger.LogInformation($"  └─ {variant.DeviceType} v{variant.Version}: " +
                     $"{(variant.FileSizeMb.HasValue ? $"{variant.FileSizeMb.Value} MB" : "size unknown")} " +
                     $"{(variant.Cached ? "[CACHED]" : "")}");
@@ -120,7 +120,7 @@ public sealed class ModelManagementAcceptanceTests : IAsyncLifetime, IDisposable
         // Verify caching status is accurate
         var cachedModels = await _managementService.ListCachedModelsAsync();
         var cachedIds = new HashSet<string>(cachedModels.Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
-        
+
         foreach (var model in models)
         {
             foreach (var variant in model.Variants)
@@ -170,9 +170,9 @@ public sealed class ModelManagementAcceptanceTests : IAsyncLifetime, IDisposable
 
         // Act
         var result = await _managementService.DownloadModelAsync(
-            modelAlias, 
-            smallestModel.Version, 
-            smallestModel.DeviceType, 
+            modelAlias,
+            smallestModel.Version,
+            smallestModel.DeviceType,
             progress);
 
         // Assert
@@ -196,7 +196,7 @@ public sealed class ModelManagementAcceptanceTests : IAsyncLifetime, IDisposable
         {
             var sizeDifference = Math.Abs(cachedModel.FileSizeMb.Value - smallestModel.FileSizeMb.Value);
             var maxDifference = smallestModel.FileSizeMb.Value * 0.1; // 10% tolerance
-            Assert.True(sizeDifference <= maxDifference, 
+            Assert.True(sizeDifference <= maxDifference,
                 $"File size mismatch: catalog={smallestModel.FileSizeMb.Value} MB, actual={cachedModel.FileSizeMb.Value} MB");
             _logger.LogInformation($"✓ File size matches catalog (±10%): {cachedModel.FileSizeMb.Value} MB");
         }
@@ -231,7 +231,7 @@ public sealed class ModelManagementAcceptanceTests : IAsyncLifetime, IDisposable
         foreach (var model in cachedModels)
         {
             Assert.NotNull(model.Id);
-            
+
             _logger.LogInformation($"Cached model: {model.Id} | {model.DeviceType} | " +
                 $"{(model.FileSizeMb.HasValue ? $"{model.FileSizeMb.Value} MB" : "size unknown")}");
         }
@@ -315,7 +315,7 @@ public sealed class ModelManagementAcceptanceTests : IAsyncLifetime, IDisposable
         // Arrange
         var models = await _managementService!.ListAvailableModelsAsync();
         var testModel = models.FirstOrDefault()?.Variants.FirstOrDefault();
-        
+
         if (testModel == null)
         {
             _logger.LogWarning("No models available for idempotency test");

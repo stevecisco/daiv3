@@ -24,8 +24,8 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
     {
         // Set up test database
         _testDbPath = Path.Combine(Path.GetTempPath(), $"web-fetch-metadata-test-{Guid.NewGuid()}.db");
-        
-        var services = new ServiceCollection();
+
+        using var services = new ServiceCollection();
         services.AddLogging();
         services.Configure<PersistenceOptions>(options =>
         {
@@ -34,7 +34,7 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
         services.AddPersistence();
         services.AddScoped<IWebFetchMetadataService, WebFetchMetadataService>();
 
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         _context = serviceProvider.GetRequiredService<IDatabaseContext>();
         _repository = new WebFetchRepository(
             _context,
@@ -56,7 +56,7 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
         {
             await _context.DisposeAsync();
         }
-        
+
         try
         {
             if (!string.IsNullOrEmpty(_testDbPath) && File.Exists(_testDbPath))
@@ -186,7 +186,8 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
 
         // Create document
         var doc = new Document
-        {SourcePath = sourceUrl,
+        {
+            SourcePath = sourceUrl,
             DocId = docId,
             FileHash = "hash-initial",
             Format = "web",

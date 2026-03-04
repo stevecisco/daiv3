@@ -19,7 +19,7 @@ public class TopicSummaryServiceTests
             PreserveSentenceOrder = true
         });
         var service = new TopicSummaryService(NullLogger<TopicSummaryService>.Instance, options);
-        
+
         var text = "This is the first sentence. This is the second sentence with important information. " +
                    "This is the third sentence also important. This is fourth sentence. " +
                    "This is fifth sentence with less importance.";
@@ -40,7 +40,7 @@ public class TopicSummaryServiceTests
         // Arrange
         var options = Options.Create(new TopicSummaryOptions());
         var service = new TopicSummaryService(NullLogger<TopicSummaryService>.Instance, options);
-        
+
         var text = "First sentence. Second sentence.";
 
         // Act
@@ -58,7 +58,7 @@ public class TopicSummaryServiceTests
         var service = new TopicSummaryService(NullLogger<TopicSummaryService>.Instance, options);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => 
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             service.GenerateSummaryAsync(string.Empty));
     }
 
@@ -70,7 +70,7 @@ public class TopicSummaryServiceTests
         var service = new TopicSummaryService(NullLogger<TopicSummaryService>.Instance, options);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => 
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             service.GenerateSummaryAsync(null!));
     }
 
@@ -82,7 +82,7 @@ public class TopicSummaryServiceTests
         var service = new TopicSummaryService(NullLogger<TopicSummaryService>.Instance, options);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => 
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             service.GenerateSummaryAsync("   \n\t   "));
     }
 
@@ -179,8 +179,8 @@ public class TopicSummaryServiceTests
     public void TopicSummaryOptions_Validate_ThrowsWhenMaxLessThanMin()
     {
         // Arrange
-        var options = new TopicSummaryOptions 
-        { 
+        var options = new TopicSummaryOptions
+        {
             MinSentences = 5,
             MaxSentences = 2
         };

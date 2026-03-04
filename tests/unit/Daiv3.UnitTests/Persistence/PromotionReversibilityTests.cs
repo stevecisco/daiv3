@@ -28,7 +28,7 @@ public class PromotionReversibilityTests : IAsyncLifetime
         {
             await oldDisposable.DisposeAsync();
         }
-        
+
         var services = new ServiceCollection();
         services.AddLogging();
         services.Configure<PersistenceOptions>(options =>

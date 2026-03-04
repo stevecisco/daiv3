@@ -56,7 +56,7 @@ public sealed class ModelCatalogTests : IAsyncLifetime, IDisposable
         // Assert
         Assert.NotNull(modelList);
         _logger.LogInformation($"Found {modelList.Count} models in catalog");
-        
+
         foreach (var model in modelList.Take(5)) // Log first 5 models
         {
             _logger.LogInformation($"Model: {model}");
@@ -70,7 +70,7 @@ public sealed class ModelCatalogTests : IAsyncLifetime, IDisposable
         var catalog = await _manager!.GetCatalogAsync();
         var models = await catalog.ListModelsAsync();
         var firstModel = models.FirstOrDefault();
-        
+
         // Skip test if no models available
         if (firstModel == null)
         {

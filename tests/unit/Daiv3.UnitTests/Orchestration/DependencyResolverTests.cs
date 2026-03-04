@@ -534,14 +534,14 @@ public class DependencyResolverTests
         var tZ = new ProjectTask { TaskId = taskZ, Title = "Task Z", Status = "pending", Priority = 5, DependenciesJson = null };
         var tA = new ProjectTask { TaskId = taskA, Title = "Task A", Status = "pending", Priority = 5, DependenciesJson = null };
         var tM = new ProjectTask { TaskId = taskM, Title = "Task M", Status = "pending", Priority = 5, DependenciesJson = null };
-        var tMain = new ProjectTask 
-        { 
-            TaskId = mainTask, 
-            Title = "Main Task", 
-            Status = "pending", 
-            Priority = 5, 
+        var tMain = new ProjectTask
+        {
+            TaskId = mainTask,
+            Title = "Main Task",
+            Status = "pending",
+            Priority = 5,
             // JSON array in non-alphabetical order
-            DependenciesJson = JsonSerializer.Serialize(new[] { taskZ, taskA, taskM }) 
+            DependenciesJson = JsonSerializer.Serialize(new[] { taskZ, taskA, taskM })
         };
 
         _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask), It.IsAny<CancellationToken>())).ReturnsAsync(tMain);
@@ -575,23 +575,23 @@ public class DependencyResolverTests
         var t3 = new ProjectTask { TaskId = task3, Title = "Task 3", Status = "pending", Priority = 5, DependenciesJson = null };
 
         // Main task 1: dependencies in order [task-1, task-2, task-3]
-        var tMain1 = new ProjectTask 
-        { 
-            TaskId = mainTask1, 
-            Title = "Main Task 1", 
-            Status = "pending", 
-            Priority = 5, 
-            DependenciesJson = JsonSerializer.Serialize(new[] { task1, task2, task3 }) 
+        var tMain1 = new ProjectTask
+        {
+            TaskId = mainTask1,
+            Title = "Main Task 1",
+            Status = "pending",
+            Priority = 5,
+            DependenciesJson = JsonSerializer.Serialize(new[] { task1, task2, task3 })
         };
 
         // Main task 2: dependencies in DIFFERENT order [task-3, task-1, task-2]
-        var tMain2 = new ProjectTask 
-        { 
-            TaskId = mainTask2, 
-            Title = "Main Task 2", 
-            Status = "pending", 
-            Priority = 5, 
-            DependenciesJson = JsonSerializer.Serialize(new[] { task3, task1, task2 }) 
+        var tMain2 = new ProjectTask
+        {
+            TaskId = mainTask2,
+            Title = "Main Task 2",
+            Status = "pending",
+            Priority = 5,
+            DependenciesJson = JsonSerializer.Serialize(new[] { task3, task1, task2 })
         };
 
         _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask1), It.IsAny<CancellationToken>())).ReturnsAsync(tMain1);
@@ -676,14 +676,14 @@ public class DependencyResolverTests
         var t1 = new ProjectTask { TaskId = task1, Title = "Task 1", Status = "completed", Priority = 5, DependenciesJson = null };
         var t2 = new ProjectTask { TaskId = task2, Title = "Task 2", Status = "completed", Priority = 5, DependenciesJson = null };
         var t3 = new ProjectTask { TaskId = task3, Title = "Task 3", Status = "pending", Priority = 5, DependenciesJson = null };
-        var tMain = new ProjectTask 
-        { 
-            TaskId = mainTask, 
-            Title = "Main Task", 
-            Status = "pending", 
-            Priority = 5, 
+        var tMain = new ProjectTask
+        {
+            TaskId = mainTask,
+            Title = "Main Task",
+            Status = "pending",
+            Priority = 5,
             // Dependencies in non-alphabetical order
-            DependenciesJson = JsonSerializer.Serialize(new[] { task3, task1, task2 }) 
+            DependenciesJson = JsonSerializer.Serialize(new[] { task3, task1, task2 })
         };
 
         _mockTaskRepository.Setup(r => r.GetByIdAsync(It.Is<string>(id => id == mainTask), It.IsAny<CancellationToken>())).ReturnsAsync(tMain);

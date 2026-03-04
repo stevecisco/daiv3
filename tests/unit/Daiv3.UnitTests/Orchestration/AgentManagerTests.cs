@@ -31,7 +31,7 @@ public class AgentManagerTests
         _mockMessageBroker = new Mock<IMessageBroker>();
         _options = new OrchestrationOptions();
         _dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-test-{Guid.NewGuid()}.db");
-        
+
         // Setup a test service provider with persistence
         var services = new ServiceCollection();
         services.AddLogging();
@@ -41,12 +41,12 @@ public class AgentManagerTests
         });
         services.AddOrchestrationServices();
 
-        var serviceProvider = services.BuildServiceProvider();
-        
+        using var serviceProvider = services.BuildServiceProvider();
+
         // Initialize database and get repository
         serviceProvider.InitializeDatabaseAsync().GetAwaiter().GetResult();
         _repository = serviceProvider.GetRequiredService<AgentRepository>();
-        
+
         _manager = (AgentManager)serviceProvider.GetRequiredService<IAgentManager>();
     }
 
@@ -275,7 +275,8 @@ public class AgentManagerTests
             opts.DynamicAgentDefaultSkills = new List<string> { "reasoning" };
             opts.DynamicAgentSkillsByTaskType["search"] = new List<string> { "web-fetch", "reasoning" };
         });
-        var serviceProvider = services.BuildServiceProvider();
+
+        using var serviceProvider = services.BuildServiceProvider();
         await serviceProvider.InitializeDatabaseAsync();
         var customManager = (AgentManager)serviceProvider.GetRequiredService<IAgentManager>();
 
@@ -296,7 +297,7 @@ public class AgentManagerTests
         services.AddLogging();
         services.AddPersistence(opts => opts.DatabasePath = _dbPath);
         services.AddOrchestrationServices(opts => opts.EnableDynamicAgentCreation = false);
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         await serviceProvider.InitializeDatabaseAsync();
         var customManager = (AgentManager)serviceProvider.GetRequiredService<IAgentManager>();
 
@@ -321,7 +322,7 @@ public class AgentManagerTests
         {
             AgentId = agent.Id,
             TaskGoal = "Complete a test task",
-                        SuccessCriteria = "output contains 'completion'",  // Require completion step
+            SuccessCriteria = "output contains 'completion'",  // Require completion step
             Options = new AgentExecutionOptions
             {
                 MaxIterations = 5,
@@ -435,7 +436,7 @@ public class AgentManagerTests
         {
             AgentId = agent.Id,
             TaskGoal = "Task that consumes many tokens",
-                        SuccessCriteria = "output contains 'impossible_string_xyz'",  // Never satisfied
+            SuccessCriteria = "output contains 'impossible_string_xyz'",  // Never satisfied
             Options = new AgentExecutionOptions
             {
                 MaxIterations = 20,
@@ -484,17 +485,17 @@ public class AgentManagerTests
         // With 1000 iterations at ~50ms each, this should timeout
         // But in case of faster execution, accept either timeout or success
         Assert.True(
-            result.TerminationReason == "Timeout" || 
+            result.TerminationReason == "Timeout" ||
             result.TerminationReason == "Success",
             $"Expected Timeout or Success, got {result.TerminationReason}");
-        
+
         if (result.TerminationReason == "Timeout")
         {
             Assert.False(result.Success);
             Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
             Assert.Contains("timeout", result.ErrorMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
         }
-        
+
         Assert.NotNull(result.CompletedAt);
     }
 
@@ -520,7 +521,7 @@ public class AgentManagerTests
             }
         };
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         // Current implementation completes in ~50ms per iteration, so don't cancel
         // This test would need a slower implementation to properly test cancellation
         // For now, just verify the token is passed through and task completes
@@ -535,7 +536,7 @@ public class AgentManagerTests
         // Don't check for cancellation since mock completes too quickly
         Assert.True(result.IterationsExecuted > 0);
         Assert.NotEmpty(result.Steps);
-        
+
         Assert.NotNull(result.CompletedAt);
     }
 
@@ -580,7 +581,7 @@ public class AgentManagerTests
         {
             AgentId = agent.Id,
             TaskGoal = "Multi-step task",
-                        SuccessCriteria = "output contains 'completion step'",  // Require completion step
+            SuccessCriteria = "output contains 'completion step'",  // Require completion step
             Options = new AgentExecutionOptions
             {
                 MaxIterations = 5,
@@ -595,7 +596,7 @@ public class AgentManagerTests
         // Assert
         Assert.NotEmpty(result.Steps);
         Assert.Equal(result.IterationsExecuted, result.Steps.Count);
-        
+
         // Verify step sequencing
         for (int i = 0; i < result.Steps.Count; i++)
         {

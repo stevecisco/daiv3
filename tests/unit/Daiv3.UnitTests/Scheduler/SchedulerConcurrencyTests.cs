@@ -88,7 +88,7 @@ public class SchedulerConcurrencyTests : IAsyncLifetime
 
         // Act
         services.AddScheduler();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SchedulerOptions>>();
 
         // Assert
@@ -174,7 +174,7 @@ public class SchedulerConcurrencyTests : IAsyncLifetime
 
         // Act
         var jobId = await _scheduler!.ScheduleRecurringAsync(recurringJob, 1); // 1 second interval
-        
+
         // Wait for multiple cycles
         await Task.Delay(3500);
 
@@ -184,7 +184,7 @@ public class SchedulerConcurrencyTests : IAsyncLifetime
         Assert.NotNull(metadata);
         Assert.Equal(ScheduleType.Recurring, metadata.ScheduleType);
         // Should still be pending (scheduled for next run) or completed with multiple executions
-        Assert.True(metadata.ExecutionCount >= 2, 
+        Assert.True(metadata.ExecutionCount >= 2,
             $"Expected at least 2 executions, got {metadata.ExecutionCount}");
     }
 
@@ -215,13 +215,13 @@ public class SchedulerConcurrencyTests : IAsyncLifetime
 
         // Act
         var jobId = await _scheduler!.ScheduleRecurringAsync(delayedJob, 1, delaySeconds: 1);
-        
+
         // Check status immediately
         var metadataImmediate = await _scheduler.GetJobMetadataAsync(jobId);
-        
+
         // Wait for the delay to pass
         await Task.Delay(2000);
-        
+
         var metadataAfter = await _scheduler.GetJobMetadataAsync(jobId);
 
         // Assert

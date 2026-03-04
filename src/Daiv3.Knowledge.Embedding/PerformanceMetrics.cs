@@ -16,8 +16,8 @@ public sealed class PerformanceMetrics
     public int Dimension { get; set; }
 
     /// <summary>Time per vector comparison in microseconds.</summary>
-    public double TimePerVectorMicroSeconds => ElapsedMs > 0 
-        ? (ElapsedMs * 1000) / VectorCount 
+    public double TimePerVectorMicroSeconds => ElapsedMs > 0
+        ? (ElapsedMs * 1000) / VectorCount
         : 0;
 
     /// <summary>Vectors processed per second (throughput).</summary>

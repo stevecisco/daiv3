@@ -286,7 +286,7 @@ public class ModelQueueTests
                 if (req.TaskType == "normal")
                 {
                     p1ExecutionCount++;
-                    
+
                     // First execution - wait to be cancelled
                     if (p1ExecutionCount == 1)
                     {
@@ -301,7 +301,7 @@ public class ModelQueueTests
                             throw;
                         }
                     }
-                    
+
                     // Retry execution - complete quickly
                     await Task.Delay(10, ct);
                     return new ExecutionResult
@@ -312,7 +312,7 @@ public class ModelQueueTests
                         TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
                     };
                 }
-                
+
                 // P0 request - complete immediately
                 await Task.Delay(10, ct);
                 return new ExecutionResult
@@ -333,12 +333,12 @@ public class ModelQueueTests
         // Act
         var p1Id = await queue.EnqueueAsync(p1Request, ExecutionPriority.Normal);
         await Task.Delay(100); // Let P1 start executing
-        
+
         var p0Id = await queue.EnqueueAsync(p0Request, ExecutionPriority.Immediate);
 
         // Wait for P1 to be cancelled
         var wasCancelled = await p1Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        
+
         // Wait for both to complete
         var p0Result = await queue.ProcessAsync(p0Id).WaitAsync(TimeSpan.FromSeconds(5));
         var p1Result = await queue.ProcessAsync(p1Id).WaitAsync(TimeSpan.FromSeconds(5));
@@ -365,7 +365,7 @@ public class ModelQueueTests
                 if (req.TaskType == "background")
                 {
                     p2ExecutionCount++;
-                    
+
                     // First execution - wait to be cancelled
                     if (p2ExecutionCount == 1)
                     {
@@ -380,7 +380,7 @@ public class ModelQueueTests
                             throw;
                         }
                     }
-                    
+
                     // Retry execution - complete quickly
                     await Task.Delay(10, ct);
                     return new ExecutionResult
@@ -391,7 +391,7 @@ public class ModelQueueTests
                         TokenUsage = new TokenUsage { InputTokens = 10, OutputTokens = 20 }
                     };
                 }
-                
+
                 // P0 request - complete immediately
                 await Task.Delay(10, ct);
                 return new ExecutionResult
@@ -412,12 +412,12 @@ public class ModelQueueTests
         // Act
         var p2Id = await queue.EnqueueAsync(p2Request, ExecutionPriority.Background);
         await Task.Delay(100); // Let P2 start executing
-        
+
         var p0Id = await queue.EnqueueAsync(p0Request, ExecutionPriority.Immediate);
 
         // Wait for P2 to be cancelled
         var wasCancelled = await p2Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        
+
         // Wait for both to complete
         var p0Result = await queue.ProcessAsync(p0Id).WaitAsync(TimeSpan.FromSeconds(5));
         var p2Result = await queue.ProcessAsync(p2Id).WaitAsync(TimeSpan.FromSeconds(5));
@@ -441,7 +441,7 @@ public class ModelQueueTests
             .Returns(async (ExecutionRequest req, string model, CancellationToken ct) =>
             {
                 executionOrder.Add(req.Id);
-                
+
                 if (executionOrder.Count == 1)
                 {
                     firstP0Started.SetResult(true);
@@ -470,7 +470,7 @@ public class ModelQueueTests
         // Act
         var p0Id1 = await queue.EnqueueAsync(p0Request1, ExecutionPriority.Immediate);
         await firstP0Started.Task; // Wait for first P0 to start
-        
+
         var p0Id2 = await queue.EnqueueAsync(p0Request2, ExecutionPriority.Immediate);
 
         // Wait for both to complete
@@ -500,7 +500,7 @@ public class ModelQueueTests
             .Returns(async (ExecutionRequest req, string model, CancellationToken ct) =>
             {
                 modelSwitches.Add(model);
-                
+
                 if (req.TaskType == "code")
                 {
                     try
@@ -514,7 +514,7 @@ public class ModelQueueTests
                         throw;
                     }
                 }
-                
+
                 await Task.Delay(10, ct);
                 return new ExecutionResult
                 {
@@ -531,7 +531,7 @@ public class ModelQueueTests
         // Act
         var p1Id = await queue.EnqueueAsync(p1Request, ExecutionPriority.Normal);
         await Task.Delay(100); // Let P1 start
-        
+
         var p0Id = await queue.EnqueueAsync(p0Request, ExecutionPriority.Immediate);
 
         // Wait for cancellation
@@ -707,7 +707,7 @@ public class ModelQueueTests
         // So code requests should start executing even though chat model was initially loaded
         // This test validates that we don't scan indefinitely
         var status = await queue.GetStatusAsync(chatId);
-        
+
         // The chat request should still be processable (not starved)
         Assert.NotNull(status);
     }
@@ -997,7 +997,7 @@ public class ModelQueueTests
         // So code requests should start executing even though chat model was initially loaded
         // This test validates that we don't scan indefinitely
         var status = await queue.GetStatusAsync(chatId);
-        
+
         // The chat request should still be processable (not starved)
         Assert.NotNull(status);
     }

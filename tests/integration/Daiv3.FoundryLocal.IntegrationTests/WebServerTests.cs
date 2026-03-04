@@ -62,7 +62,7 @@ public sealed class WebServerTests : IAsyncLifetime, IDisposable
         // but the actual API methods (StartWebServerAsync, StopWebServerAsync) may not be
         // publicly exposed on FoundryLocalManager or Catalog objects.
         // See API_DISCOVERY.md for method discovery guidance.
-        
+
         // Act
         _logger.LogInformation("Starting web server...");
         // Possible API candidates (uncomment if discovered):
@@ -83,7 +83,7 @@ public sealed class WebServerTests : IAsyncLifetime, IDisposable
         // Note: The Foundry Local SDK documentation mentions web server functionality,
         // but the actual API methods may not be publicly exposed.
         // See API_DISCOVERY.md for method discovery guidance.
-        
+
         // Arrange
         // await _manager!.StartWebServerAsync();
         _logger.LogInformation("Web server started");
@@ -104,7 +104,7 @@ public sealed class WebServerTests : IAsyncLifetime, IDisposable
         // Note: This test demonstrates the pattern for custom URL configuration
         // but requires verified API methods for web server management.
         // See API_DISCOVERY.md for method discovery guidance.
-        
+
         // Arrange
         var customConfig = new Configuration
         {

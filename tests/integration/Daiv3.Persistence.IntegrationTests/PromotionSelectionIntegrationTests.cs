@@ -27,8 +27,8 @@ public class PromotionSelectionIntegrationTests : IAsyncLifetime
             Path.GetTempPath(),
             "daiv3_test",
             $"test_{Guid.NewGuid()}.db");
-        
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
         _logger = loggerFactory.CreateLogger<DatabaseContext>();
     }
 
@@ -49,7 +49,7 @@ public class PromotionSelectionIntegrationTests : IAsyncLifetime
 
         _learningRepository = new LearningRepository(_databaseContext, LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<LearningRepository>());
         _promotionRepository = new PromotionRepository(_databaseContext, LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PromotionRepository>());
-        
+
         _learningService = new LearningStorageService(
             _learningRepository,
             LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<LearningStorageService>(),
@@ -90,7 +90,7 @@ public class PromotionSelectionIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var taskId = "task-integration-001";
-        
+
         // Create test learnings from the task
         var learningId1 = await _learningService!.CreateLearningAsync(
             title: "Database Query Optimization",
@@ -135,7 +135,7 @@ public class PromotionSelectionIntegrationTests : IAsyncLifetime
 
         // Execute the batch promotion
         var result = await _learningService.PromoteLearningsFromTaskAsync(
-            taskId, 
+            taskId,
             promotions.AsReadOnly(),
             "test-user");
 
@@ -204,7 +204,7 @@ public class PromotionSelectionIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var taskId = "task-history-001";
-        
+
         var learningId = await _learningService!.CreateLearningAsync(
             title: "Test Learning",
             description: "For promotion history tracking",
@@ -246,8 +246,8 @@ public class PromotionSelectionIntegrationTests : IAsyncLifetime
         for (int i = 0; i < 5; i++)
         {
             await _learningService!.CreateLearningAsync(
-                title: $"Learning {i+1}",
-                description: $"Test learning {i+1}",
+                title: $"Learning {i + 1}",
+                description: $"Test learning {i + 1}",
                 triggerType: "Explicit",
                 scope: "Skill",
                 confidence: 0.5 + (i * 0.1),
@@ -260,7 +260,7 @@ public class PromotionSelectionIntegrationTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(5, learnings.Count);
-        
+
         // Verify they're sorted by creation time (descending)
         for (int i = 0; i < learnings.Count - 1; i++)
         {

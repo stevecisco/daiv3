@@ -12,7 +12,7 @@ public interface ITaskOrchestrator
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The orchestration result containing all task results.</returns>
     Task<OrchestrationResult> ExecuteAsync(UserRequest request, CancellationToken ct = default);
-    
+
     /// <summary>
     /// Resolves user input into a list of tasks with dependencies.
     /// </summary>
@@ -42,12 +42,12 @@ public class UserRequest
     /// The user's input text.
     /// </summary>
     public required string Input { get; set; }
-    
+
     /// <summary>
     /// The project context for the request.
     /// </summary>
     public Guid ProjectId { get; set; }
-    
+
     /// <summary>
     /// Additional context parameters.
     /// </summary>
@@ -63,17 +63,17 @@ public class ResolvedTask
     /// The type of task (e.g., "chat", "search", "analyze").
     /// </summary>
     public required string TaskType { get; set; }
-    
+
     /// <summary>
     /// Task-specific parameters.
     /// </summary>
     public Dictionary<string, string> Parameters { get; set; } = new();
-    
+
     /// <summary>
     /// Execution order (0-based).
     /// </summary>
     public int ExecutionOrder { get; set; }
-    
+
     /// <summary>
     /// Task IDs this task depends on.
     /// </summary>
@@ -89,17 +89,17 @@ public class OrchestrationResult
     /// The session ID for this orchestration.
     /// </summary>
     public Guid SessionId { get; set; }
-    
+
     /// <summary>
     /// Results from all executed tasks.
     /// </summary>
     public List<TaskExecutionResult> TaskResults { get; set; } = new();
-    
+
     /// <summary>
     /// Whether the orchestration succeeded overall.
     /// </summary>
     public bool Success { get; set; }
-    
+
     /// <summary>
     /// Error message if the orchestration failed.
     /// </summary>
@@ -115,27 +115,27 @@ public class TaskExecutionResult
     /// Task ID.
     /// </summary>
     public Guid TaskId { get; set; }
-    
+
     /// <summary>
     /// Task type.
     /// </summary>
     public required string TaskType { get; set; }
-    
+
     /// <summary>
     /// Result content.
     /// </summary>
     public string? Content { get; set; }
-    
+
     /// <summary>
     /// Whether the task succeeded.
     /// </summary>
     public bool Success { get; set; }
-    
+
     /// <summary>
     /// Error message if task failed.
     /// </summary>
     public string? ErrorMessage { get; set; }
-    
+
     /// <summary>
     /// When the task completed.
     /// </summary>

@@ -424,7 +424,7 @@ internal class MarkdownContentStore : IMarkdownContentStore
     /// </summary>
     private static string EscapeYamlString(string value) =>
         value.Contains('"') || value.Contains('\n')
-            ? $"\"{value.Replace("\"", "\\\"")}\"" 
+            ? $"\"{value.Replace("\"", "\\\"")}\""
             : value;
 
     /// <summary>

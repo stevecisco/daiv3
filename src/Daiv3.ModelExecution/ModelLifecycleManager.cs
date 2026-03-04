@@ -53,7 +53,7 @@ public class ModelLifecycleManager : IModelLifecycleManager
 
         await _lockSlim.WaitAsync(ct);
         long? loadTime = null;
-        
+
         try
         {
             _totalLoads++;
@@ -105,7 +105,7 @@ public class ModelLifecycleManager : IModelLifecycleManager
         {
             _failedLoads++;
             _logger.LogError(
-                ex, 
+                ex,
                 "Failed to load model {ModelId}",
                 modelId);
             throw;

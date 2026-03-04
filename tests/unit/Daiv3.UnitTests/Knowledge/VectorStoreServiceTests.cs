@@ -26,33 +26,36 @@ public class VectorStoreServiceTests
     {
         // Create mock for IDatabaseContext
         _mockDatabaseContext = new Mock<IDatabaseContext>();
-        
+
         // Create loose mocks with NullLogger for dependency injection
         _mockTopicRepository = new Mock<TopicIndexRepository>(
             _mockDatabaseContext.Object,
-            NullLogger<TopicIndexRepository>.Instance) { CallBase = true };
-        
+            NullLogger<TopicIndexRepository>.Instance)
+        { CallBase = true };
+
         _mockChunkRepository = new Mock<ChunkIndexRepository>(
             _mockDatabaseContext.Object,
-            NullLogger<ChunkIndexRepository>.Instance) { CallBase = true };
-        
+            NullLogger<ChunkIndexRepository>.Instance)
+        { CallBase = true };
+
         _mockDocumentRepository = new Mock<DocumentRepository>(
             _mockDatabaseContext.Object,
-            NullLogger<DocumentRepository>.Instance) { CallBase = true };
+            NullLogger<DocumentRepository>.Instance)
+        { CallBase = true };
 
         _mockTopicRepository
             .Setup(x => x.GetByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((TopicIndex?)null);
-        
+
         // Setup DocumentRepository mocks to support EnsureDocumentExistsAsync
         _mockDocumentRepository
             .Setup(x => x.GetByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Document?)null);
-        
+
         _mockDocumentRepository
             .Setup(x => x.AddAsync(It.IsAny<Document>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Document doc, CancellationToken ct) => doc.DocId);
-        
+
         _service = new VectorStoreService(_mockDatabaseContext.Object, _mockTopicRepository.Object, _mockChunkRepository.Object, _mockDocumentRepository.Object, NullLogger<VectorStoreService>.Instance);
     }
 
@@ -449,7 +452,7 @@ public class VectorStoreServiceTests
         var docId = "doc-123";
         var chunkOrder = 5;
         var embedding = new float[768];
-        
+
         string? capturedChunkId = null;
 
         _mockChunkRepository

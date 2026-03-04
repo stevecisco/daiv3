@@ -23,17 +23,17 @@ public class LearningLifecycleTests : IAsyncLifetime
     {
         // Use a temporary database file for each test
         _testDbPath = Path.Combine(Path.GetTempPath(), $"learning-lifecycle-test-{Guid.NewGuid()}.db");
-        
+
         // Set up test SQLite database
         var services = new ServiceCollection();
         services.AddLogging();
-        
+
         // Configure persistence with test database path
         services.Configure<PersistenceOptions>(options =>
         {
             options.DatabasePath = _testDbPath;
         });
-        
+
         services.AddPersistence();
 
         _serviceProvider = services.BuildServiceProvider();
@@ -52,7 +52,7 @@ public class LearningLifecycleTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _databaseContext.DisposeAsync();
-        
+
         // Clean up test database file
         try
         {

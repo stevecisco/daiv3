@@ -42,7 +42,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_DepthZero_CrawlsOnlyStartPage()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<a href='/a'>A</a>");
         handler.AddHtml("http://example.com/a", "<p>child</p>");
 
@@ -58,7 +58,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_DepthOne_CrawlsChildrenButNotGrandChildren()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<a href='/a'>A</a>");
         handler.AddHtml("http://example.com/a", "<a href='/b'>B</a>");
         handler.AddHtml("http://example.com/b", "<p>grandchild</p>");
@@ -76,7 +76,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_RestrictToDomain_SkipsExternalLinks()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<a href='/a'>A</a><a href='https://other.com/page'>X</a>");
         handler.AddHtml("http://example.com/a", "<p>inside</p>");
 
@@ -95,7 +95,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_ResolvesRelativeLinks()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com/start", "<a href='child'>child</a>");
         handler.AddHtml("http://example.com/child", "<p>ok</p>");
 
@@ -110,7 +110,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_DeduplicatesSameUrlAndFragmentVariants()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<a href='/a'>A</a><a href='/a/'>A2</a><a href='/a#section'>A3</a>");
         handler.AddHtml("http://example.com/a", "<p>child</p>");
 
@@ -124,7 +124,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_FetchFailure_ContinuesCrawl()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<a href='/a'>A</a><a href='/missing'>Missing</a>");
         handler.AddHtml("http://example.com/a", "<p>ok</p>");
 
@@ -150,7 +150,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_DepthAboveMaxAllowed_ThrowsInvalidOperationException()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<p>root</p>");
 
         var crawler = CreateCrawler(handler, new WebCrawlerOptions
@@ -166,7 +166,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_WhenRobotsDisallowsPath_SkipsDisallowedUrl()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com/robots.txt", "User-agent: *\nDisallow: /private");
         handler.AddHtml("http://example.com", "<a href='/private/page'>private</a><a href='/public'>public</a>");
         handler.AddHtml("http://example.com/public", "<p>ok</p>");
@@ -191,7 +191,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_WhenRobotsAllowOverridesDisallow_CrawlsAllowedPath()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com/robots.txt", "User-agent: *\nDisallow: /private\nAllow: /private/safe");
         handler.AddHtml("http://example.com", "<a href='/private/safe/page'>safe</a>");
         handler.AddHtml("http://example.com/private/safe/page", "<p>ok</p>");
@@ -211,7 +211,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_WhenRateLimitEnabled_AppliesDelayBetweenHostRequests()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<a href='/a'>A</a>");
         handler.AddHtml("http://example.com/a", "<p>child</p>");
 
@@ -235,7 +235,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_WhenHostRequestCapReached_SkipsAdditionalRequestsForHost()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<a href='/a'>A</a><a href='/b'>B</a>");
         handler.AddHtml("http://example.com/a", "<p>a</p>");
         handler.AddHtml("http://example.com/b", "<p>b</p>");
@@ -257,7 +257,7 @@ public class WebCrawlerTests
     [Fact]
     public async Task CrawlAsync_PopulatesHostRequestMetricsAndThresholdBreaches()
     {
-        var handler = new RouteHttpMessageHandler();
+        using var handler = new RouteHttpMessageHandler();
         handler.AddHtml("http://example.com", "<a href='/a'>A</a>");
         handler.AddHtml("http://example.com/a", "<p>child</p>");
 

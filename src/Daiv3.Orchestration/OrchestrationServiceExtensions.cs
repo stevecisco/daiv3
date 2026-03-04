@@ -57,7 +57,7 @@ public static class OrchestrationServiceExtensions
         services.TryAddScoped<ITaskStatusTransitionValidator, TaskStatusTransitionValidator>();
         services.TryAddScoped<ISuccessCriteriaEvaluator, SuccessCriteriaEvaluator>();
         services.TryAddSingleton<IKnowledgePromotionService, KnowledgePromotionService>();
-        
+
         // Register skill registry as singleton (shared across all scopes)
         services.TryAddSingleton<ISkillRegistry, SkillRegistry>();
 

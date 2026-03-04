@@ -81,7 +81,7 @@ public class TaskTypeClassifier : ITaskTypeClassifier
 
         // Find task type with highest score
         var bestMatch = scores.MaxBy(kvp => kvp.Value);
-        
+
         if (bestMatch.Value == 0)
         {
             _logger.LogDebug("No patterns matched for content, returning Unknown");

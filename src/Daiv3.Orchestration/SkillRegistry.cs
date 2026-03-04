@@ -48,7 +48,7 @@ public class SkillRegistry : ISkillRegistry
             _logger.LogWarning(
                 "Skill '{SkillName}' already registered, replacing with {SourceType} implementation",
                 skill.Name, source);
-            
+
             _skills[skill.Name] = skill;
         }
     }

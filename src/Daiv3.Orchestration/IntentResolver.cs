@@ -35,8 +35,8 @@ public class IntentResolver : IIntentResolver
 
     /// <inheritdoc />
     public Task<Intent> ResolveAsync(
-        string userInput, 
-        Dictionary<string, string> context, 
+        string userInput,
+        Dictionary<string, string> context,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userInput);
@@ -90,7 +90,7 @@ public class IntentResolver : IIntentResolver
 
         // Return intent with highest score
         var bestIntent = scores.OrderByDescending(kvp => kvp.Value).First();
-        
+
         // Calculate confidence based on score strength
         // Simple heuristic: higher match count = higher confidence
         var totalMatches = scores.Values.Sum();

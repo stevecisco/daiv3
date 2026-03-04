@@ -333,7 +333,7 @@ public class HtmlToMarkdownConverterTests
     {
         // Arrange
         var converter = CreateConverter();
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         var html = "<html><body><p>Content</p></body></html>";
 
         // Act - cancel before conversion

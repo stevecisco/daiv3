@@ -382,4 +382,5 @@ public class MessageBroker : IMessageBroker, IAsyncDisposable
         /// Handler function that accepts the message.
         /// </summary>
         public Func<IAgentMessage, Task>? Handler { get; init; }
-    }}
+    }
+}

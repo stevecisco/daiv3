@@ -248,10 +248,11 @@ public sealed class ToolRoutingService : IToolInvoker
             }
 
             // Create HTTP client with timeout
-            var httpClient = _httpClientFactory.CreateClient("RestApiTool");
+            using var httpClient = _httpClientFactory.CreateClient("RestApiTool");
             httpClient.Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds);
 
-            _logger.LogDebug("Preparing to send {Method} request to {Url} (invocation #{InvocationId})",
+            _logger.LogDebug(
+                "Preparing to send {Method} request to {Url} (invocation #{InvocationId})",
                 config.HttpMethod, url, invocationId);
 
             // Execute request with retry
@@ -265,9 +266,9 @@ public sealed class ToolRoutingService : IToolInvoker
                 try
                 {
                     // Create a new request for each attempt (HttpRequestMessage can only be sent once)
-                    var request = BuildHttpRequest(url, config.HttpMethod, config, parameters);
+                    using var request = BuildHttpRequest(url, config.HttpMethod, config, parameters);
                     lastRequest = request;
-                    
+
                     response = await httpClient.SendAsync(request, cancellationToken);
                     break; // Success, exit retry loop
                 }
@@ -473,7 +474,7 @@ public sealed class ToolRoutingService : IToolInvoker
 
         // For this implementation, we return a structured response indicating what would be done
         // In a full implementation, this would use Windows UIAutomation APIs to actually interact with UI
-        
+
         var resultMetadata = new Dictionary<string, string>
         {
             ["ActionType"] = actionType,
@@ -533,25 +534,25 @@ public sealed class ToolRoutingService : IToolInvoker
         // Estimate token cost based on configuration and parameters
         // Includes: identifiers, action type, input text, options
         // Rough approximation: 4 characters = 1 token
-        
+
         var estimatedSize = 0;
-        
+
         // Window and element identifiers
         if (!string.IsNullOrWhiteSpace(config.WindowIdentifier))
             estimatedSize += config.WindowIdentifier.Length;
-        
+
         if (!string.IsNullOrWhiteSpace(config.ElementIdentifier))
             estimatedSize += config.ElementIdentifier.Length;
-        
+
         // Action type and configuration
         estimatedSize += config.ActionType.Length;
         if (!string.IsNullOrWhiteSpace(config.InputText))
             estimatedSize += config.InputText.Length;
-        
+
         // Options
         foreach (var opt in config.Options.Values)
             estimatedSize += opt.Length;
-        
+
         // Parameters
         foreach (var param in parameters.Values)
             estimatedSize += param?.ToString()?.Length ?? 0;
@@ -629,7 +630,7 @@ public sealed class ToolRoutingService : IToolInvoker
         ApplyAuthentication(request, config);
 
         // Add request body for POST/PUT/PATCH
-        if (config.AutoSerializeBody && 
+        if (config.AutoSerializeBody &&
             (httpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase) ||
              httpMethod.Equals("PUT", StringComparison.OrdinalIgnoreCase) ||
              httpMethod.Equals("PATCH", StringComparison.OrdinalIgnoreCase)))

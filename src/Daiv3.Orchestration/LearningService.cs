@@ -37,7 +37,7 @@ public class LearningService : ILearningService
     public async Task<Learning> CreateLearningAsync(LearningTriggerContext context, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        
+
         _logger.LogInformation(
             "Creating learning from trigger type {TriggerType}: {Title}",
             context.TriggerType, context.Title);
@@ -89,11 +89,11 @@ public class LearningService : ILearningService
 
     /// <inheritdoc/>
     public Task<Learning> CreateSelfCorrectionLearningAsync(
-        SelfCorrectionTriggerContext context, 
+        SelfCorrectionTriggerContext context,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        
+
         _logger.LogDebug(
             "Creating self-correction learning. Failed iteration: {FailedIteration}, Success iteration: {SuccessIteration}",
             context.FailedIteration, context.SuccessIteration);
@@ -103,11 +103,11 @@ public class LearningService : ILearningService
 
     /// <inheritdoc/>
     public Task<Learning> CreateUserFeedbackLearningAsync(
-        UserFeedbackTriggerContext context, 
+        UserFeedbackTriggerContext context,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        
+
         _logger.LogDebug(
             "Creating user feedback learning: {Title}",
             context.Title);
@@ -117,11 +117,11 @@ public class LearningService : ILearningService
 
     /// <inheritdoc/>
     public Task<Learning> CreateCompilationErrorLearningAsync(
-        CompilationErrorTriggerContext context, 
+        CompilationErrorTriggerContext context,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        
+
         _logger.LogDebug(
             "Creating compilation error learning: {Title}. Language: {Language}",
             context.Title, context.Language ?? "unknown");
@@ -131,11 +131,11 @@ public class LearningService : ILearningService
 
     /// <inheritdoc/>
     public Task<Learning> CreateToolFailureLearningAsync(
-        ToolFailureTriggerContext context, 
+        ToolFailureTriggerContext context,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        
+
         _logger.LogDebug(
             "Creating tool failure learning: {Title}. Tool: {ToolName}",
             context.Title, context.ToolName ?? "unknown");
@@ -145,11 +145,11 @@ public class LearningService : ILearningService
 
     /// <inheritdoc/>
     public Task<Learning> CreateKnowledgeConflictLearningAsync(
-        KnowledgeConflictTriggerContext context, 
+        KnowledgeConflictTriggerContext context,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        
+
         _logger.LogDebug(
             "Creating knowledge conflict learning: {Title}. Source: {ConflictSource}",
             context.Title, context.ConflictSource ?? "unknown");
@@ -159,11 +159,11 @@ public class LearningService : ILearningService
 
     /// <inheritdoc/>
     public Task<Learning> CreateExplicitLearningAsync(
-        ExplicitTriggerContext context, 
+        ExplicitTriggerContext context,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        
+
         _logger.LogDebug(
             "Creating explicit learning: {Title}. Agent: {SourceAgent}",
             context.Title, context.SourceAgent ?? "unknown");
@@ -185,7 +185,7 @@ public class LearningService : ILearningService
         {
             _logger.LogWarning(ex,
                 "Failed to generate embedding for learning. Creating learning without embedding.");
-            
+
             // Return empty array if embedding generation fails
             // Learning will still be created but won't be semantically searchable
             return Array.Empty<float>();

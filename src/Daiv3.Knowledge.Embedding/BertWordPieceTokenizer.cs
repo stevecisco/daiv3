@@ -66,7 +66,7 @@ public sealed class BertWordPieceTokenizer : IEmbeddingTokenizer
             throw new ArgumentNullException(nameof(text));
 
         var tokens = new List<long>();
-        
+
         // Basic whitespace tokenization
         var words = text.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
 

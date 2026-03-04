@@ -77,8 +77,8 @@ public class FileSystemMessageStoreOptions
     /// Gets or sets the base directory where messages are stored.
     /// Default: %LOCALAPPDATA%\Daiv3\messages
     /// </summary>
-    public string StorageDirectory { get; set; } = 
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
+    public string StorageDirectory { get; set; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "Daiv3", "messages");
 
     /// <summary>

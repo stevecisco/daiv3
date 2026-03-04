@@ -39,7 +39,7 @@ public class HtmlToMarkdownConverter : IHtmlToMarkdownConverter
         try
         {
             var markdown = _converter.Convert(html);
-            
+
             // Clean up excess whitespace that ReverseMarkdown may introduce
             var normalized = NormalizeWhitespace(markdown);
             return normalized;
@@ -63,8 +63,8 @@ public class HtmlToMarkdownConverter : IHtmlToMarkdownConverter
 
         // Replace multiple blank lines with exactly two (for paragraph separation)
         var singleSpaceLines = System.Text.RegularExpressions.Regex.Replace(
-            markdown, 
-            @"\n\n\n+", 
+            markdown,
+            @"\n\n\n+",
             "\n\n");
 
         // Trim leading/trailing whitespace

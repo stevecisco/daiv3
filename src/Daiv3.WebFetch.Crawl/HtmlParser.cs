@@ -53,13 +53,13 @@ public class HtmlParser : IHtmlParser
             _logger.LogDebug("Parsing HTML content ({ContentSize} bytes)", contentSize);
 
             // Create AngleSharp context with default configuration
-            var context = BrowsingContext.New(Configuration.Default);
+            using var context = BrowsingContext.New(Configuration.Default);
 
             // Parse HTML with timeout
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(_options.TimeoutMs);
 
-            var document = await context.OpenAsync(
+            using var document = await context.OpenAsync(
                 req => req.Content(htmlContent),
                 cts.Token);
 

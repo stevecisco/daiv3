@@ -29,7 +29,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
             "daiv3_test",
             $"test_{Guid.NewGuid()}.db");
 
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
         _logger = loggerFactory.CreateLogger<DatabaseContext>();
     }
 
@@ -67,13 +67,13 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
         {
             int maxRetries = 3;
             IOException? lastException = null;
-            
+
             for (int i = 0; i < maxRetries; i++)
             {
                 try
                 {
                     File.Delete(_testDatabasePath);
-                    
+
                     // Clean up associated WAL and SHM files
                     var walPath = _testDatabasePath + "-wal";
                     var shmPath = _testDatabasePath + "-shm";
@@ -81,7 +81,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
                         File.Delete(walPath);
                     if (File.Exists(shmPath))
                         File.Delete(shmPath);
-                    
+
                     lastException = null; // Success - clear any previous exception
                     break;
                 }
@@ -95,7 +95,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
                     }
                 }
             }
-            
+
             // Log warning if we couldn't delete but don't fail the test
             if (lastException != null && File.Exists(_testDatabasePath))
             {
@@ -124,7 +124,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
             TimesApplied = 0
         };
 
-        
+
         await _learningRepository!.AddAsync(learning);
 
         // Act: Promote the learning
@@ -180,7 +180,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
             TimesApplied = 5
         };
 
-        
+
         await _learningRepository!.AddAsync(learning);
 
         // Promote: Skill → Agent → Project
@@ -243,7 +243,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
                 TimesApplied = i
             };
 
-            
+
             await _learningRepository!.AddAsync(learning);
             learningIds.Add(learning.LearningId);
         }
@@ -298,7 +298,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
                 TimesApplied = 0
             };
 
-            
+
             await _learningRepository!.AddAsync(learning);
             learnings.Add(learning);
         }
@@ -357,7 +357,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
             TimesApplied = 0
         };
 
-        
+
         await _learningRepository!.AddAsync(learning);
 
         // Act: Promote with notes
@@ -416,7 +416,7 @@ public class PromotionVisibilityAcceptanceTests : IAsyncLifetime
                 TimesApplied = 0
             };
 
-            
+
             await _learningRepository!.AddAsync(learning);
             learningIds.Add(learning.LearningId);
         }

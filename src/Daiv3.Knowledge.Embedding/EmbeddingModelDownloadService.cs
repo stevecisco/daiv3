@@ -42,32 +42,32 @@ public class EmbeddingModelDownloadService : IEmbeddingModelDownloadService
                 var fileInfo = new FileInfo(destinationPath);
                 _logger.LogInformation("Embedding model already exists at {Path} ({Size:N0} bytes)",
                     destinationPath, fileInfo.Length);
-                
+
                 progress?.Report(new DownloadProgress
                 {
                     BytesDownloaded = fileInfo.Length,
                     TotalBytes = fileInfo.Length,
                     Status = "Model already exists"
                 });
-                
+
                 return true;
             }
 
             // Download the model
             _logger.LogInformation("Model not found, downloading from {Url}", downloadUrl);
             await DownloadModelAsync(downloadUrl, destinationPath, progress, cancellationToken);
-            
+
             return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to ensure embedding model exists at {Path}", destinationPath);
-            
+
             progress?.Report(new DownloadProgress
             {
                 Status = $"Error: {ex.Message}"
             });
-            
+
             return false;
         }
     }
@@ -82,7 +82,7 @@ public class EmbeddingModelDownloadService : IEmbeddingModelDownloadService
         try
         {
             _logger.LogInformation("Starting download from {Url} to {Path}", downloadUrl, destinationPath);
-            
+
             progress?.Report(new DownloadProgress
             {
                 BytesDownloaded = 0,
@@ -112,11 +112,11 @@ public class EmbeddingModelDownloadService : IEmbeddingModelDownloadService
             // Download to staging directory with unique filename
             var stagingFileName = $"{Path.GetFileNameWithoutExtension(destinationPath)}_{Guid.NewGuid():N}{Path.GetExtension(destinationPath)}";
             var stagingFilePath = Path.Combine(stagingDir, stagingFileName);
-            
+
             try
             {
                 long totalBytesRead;
-                
+
                 // Download to staging file - enclosed in a scope to ensure proper disposal before moving
                 {
                     await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -157,7 +157,7 @@ public class EmbeddingModelDownloadService : IEmbeddingModelDownloadService
 
                     // Ensure all data is written to disk
                     await fileStream.FlushAsync(cancellationToken);
-                    
+
                 } // Dispose streams here before moving file
 
                 // Final progress report

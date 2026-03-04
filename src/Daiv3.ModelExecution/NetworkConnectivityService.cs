@@ -68,7 +68,7 @@ public class NetworkConnectivityService : INetworkConnectivityService
             using var request = new HttpRequestMessage(HttpMethod.Head, url);
             using var response = await _httpClient.SendAsync(request, cts.Token);
 
-            var isReachable = response.IsSuccessStatusCode || 
+            var isReachable = response.IsSuccessStatusCode ||
                             response.StatusCode == System.Net.HttpStatusCode.Unauthorized || // API requires auth
                             response.StatusCode == System.Net.HttpStatusCode.Forbidden;     // API exists but access denied
 

@@ -16,7 +16,7 @@ public sealed class SkillResourceMonitor : IDisposable
     private readonly CancellationTokenSource _cancellationSource;
     private readonly Stopwatch _stopwatch;
     private readonly Task? _monitoringTask;
-    
+
     private long _currentMemoryBytes;
     private long _peakMemoryBytes;
     private int _cpuPercentage;

@@ -42,7 +42,7 @@ public class MessageMetadata
     /// Gets the collection of arbitrary tags for flexible message filtering and organization.
     /// Example: { "projectId": "proj-123", "domain": "knowledge-update" }
     /// </summary>
-    public IReadOnlyDictionary<string, string> Tags { get; init; } = 
+    public IReadOnlyDictionary<string, string> Tags { get; init; } =
         new ReadOnlyDictionary<string, string>(new Dictionary<string, string>());
 
     /// <summary>

@@ -138,7 +138,7 @@ public class KnowledgeSummaryService : IKnowledgeSummaryService
             {
                 sb.AppendLine($"  • {learning.Title}");
                 sb.AppendLine($"    Source: {learning.Scope}, Confidence: {learning.Confidence:F2}, Trigger: {learning.TriggerType}");
-                
+
                 // Include shortened description
                 var description = learning.Description.Length > 100
                     ? learning.Description.Substring(0, 97) + "..."

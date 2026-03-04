@@ -26,7 +26,7 @@ public class AgentMixedToolEnvironmentTests
     public AgentMixedToolEnvironmentTests()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-test-{Guid.NewGuid()}.db");
-        
+
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddPersistence(options =>
@@ -37,7 +37,7 @@ public class AgentMixedToolEnvironmentTests
 
         _serviceProvider = services.BuildServiceProvider();
         _serviceProvider.InitializeDatabaseAsync().GetAwaiter().GetResult();
-        
+
         _agentManager = _serviceProvider.GetRequiredService<IAgentManager>();
         _toolRegistry = _serviceProvider.GetRequiredService<IToolRegistry>();
         _toolInvoker = _serviceProvider.GetRequiredService<IToolInvoker>();
@@ -74,7 +74,7 @@ public class AgentMixedToolEnvironmentTests
         // Assert
         Assert.NotNull(result);
         Assert.True(result.IterationsExecuted > 0);
-        
+
         // Verify all tools are available
         var allTools = await _toolRegistry.GetAllToolsAsync();
         Assert.Contains(allTools, t => t.ToolId == "direct-search");
@@ -112,7 +112,7 @@ public class AgentMixedToolEnvironmentTests
         // Assert
         Assert.NotNull(result);
         Assert.True(result.IterationsExecuted > 0);
-        
+
         // Verify available tools excludes the unavailable MCP tool
         var availableTools = await _toolRegistry.GetAvailableToolsAsync();
         Assert.Contains(availableTools, t => t.ToolId == "direct-task");
@@ -136,7 +136,7 @@ public class AgentMixedToolEnvironmentTests
         // Assert
         Assert.Single(mcpTools);
         Assert.Equal("mcp-filter", mcpTools.First().ToolId);
-        
+
         // Verify Direct tool is not in MCP-filtered list
         Assert.DoesNotContain(mcpTools, t => t.ToolId == "direct-filter");
     }
@@ -251,11 +251,11 @@ public class AgentMixedToolEnvironmentTests
         Assert.NotNull(result);
         Assert.True(result.Steps.Count > 0);
         Assert.All(result.Steps, step => Assert.NotEmpty(step.StepType));
-        
+
         // Verify execution steps are recorded
         var toolExecSteps = result.Steps.Where(s => s.StepType == "ToolExecution").ToList();
         Assert.True(toolExecSteps.Count >= 0);
-        
+
         // Steps should contain information about tool invocation
         foreach (var step in toolExecSteps)
         {
@@ -304,7 +304,7 @@ public class AgentMixedToolEnvironmentTests
         // Arrange
         var tool1 = CreateTestTool("consistency-1", "Tool 1", ToolBackendType.Direct);
         var tool2 = CreateTestTool("consistency-2", "Tool 2", ToolBackendType.MCP);
-        
+
         await _toolRegistry.RegisterToolAsync(tool1);
         await _toolRegistry.RegisterToolAsync(tool2);
 

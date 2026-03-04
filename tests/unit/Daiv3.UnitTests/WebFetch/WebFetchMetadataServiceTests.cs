@@ -144,7 +144,7 @@ public class WebFetchMetadataServiceTests
     public async Task StoreMetadataAsync_WithCancellationToken_PropagatesCancellation()
     {
         // Arrange
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.Cancel();
 
         _mockRepository
@@ -161,7 +161,7 @@ public class WebFetchMetadataServiceTests
     {
         // Arrange
         var content = "<html></html>";
-        
+
         // Calculate expected hash using SHA256
         using var sha256 = SHA256.Create();
         var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(content));

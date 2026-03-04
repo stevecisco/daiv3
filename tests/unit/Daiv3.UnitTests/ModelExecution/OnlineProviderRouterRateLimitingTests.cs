@@ -23,7 +23,7 @@ public class OnlineProviderRouterRateLimitingTests
     [Fact]
     public async Task ExecuteBatchAsync_SameProvider_RateLimitedByProviderWindow()
     {
-        var router = CreateRouter(
+        using var router = CreateRouter(
             openAiWindowSeconds: 1,
             openAiMaxRequestsPerWindow: 1,
             anthropicWindowSeconds: 1,
@@ -59,7 +59,7 @@ public class OnlineProviderRouterRateLimitingTests
     [Fact]
     public async Task ExecuteBatchAsync_DifferentProviders_NotRateLimitedByOtherProvider()
     {
-        var router = CreateRouter(
+        using var router = CreateRouter(
             openAiWindowSeconds: 1,
             openAiMaxRequestsPerWindow: 1,
             anthropicWindowSeconds: 1,
@@ -95,7 +95,7 @@ public class OnlineProviderRouterRateLimitingTests
     [Fact]
     public async Task ExecuteBatchAsync_MaxRequestsPerWindowZero_DisablesRateLimiting()
     {
-        var router = CreateRouter(
+        using var router = CreateRouter(
             openAiWindowSeconds: 1,
             openAiMaxRequestsPerWindow: 0,
             anthropicWindowSeconds: 1,

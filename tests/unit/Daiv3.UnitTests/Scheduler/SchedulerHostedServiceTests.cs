@@ -162,7 +162,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
 
         // Act
         var jobId = await _scheduler!.ScheduleRecurringAsync(job, IntervalSeconds);
-        
+
         // Wait for multiple executions (3 cycles)
         await Task.Delay(TimeSpan.FromSeconds(3.5));
 
@@ -409,7 +409,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         // Assert
         Assert.NotNull(metadataBefore);
         Assert.Equal(ScheduledJobStatus.Scheduled, metadataBefore.Status);
-        
+
         // Note: This test may be flaky depending on timing. In a real scenario,
         // we'd use a time provider or wait longer. For now, we just verify the structure.
         Assert.Equal(ScheduleType.Cron, metadataAfter!.ScheduleType);
@@ -465,11 +465,11 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         // Assert
         Assert.NotNull(metadata1);
         Assert.NotNull(metadata2);
-        
+
         // Jobs should have been triggered (either completed or back to pending)
         Assert.True(metadata1.ExecutionCount > 0, "Job 1 should have executed at least once");
         Assert.True(metadata2.ExecutionCount > 0, "Job 2 should have executed at least once");
-        
+
         Assert.True(job1.ExecutedAtUtc.HasValue, "Job 1 should have executed");
         Assert.True(job2.ExecutedAtUtc.HasValue, "Job 2 should have executed");
     }
@@ -515,10 +515,10 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         Assert.True(cancelled);
         Assert.NotNull(metadataBefore);
         Assert.Equal(ScheduledJobStatus.Pending, metadataBefore.Status);
-        
+
         Assert.NotNull(metadataAfter);
         Assert.Equal(ScheduledJobStatus.Cancelled, metadataAfter.Status);
-        
+
         // Job should not have executed after cancellation
         Assert.False(job.ExecutedAtUtc.HasValue, "Cancelled job should not execute");
         Assert.Equal(0, metadataAfter.ExecutionCount);
@@ -548,7 +548,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         // Arrange
         var job = new TestJob { Name = "running-pause-test", DelayMs = 1000 };
         var jobId = await _scheduler!.ScheduleImmediateAsync(job);
-        
+
         // Wait for job to start running
         await Task.Delay(200);
 
@@ -565,7 +565,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         // Arrange
         var job = new TestJob { Name = "completed-pause-test" };
         var jobId = await _scheduler!.ScheduleImmediateAsync(job);
-        
+
         // Wait for job to complete
         await Task.Delay(500);
 
@@ -598,7 +598,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         // Arrange
         var job = new TestJob { Name = "no-execute-test" };
         var jobId = await _scheduler!.ScheduleImmediateAsync(job);
-        
+
         // Pause immediately
         await _scheduler.PauseJobAsync(jobId);
 
@@ -657,7 +657,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
 
         // Act
         var resumed = await _scheduler.ResumeJobAsync(jobId);
-        
+
         // Wait for execution
         await Task.Delay(500);
 
@@ -761,7 +761,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         // Arrange
         var job = new TestJob { Name = "modify-running-test", DelayMs = 1000 };
         var jobId = await _scheduler!.ScheduleImmediateAsync(job);
-        
+
         // Wait for job to start running
         await Task.Delay(200);
 
@@ -865,7 +865,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         var job1 = new TestJob { Name = "paused-filter-1" };
         var job2 = new TestJob { Name = "paused-filter-2" };
         var job3 = new TestJob { Name = "scheduled-filter-3" };
-        
+
         var futureTime = DateTime.UtcNow.AddSeconds(10);
         var jobId1 = await _scheduler!.ScheduleAtTimeAsync(job1, futureTime);
         var jobId2 = await _scheduler.ScheduleAtTimeAsync(job2, futureTime);
@@ -882,7 +882,7 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         Assert.Equal(2, pausedJobs.Count);
         Assert.Contains(pausedJobs, j => j.JobId == jobId1);
         Assert.Contains(pausedJobs, j => j.JobId == jobId2);
-        
+
         Assert.Single(scheduledJobs);
         Assert.Contains(scheduledJobs, j => j.JobId == jobId3);
     }

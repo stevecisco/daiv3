@@ -114,7 +114,7 @@ public sealed class McpToolProvider : IMcpToolProvider, IDisposable
             };
 
             var response = await SendRequestAsync<McpToolsListResponse>(connection, request, cancellationToken);
-            
+
             if (response == null || response.Tools == null)
             {
                 _logger.LogWarning("Tool discovery returned null response from server '{ServerName}'", serverName);

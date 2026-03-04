@@ -45,17 +45,17 @@ public class SkillPermissionValidator
                 _logger.LogWarning(
                     "Skill '{SkillName}' has no declared permissions but AllowUntrustedSkills=false - blocking execution",
                     skillName);
-                
+
                 result.IsAllowed = false;
                 result.DenialReason = "Skill has no declared permissions and untrusted skills are not allowed";
                 return result;
             }
-            
+
             // Allow execution but log warning
             _logger.LogInformation(
                 "Skill '{SkillName}' has no declared permissions - allowing as untrusted skill",
                 skillName);
-            
+
             result.IsAllowed = true;
             return result;
         }
@@ -89,11 +89,11 @@ public class SkillPermissionValidator
 
         // Determine final result
         result.IsAllowed = result.DeniedPermissions.Count == 0;
-        
+
         if (!result.IsAllowed)
         {
             result.DenialReason = $"Permission denied: {string.Join(", ", result.DeniedPermissions)}";
-            
+
             _logger.LogWarning(
                 "Skill '{SkillName}' permission check failed. Denied: [{Denied}], Requested: [{Requested}]",
                 skillName,

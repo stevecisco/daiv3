@@ -185,7 +185,7 @@ public class LearningServiceTests
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.CreateLearningAsync(context));
-        
+
         Assert.Contains("Failed to create learning", exception.Message);
     }
 

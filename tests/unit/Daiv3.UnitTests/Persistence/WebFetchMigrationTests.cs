@@ -25,7 +25,7 @@ public class WebFetchMigrationTests : IAsyncLifetime
     public WebFetchMigrationTests()
     {
         _testDbPath = Path.Combine(Path.GetTempPath(), $"web-fetch-migration-test-{Guid.NewGuid()}.db");
-        
+
         var services = new ServiceCollection();
         services.AddLogging();
         services.Configure<PersistenceOptions>(options =>
@@ -56,7 +56,7 @@ public class WebFetchMigrationTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _databaseContext.DisposeAsync();
-        
+
         try
         {
             if (File.Exists(_testDbPath))
@@ -155,7 +155,7 @@ public class WebFetchMigrationTests : IAsyncLifetime
 
         // Act & Assert - Should fail due to foreign key constraint
         // The repository should handle this, but we're testing the constraint exists
-        var exception = await Record.ExceptionAsync(async () => 
+        var exception = await Record.ExceptionAsync(async () =>
             await _webFetchRepository.AddAsync(webFetch)
         );
 

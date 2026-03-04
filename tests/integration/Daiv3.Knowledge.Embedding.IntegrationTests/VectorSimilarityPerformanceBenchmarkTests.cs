@@ -26,7 +26,7 @@ public class VectorSimilarityPerformanceBenchmarkTests
     private const double MaxSingleSimilarityMs = 0.2; // 200µs (2x ideal for system variance)
     private const double MaxTier1SearchMs = 25.0; // 25ms for 10,000 vectors (2.5µs per vector including overhead)
     private const double MaxTier2SearchMs = 100.0; // 100ms for 1,000 vectors (100µs per vector including overhead)
-    
+
     // Tolerance for platform variance (10% allowance on top of thresholds)
     private const double PerformanceTolerance = 1.1;
     private const int BenchmarkMeasurementIterations = 5;

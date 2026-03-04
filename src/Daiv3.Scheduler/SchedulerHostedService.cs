@@ -153,7 +153,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(ScheduleImmediateAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(ScheduleImmediateAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -200,7 +200,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(ScheduleAtTimeAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(ScheduleAtTimeAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -252,7 +252,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(ScheduleRecurringAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(ScheduleRecurringAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -318,7 +318,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(ScheduleCronAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(ScheduleCronAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -377,7 +377,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(ScheduleOnEventAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(ScheduleOnEventAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -409,52 +409,52 @@ public class SchedulerHostedService : BackgroundService, IScheduler
 
             _logger.LogDebug("Found {Count} jobs registered for event type: {EventType}", jobIdsCopy.Count, schedulerEvent.EventType);
 
-        // Trigger each job
-        foreach (var jobId in jobIdsCopy)
-        {
-            if (!_jobs.TryGetValue(jobId, out var entry))
+            // Trigger each job
+            foreach (var jobId in jobIdsCopy)
             {
-                _logger.LogWarning("Job {JobId} not found for event {EventType}", jobId, schedulerEvent.EventType);
-                continue;
+                if (!_jobs.TryGetValue(jobId, out var entry))
+                {
+                    _logger.LogWarning("Job {JobId} not found for event {EventType}", jobId, schedulerEvent.EventType);
+                    continue;
+                }
+
+                if (entry.Status == ScheduledJobStatus.Cancelled)
+                {
+                    _logger.LogDebug("Job {JobId} is cancelled, skipping event trigger", jobId);
+                    continue;
+                }
+
+                if (entry.Status == ScheduledJobStatus.Paused)
+                {
+                    _logger.LogDebug("Job {JobId} is paused, skipping event trigger", jobId);
+                    continue;
+                }
+
+                // Respect concurrency limit
+                if (!await _concurrencySemaphore.WaitAsync(0))
+                {
+                    _logger.LogDebug("Concurrency limit reached, deferring event-triggered job {JobId}", jobId);
+                    continue;
+                }
+
+                // Mark as running and execute
+                entry.Status = ScheduledJobStatus.Running;
+                entry.LastStartedAtUtc = DateTime.UtcNow;
+                entry.ScheduledAtUtc = schedulerEvent.OccurredAtUtc;
+
+                _logger.LogInformation(
+                    "Triggering event-based job: {JobId} ({JobName}) for event {EventType}",
+                    jobId, entry.Job.Name, schedulerEvent.EventType);
+
+                // Fire-and-forget the job execution
+                _ = ExecuteJobAsync(entry, cancellationToken)
+                    .ContinueWith(_ => _concurrencySemaphore.Release());
             }
-
-            if (entry.Status == ScheduledJobStatus.Cancelled)
-            {
-                _logger.LogDebug("Job {JobId} is cancelled, skipping event trigger", jobId);
-                continue;
-            }
-
-            if (entry.Status == ScheduledJobStatus.Paused)
-            {
-                _logger.LogDebug("Job {JobId} is paused, skipping event trigger", jobId);
-                continue;
-            }
-
-            // Respect concurrency limit
-            if (!await _concurrencySemaphore.WaitAsync(0))
-            {
-                _logger.LogDebug("Concurrency limit reached, deferring event-triggered job {JobId}", jobId);
-                continue;
-            }
-
-            // Mark as running and execute
-            entry.Status = ScheduledJobStatus.Running;
-            entry.LastStartedAtUtc = DateTime.UtcNow;
-            entry.ScheduledAtUtc = schedulerEvent.OccurredAtUtc;
-
-            _logger.LogInformation(
-                "Triggering event-based job: {JobId} ({JobName}) for event {EventType}",
-                jobId, entry.Job.Name, schedulerEvent.EventType);
-
-            // Fire-and-forget the job execution
-            _ = ExecuteJobAsync(entry, cancellationToken)
-                .ContinueWith(_ => _concurrencySemaphore.Release());
-        }
         }
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(RaiseEventAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(RaiseEventAsync), stopwatch.ElapsedMilliseconds,
                 _options.EventRaiseWarningThresholdMs, $"EventType={schedulerEvent.EventType}");
         }
     }
@@ -506,7 +506,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(CancelJobAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(CancelJobAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -532,7 +532,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(GetJobMetadataAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(GetJobMetadataAsync), stopwatch.ElapsedMilliseconds,
                 _options.QueryOperationWarningThresholdMs);
         }
     }
@@ -548,7 +548,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(GetAllJobsAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(GetAllJobsAsync), stopwatch.ElapsedMilliseconds,
                 _options.QueryOperationWarningThresholdMs, $"JobCount={_jobs.Count}");
         }
     }
@@ -569,7 +569,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(GetJobsByStatusAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(GetJobsByStatusAsync), stopwatch.ElapsedMilliseconds,
                 _options.QueryOperationWarningThresholdMs, $"Status={status}");
         }
     }
@@ -620,7 +620,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(PauseJobAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(PauseJobAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -673,7 +673,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(ResumeJobAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(ResumeJobAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -711,141 +711,141 @@ public class SchedulerHostedService : BackgroundService, IScheduler
                 return Task.FromResult(false);
             }
 
-        // Validate and apply modifications based on schedule type
-        switch (entry.ScheduleType)
-        {
-            case ScheduleType.OneTime:
-                if (modificationRequest.ScheduledAtUtc.HasValue)
-                {
-                    if (modificationRequest.ScheduledAtUtc.Value.Kind != DateTimeKind.Utc)
+            // Validate and apply modifications based on schedule type
+            switch (entry.ScheduleType)
+            {
+                case ScheduleType.OneTime:
+                    if (modificationRequest.ScheduledAtUtc.HasValue)
                     {
-                        throw new ArgumentException("Scheduled time must be in UTC", nameof(modificationRequest));
-                    }
-
-                    entry.ScheduledAtUtc = modificationRequest.ScheduledAtUtc.Value;
-                    entry.Status = modificationRequest.ScheduledAtUtc.Value > DateTime.UtcNow
-                        ? ScheduledJobStatus.Scheduled
-                        : ScheduledJobStatus.Pending;
-
-                    _logger.LogInformation(
-                        "Modified one-time job schedule: {JobId} ({JobName}), new time={NewTime:O}",
-                        jobId, entry.Job.Name, entry.ScheduledAtUtc);
-                }
-                else
-                {
-                    throw new ArgumentException("ScheduledAtUtc is required for one-time jobs", nameof(modificationRequest));
-                }
-                break;
-
-            case ScheduleType.Recurring:
-                if (modificationRequest.IntervalSeconds.HasValue)
-                {
-                    if (modificationRequest.IntervalSeconds.Value == 0)
-                    {
-                        throw new ArgumentException("Interval must be greater than 0", nameof(modificationRequest));
-                    }
-
-                    entry.IntervalSeconds = modificationRequest.IntervalSeconds.Value;
-
-                    // Reschedule next run based on new interval
-                    entry.ScheduledAtUtc = DateTime.UtcNow.AddSeconds(entry.IntervalSeconds.Value);
-
-                    _logger.LogInformation(
-                        "Modified recurring job interval: {JobId} ({JobName}), new interval={Interval}s, next run={NextRun:O}",
-                        jobId, entry.Job.Name, entry.IntervalSeconds, entry.ScheduledAtUtc);
-                }
-                else
-                {
-                    throw new ArgumentException("IntervalSeconds is required for recurring jobs", nameof(modificationRequest));
-                }
-                break;
-
-            case ScheduleType.Cron:
-                if (!string.IsNullOrWhiteSpace(modificationRequest.CronExpression))
-                {
-                    // Validate and parse the cron expression
-                    CronExpression cron;
-                    try
-                    {
-                        cron = new CronExpression(modificationRequest.CronExpression);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Invalid cron expression: {CronExpression}", modificationRequest.CronExpression);
-                        throw new ArgumentException(
-                            $"Invalid cron expression: {modificationRequest.CronExpression}",
-                            nameof(modificationRequest), ex);
-                    }
-
-                    var nextRun = cron.GetNextOccurrence(DateTime.UtcNow);
-                    if (nextRun == null)
-                    {
-                        throw new ArgumentException(
-                            $"Cron expression '{modificationRequest.CronExpression}' has no future occurrences",
-                            nameof(modificationRequest));
-                    }
-
-                    entry.CronExpression = modificationRequest.CronExpression;
-                    entry.ScheduledAtUtc = nextRun;
-                    entry.Status = ScheduledJobStatus.Scheduled;
-
-                    _logger.LogInformation(
-                        "Modified cron job expression: {JobId} ({JobName}), new expression={Expression}, next run={NextRun:O}",
-                        jobId, entry.Job.Name, entry.CronExpression, entry.ScheduledAtUtc);
-                }
-                else
-                {
-                    throw new ArgumentException("CronExpression is required for cron jobs", nameof(modificationRequest));
-                }
-                break;
-
-            case ScheduleType.EventTriggered:
-                if (!string.IsNullOrWhiteSpace(modificationRequest.EventType))
-                {
-                    // Remove from old event type registry
-                    if (entry.EventType != null && _eventTriggeredJobs.TryGetValue(entry.EventType, out var oldJobIds))
-                    {
-                        lock (oldJobIds)
+                        if (modificationRequest.ScheduledAtUtc.Value.Kind != DateTimeKind.Utc)
                         {
-                            oldJobIds.Remove(jobId);
+                            throw new ArgumentException("Scheduled time must be in UTC", nameof(modificationRequest));
                         }
-                    }
 
-                    // Add to new event type registry
-                    var newJobIds = _eventTriggeredJobs.GetOrAdd(modificationRequest.EventType, _ => new List<string>());
-                    lock (newJobIds)
+                        entry.ScheduledAtUtc = modificationRequest.ScheduledAtUtc.Value;
+                        entry.Status = modificationRequest.ScheduledAtUtc.Value > DateTime.UtcNow
+                            ? ScheduledJobStatus.Scheduled
+                            : ScheduledJobStatus.Pending;
+
+                        _logger.LogInformation(
+                            "Modified one-time job schedule: {JobId} ({JobName}), new time={NewTime:O}",
+                            jobId, entry.Job.Name, entry.ScheduledAtUtc);
+                    }
+                    else
                     {
-                        if (!newJobIds.Contains(jobId))
-                        {
-                            newJobIds.Add(jobId);
-                        }
+                        throw new ArgumentException("ScheduledAtUtc is required for one-time jobs", nameof(modificationRequest));
                     }
+                    break;
 
-                    _logger.LogInformation(
-                        "Modified event-triggered job: {JobId} ({JobName}), old event={OldEvent}, new event={NewEvent}",
-                        jobId, entry.Job.Name, entry.EventType, modificationRequest.EventType);
+                case ScheduleType.Recurring:
+                    if (modificationRequest.IntervalSeconds.HasValue)
+                    {
+                        if (modificationRequest.IntervalSeconds.Value == 0)
+                        {
+                            throw new ArgumentException("Interval must be greater than 0", nameof(modificationRequest));
+                        }
 
-                    entry.EventType = modificationRequest.EventType;
-                }
-                else
-                {
-                    throw new ArgumentException("EventType is required for event-triggered jobs", nameof(modificationRequest));
-                }
-                break;
+                        entry.IntervalSeconds = modificationRequest.IntervalSeconds.Value;
 
-            case ScheduleType.Immediate:
-                throw new ArgumentException("Cannot modify immediate jobs", nameof(modificationRequest));
+                        // Reschedule next run based on new interval
+                        entry.ScheduledAtUtc = DateTime.UtcNow.AddSeconds(entry.IntervalSeconds.Value);
 
-            default:
-                throw new InvalidOperationException($"Unsupported schedule type: {entry.ScheduleType}");
-        }
+                        _logger.LogInformation(
+                            "Modified recurring job interval: {JobId} ({JobName}), new interval={Interval}s, next run={NextRun:O}",
+                            jobId, entry.Job.Name, entry.IntervalSeconds, entry.ScheduledAtUtc);
+                    }
+                    else
+                    {
+                        throw new ArgumentException("IntervalSeconds is required for recurring jobs", nameof(modificationRequest));
+                    }
+                    break;
 
-        return Task.FromResult(true);
+                case ScheduleType.Cron:
+                    if (!string.IsNullOrWhiteSpace(modificationRequest.CronExpression))
+                    {
+                        // Validate and parse the cron expression
+                        CronExpression cron;
+                        try
+                        {
+                            cron = new CronExpression(modificationRequest.CronExpression);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Invalid cron expression: {CronExpression}", modificationRequest.CronExpression);
+                            throw new ArgumentException(
+                                $"Invalid cron expression: {modificationRequest.CronExpression}",
+                                nameof(modificationRequest), ex);
+                        }
+
+                        var nextRun = cron.GetNextOccurrence(DateTime.UtcNow);
+                        if (nextRun == null)
+                        {
+                            throw new ArgumentException(
+                                $"Cron expression '{modificationRequest.CronExpression}' has no future occurrences",
+                                nameof(modificationRequest));
+                        }
+
+                        entry.CronExpression = modificationRequest.CronExpression;
+                        entry.ScheduledAtUtc = nextRun;
+                        entry.Status = ScheduledJobStatus.Scheduled;
+
+                        _logger.LogInformation(
+                            "Modified cron job expression: {JobId} ({JobName}), new expression={Expression}, next run={NextRun:O}",
+                            jobId, entry.Job.Name, entry.CronExpression, entry.ScheduledAtUtc);
+                    }
+                    else
+                    {
+                        throw new ArgumentException("CronExpression is required for cron jobs", nameof(modificationRequest));
+                    }
+                    break;
+
+                case ScheduleType.EventTriggered:
+                    if (!string.IsNullOrWhiteSpace(modificationRequest.EventType))
+                    {
+                        // Remove from old event type registry
+                        if (entry.EventType != null && _eventTriggeredJobs.TryGetValue(entry.EventType, out var oldJobIds))
+                        {
+                            lock (oldJobIds)
+                            {
+                                oldJobIds.Remove(jobId);
+                            }
+                        }
+
+                        // Add to new event type registry
+                        var newJobIds = _eventTriggeredJobs.GetOrAdd(modificationRequest.EventType, _ => new List<string>());
+                        lock (newJobIds)
+                        {
+                            if (!newJobIds.Contains(jobId))
+                            {
+                                newJobIds.Add(jobId);
+                            }
+                        }
+
+                        _logger.LogInformation(
+                            "Modified event-triggered job: {JobId} ({JobName}), old event={OldEvent}, new event={NewEvent}",
+                            jobId, entry.Job.Name, entry.EventType, modificationRequest.EventType);
+
+                        entry.EventType = modificationRequest.EventType;
+                    }
+                    else
+                    {
+                        throw new ArgumentException("EventType is required for event-triggered jobs", nameof(modificationRequest));
+                    }
+                    break;
+
+                case ScheduleType.Immediate:
+                    throw new ArgumentException("Cannot modify immediate jobs", nameof(modificationRequest));
+
+                default:
+                    throw new InvalidOperationException($"Unsupported schedule type: {entry.ScheduleType}");
+            }
+
+            return Task.FromResult(true);
         }
         finally
         {
             stopwatch.Stop();
-            LogPerformanceMetrics(nameof(ModifyJobScheduleAsync), stopwatch.ElapsedMilliseconds, 
+            LogPerformanceMetrics(nameof(ModifyJobScheduleAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
     }
@@ -860,7 +860,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         {
             var now = DateTime.UtcNow;
             var jobsToExecute = _jobs.Values
-                .Where(j => j.ScheduledAtUtc <= now 
+                .Where(j => j.ScheduledAtUtc <= now
                     && (j.Status == ScheduledJobStatus.Scheduled || j.Status == ScheduledJobStatus.Pending)
                     && j.Status != ScheduledJobStatus.Paused)  // Skip paused jobs
                 .ToList();
@@ -1020,9 +1020,9 @@ public class SchedulerHostedService : BackgroundService, IScheduler
     /// <param name="thresholdMs">The warning threshold in milliseconds.</param>
     /// <param name="additionalContext">Optional additional context to include in logs.</param>
     private void LogPerformanceMetrics(
-        string operationName, 
-        long durationMs, 
-        uint thresholdMs, 
+        string operationName,
+        long durationMs,
+        uint thresholdMs,
         string? additionalContext = null)
     {
         if (!_options.EnablePerformanceInstrumentation)

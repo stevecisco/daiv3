@@ -20,7 +20,7 @@ public class SkillSourceTrackingTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.TryAddScoped<ISkillRegistry, SkillRegistry>();
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var registry = serviceProvider.GetRequiredService<ISkillRegistry>();
         var skill = new TestSkill("TestSkill", "A test skill");
 
@@ -39,7 +39,7 @@ public class SkillSourceTrackingTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillRegistry>>();
         var registry = new SkillRegistry(logger);
         var skill = new TestSkill("BuiltInSkill", "A built-in skill");
@@ -59,7 +59,7 @@ public class SkillSourceTrackingTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillRegistry>>();
         var registry = new SkillRegistry(logger);
         var skill = new TestSkill("CustomSkill", "User-defined skill");
@@ -79,7 +79,7 @@ public class SkillSourceTrackingTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillRegistry>>();
         var registry = new SkillRegistry(logger);
         var skill = new TestSkill("ImportedSkill", "Imported skill");
@@ -99,7 +99,7 @@ public class SkillSourceTrackingTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillRegistry>>();
         var registry = new SkillRegistry(logger);
         var skill1 = new TestSkill("BuiltIn", "Built-in");
@@ -125,7 +125,7 @@ public class SkillSourceTrackingTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillRegistry>>();
         var registry = new SkillRegistry(logger);
         var skill = new TestSkill("TestSkill", "Test");
@@ -144,7 +144,7 @@ public class SkillSourceTrackingTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillRegistry>>();
         var registry = new SkillRegistry(logger);
 

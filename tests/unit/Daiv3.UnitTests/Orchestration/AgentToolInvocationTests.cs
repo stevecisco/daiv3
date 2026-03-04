@@ -27,7 +27,7 @@ public class AgentToolInvocationTests
     public AgentToolInvocationTests()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"daiv3-test-{Guid.NewGuid()}.db");
-        
+
         // Setup mocks
         _mockToolRegistry = new Mock<IToolRegistry>();
         _mockToolInvoker = new Mock<IToolInvoker>();
@@ -39,18 +39,18 @@ public class AgentToolInvocationTests
         {
             options.DatabasePath = _dbPath;
         });
-        
+
         // Register test mocks
         services.AddScoped(_ => _mockToolRegistry.Object);
         services.AddScoped(_ => _mockToolInvoker.Object);
         services.AddOrchestrationServices();
 
-        var serviceProvider = services.BuildServiceProvider();
-        
+        using var serviceProvider = services.BuildServiceProvider();
+
         // Initialize database
         serviceProvider.InitializeDatabaseAsync().GetAwaiter().GetResult();
         _repository = serviceProvider.GetRequiredService<AgentRepository>();
-        
+
         // Get the actual manager (which will use mocked tool services)
         _manager = (AgentManager)serviceProvider.GetRequiredService<IAgentManager>();
     }

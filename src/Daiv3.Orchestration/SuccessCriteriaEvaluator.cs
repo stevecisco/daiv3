@@ -142,15 +142,15 @@ public class SuccessCriteriaEvaluator : ISuccessCriteriaEvaluator
         }
 
         // Check for format/structure criteria
-        if (lowerCriteria.Contains("format") || lowerCriteria.Contains("structure") || 
-            lowerCriteria.Contains("json") || lowerCriteria.Contains("xml") || 
+        if (lowerCriteria.Contains("format") || lowerCriteria.Contains("structure") ||
+            lowerCriteria.Contains("json") || lowerCriteria.Contains("xml") ||
             lowerCriteria.Contains("list") || lowerCriteria.Contains("table"))
         {
             return EvaluateFormatCriteria(criteria, output, context);
         }
 
         // Check for validation/valid patterns
-        if (lowerCriteria.Contains("valid") || lowerCriteria.Contains("pass") || 
+        if (lowerCriteria.Contains("valid") || lowerCriteria.Contains("pass") ||
             lowerCriteria.Contains("compil") || lowerCriteria.Contains("error-free"))
         {
             return EvaluateValidationCriteria(output, context);
@@ -258,7 +258,7 @@ public class SuccessCriteriaEvaluator : ISuccessCriteriaEvaluator
     {
         // Simple validation: non-empty output without obvious error indicators
         var lowerOutput = output.ToLowerInvariant();
-        var hasErrorIndicators = lowerOutput.Contains("error") || lowerOutput.Contains("failed") || 
+        var hasErrorIndicators = lowerOutput.Contains("error") || lowerOutput.Contains("failed") ||
                                  lowerOutput.Contains("exception") || lowerOutput.Contains("invalid");
 
         var meets = !hasErrorIndicators && !string.IsNullOrWhiteSpace(output);
@@ -339,7 +339,7 @@ public class SuccessCriteriaEvaluator : ISuccessCriteriaEvaluator
 
         // Remove common stop words and extract meaningful keywords
         var stopWords = new[] { "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "is", "are" };
-        
+
         var words = Regex.Matches(text, @"\b[a-z]+\b", RegexOptions.IgnoreCase)
             .Cast<Match>()
             .Select(m => m.Value)

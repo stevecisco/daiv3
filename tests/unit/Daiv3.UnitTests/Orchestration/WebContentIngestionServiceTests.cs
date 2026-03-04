@@ -296,7 +296,7 @@ public class WebContentIngestionServiceTests : IAsyncLifetime
         _optionsMock.Setup(o => o.Value).Returns(options);
         _service = new WebContentIngestionService(_loggerMock.Object, _contentStoreMock.Object, _documentProcessorMock.Object, _optionsMock.Object);
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(100); // Cancel quickly
 
         // Act
@@ -315,7 +315,7 @@ public class WebContentIngestionServiceTests : IAsyncLifetime
         _optionsMock.Setup(o => o.Value).Returns(options);
         _service = new WebContentIngestionService(_loggerMock.Object, _contentStoreMock.Object, _documentProcessorMock.Object, _optionsMock.Object);
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(100);
 
         // Act
@@ -357,7 +357,7 @@ public class WebContentIngestionServiceTests : IAsyncLifetime
         // Arrange
         _tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(_tempDir);
-        
+
         var file1 = Path.Combine(_tempDir, "test1.md");
         var file2 = Path.Combine(_tempDir, "test2.md");
         await File.WriteAllTextAsync(file1, "# Test 1");
@@ -409,10 +409,10 @@ public class WebContentIngestionServiceTests : IAsyncLifetime
         // Arrange
         _tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(_tempDir);
-        
+
         var testFile = Path.Combine(_tempDir, "test.md");
         var metadataFile = Path.Combine(_tempDir, "test.metadata.json");
-        
+
         await File.WriteAllTextAsync(testFile, "# Test");
         await File.WriteAllTextAsync(metadataFile, """{"sourceUrl":"https://example.com/article"}""");
 

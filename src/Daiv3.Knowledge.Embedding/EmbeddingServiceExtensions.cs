@@ -39,10 +39,10 @@ public static class EmbeddingServiceExtensions
         services.AddSingleton<IEmbeddingGenerator, OnnxEmbeddingGenerator>();
         services.AddSingleton<CpuVectorSimilarityService>();
         services.AddSingleton<IVectorSimilarityService, HardwareAwareVectorSimilarityService>();
-        
+
         // Register model download service with HttpClient
         services.AddHttpClient<IEmbeddingModelDownloadService, EmbeddingModelDownloadService>();
-        
+
         // Register bootstrap service for model downloads
         services.AddSingleton<EmbeddingModelBootstrapService>();
 

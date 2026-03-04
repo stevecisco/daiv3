@@ -62,8 +62,8 @@ public class CancellationMetrics : ICancellationMetrics
         {
             var byOperation = _cancellationsByOperationType.ToDictionary(x => x.Key, x => x.Value);
 
-            double avgLatency = _cancellationLatencies.Count > 0 
-                ? _cancellationLatencies.Average() 
+            double avgLatency = _cancellationLatencies.Count > 0
+                ? _cancellationLatencies.Average()
                 : 0;
 
             return new CancellationMetricsSnapshot(

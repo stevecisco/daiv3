@@ -97,7 +97,7 @@ public class SkillConfigFileLoader
     public SkillConfigurationFile LoadSkillConfigFromJson(string jsonContent)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(jsonContent);
-        
+
         _logger.LogInformation("Parsing skill configuration from JSON content");
         var config = ParseJsonConfiguration(jsonContent);
         _logger.LogInformation("Parsed skill configuration: {SkillName}", config.Name);

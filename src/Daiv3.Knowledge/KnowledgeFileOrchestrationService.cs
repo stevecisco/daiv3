@@ -14,7 +14,7 @@ public sealed class KnowledgeFileOrchestrationService : IKnowledgeFileOrchestrat
     private readonly IKnowledgeDocumentProcessor _documentProcessor;
     private readonly ILogger<KnowledgeFileOrchestrationService> _logger;
     private readonly SemaphoreSlim _processingLock = new(1, 1);
-    
+
     private int _filesProcessed;
     private int _filesDeleted;
     private int _processingErrors;

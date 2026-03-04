@@ -40,7 +40,7 @@ public class NetworkConnectivityServiceTests
         var service = new NetworkConnectivityService(_mockLogger.Object);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() => 
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
             service.IsEndpointReachableAsync(null!));
     }
 
@@ -51,7 +51,7 @@ public class NetworkConnectivityServiceTests
         var service = new NetworkConnectivityService(_mockLogger.Object);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => 
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             service.IsEndpointReachableAsync(string.Empty));
     }
 

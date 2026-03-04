@@ -51,7 +51,7 @@ public class OnlineProviderRouterOfflineQueueingTests : IDisposable
         _mockConnectivityService.Setup(x => x.IsOnlineAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var router = new OnlineProviderRouter(
+        using var router = new OnlineProviderRouter(
             Options.Create(_options),
             Options.Create(_mappingConfig),
             _mockLogger.Object,
@@ -90,7 +90,7 @@ public class OnlineProviderRouterOfflineQueueingTests : IDisposable
             It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var router = new OnlineProviderRouter(
+        using var router = new OnlineProviderRouter(
             Options.Create(_options),
             Options.Create(_mappingConfig),
             _mockLogger.Object,
@@ -125,7 +125,7 @@ public class OnlineProviderRouterOfflineQueueingTests : IDisposable
     public async Task ExecuteAsync_WithoutConnectivityService_ExecutesNormally()
     {
         // Arrange - No connectivity service provided
-        var router = new OnlineProviderRouter(
+        using var router = new OnlineProviderRouter(
             Options.Create(_options),
             Options.Create(_mappingConfig),
             _mockLogger.Object,
@@ -153,7 +153,7 @@ public class OnlineProviderRouterOfflineQueueingTests : IDisposable
         _mockConnectivityService.Setup(x => x.IsOnlineAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var router = new OnlineProviderRouter(
+        using var router = new OnlineProviderRouter(
             Options.Create(_options),
             Options.Create(_mappingConfig),
             _mockLogger.Object,
@@ -180,7 +180,7 @@ public class OnlineProviderRouterOfflineQueueingTests : IDisposable
         _mockQueueRepository.Setup(x => x.GetPendingRequestsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<(ExecutionRequest Request, ExecutionPriority Priority, string ModelId)>());
 
-        var router = new OnlineProviderRouter(
+        using var router = new OnlineProviderRouter(
             Options.Create(_options),
             Options.Create(_mappingConfig),
             _mockLogger.Object,
@@ -221,7 +221,7 @@ public class OnlineProviderRouterOfflineQueueingTests : IDisposable
             It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var router = new OnlineProviderRouter(
+        using var router = new OnlineProviderRouter(
             Options.Create(_options),
             Options.Create(_mappingConfig),
             _mockLogger.Object,
@@ -257,7 +257,7 @@ public class OnlineProviderRouterOfflineQueueingTests : IDisposable
     public async Task RetryPendingRequestsAsync_WithoutServices_ReturnsZero()
     {
         // Arrange - No connectivity or queue service
-        var router = new OnlineProviderRouter(
+        using var router = new OnlineProviderRouter(
             Options.Create(_options),
             Options.Create(_mappingConfig),
             _mockLogger.Object,

@@ -30,8 +30,8 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
             Path.GetTempPath(),
             "daiv3_test",
             $"test_kbp_acc_001_{Guid.NewGuid():N}.db");
-        
-        var loggerFactory = LoggerFactory.Create(builder => 
+
+        using var loggerFactory = LoggerFactory.Create(builder =>
             builder.AddConsole().SetMinimumLevel(LogLevel.Information));
         _logger = loggerFactory.CreateLogger<DatabaseContext>();
         _testLogger = loggerFactory.CreateLogger<LearningPromotionAcceptanceTests>();
@@ -53,13 +53,13 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
         await _databaseContext.InitializeAsync();
 
         _learningRepository = new LearningRepository(
-            _databaseContext, 
+            _databaseContext,
             LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<LearningRepository>());
-        
+
         _promotionRepository = new PromotionRepository(
-            _databaseContext, 
+            _databaseContext,
             LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PromotionRepository>());
-        
+
         _learningService = new LearningStorageService(
             _learningRepository,
             LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<LearningStorageService>(),
@@ -108,9 +108,9 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Arrange - Complete a task that generated learnings
         var taskId = "completed-task-123";
-        
+
         _testLogger.LogInformation("Creating learnings for task: {TaskId}", taskId);
-        
+
         var learning1Id = await _learningService!.CreateLearningAsync(
             title: "Use dependency injection for testability",
             description: "Services registered in DI container are easier to mock in tests",
@@ -168,9 +168,9 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Arrange - Task completed with learnings at Skill scope
         var taskId = "task-with-valuable-learnings";
-        
+
         _testLogger.LogInformation("Creating skill-level learnings from task: {TaskId}", taskId);
-        
+
         var learningId1 = await _learningService!.CreateLearningAsync(
             title: "Always use ConfigureAwait(false) in library code",
             description: "Prevents deadlocks in synchronous callers by not capturing sync context",
@@ -199,7 +199,7 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Act - User selects learnings and promotes them to Project scope
         _testLogger.LogInformation("User promoting learnings to Project scope");
-        
+
         var promotions = new List<LearningPromotionSelection>
         {
             new()
@@ -229,7 +229,7 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
         // Verify learnings are now at Project scope
         var afterPromotion1 = await _learningService.GetLearningAsync(learningId1);
         var afterPromotion2 = await _learningService.GetLearningAsync(learningId2);
-        
+
         Assert.NotNull(afterPromotion1);
         Assert.NotNull(afterPromotion2);
         Assert.Equal("Project", afterPromotion1.Scope);
@@ -253,9 +253,9 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
         // Arrange - Create learning from one agent's task
         var taskId = "frontend-agent-task";
         var sourceAgent = "FrontendAgent";
-        
+
         _testLogger.LogInformation("Creating learning from {Agent} task", sourceAgent);
-        
+
         var learningId = await _learningService!.CreateLearningAsync(
             title: "Debounce user input events",
             description: "Use 300ms debounce for search input to reduce API calls",
@@ -268,7 +268,7 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Act - Promote to project scope
         _testLogger.LogInformation("Promoting learning to Project scope");
-        
+
         var promotions = new List<LearningPromotionSelection>
         {
             new()
@@ -285,10 +285,10 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
         var promotedLearning = await _learningService.GetLearningAsync(learningId);
         Assert.NotNull(promotedLearning);
         Assert.Equal("Project", promotedLearning.Scope);
-        
+
         // The learning retains source agent for provenance, but is available project-wide
         Assert.Equal(sourceAgent, promotedLearning.SourceAgent);
-        
+
         _testLogger.LogInformation("✓ Learning promoted to Project scope and available project-wide");
     }
 
@@ -305,9 +305,9 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Arrange - Create learning at Skill scope
         var task1 = "initial-task";
-        
+
         _testLogger.LogInformation("Creating learning at Skill scope");
-        
+
         var learningId = await _learningService!.CreateLearningAsync(
             title: "Cache compiled regex patterns",
             description: "Use RegexOptions.Compiled or source generators to avoid runtime compilation overhead",
@@ -320,7 +320,7 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Act 1 - Promote Skill → Agent
         _testLogger.LogInformation("Promoting from Skill to Agent scope");
-        
+
         var promotion1 = new List<LearningPromotionSelection>
         {
             new() { LearningId = learningId, TargetScope = "Agent" }
@@ -332,12 +332,12 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Act 2 - Promote Agent → Project (using same task since that's where the learning originated)
         _testLogger.LogInformation("Promoting from Agent to Project scope");
-        
+
         var promotion2 = new List<LearningPromotionSelection>
         {
-            new() 
-            { 
-                LearningId = learningId, 
+            new()
+            {
+                LearningId = learningId,
                 TargetScope = "Project",
                 Notes = "Regex optimization benefits entire project"
             }
@@ -365,9 +365,9 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Arrange - Task with multiple learnings of varying quality
         var taskId = "task-with-mixed-quality-learnings";
-        
+
         _testLogger.LogInformation("Creating multiple learnings from task");
-        
+
         var highQuality = await _learningService!.CreateLearningAsync(
             title: "Use bulk database operations for performance",
             description: "Batch INSERT/UPDATE operations reduce round trips",
@@ -397,7 +397,7 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Act - User selectively promotes only high-quality learning
         _testLogger.LogInformation("User promoting only high-quality learning to Project scope");
-        
+
         var promotions = new List<LearningPromotionSelection>
         {
             new()
@@ -436,7 +436,7 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
 
         // Arrange
         var taskId = "task-requiring-explanation";
-        
+
         var learningId = await _learningService!.CreateLearningAsync(
             title: "Use CancellationToken in async methods",
             description: "Pass CancellationToken to enable graceful cancellation",
@@ -449,9 +449,9 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
         // Act - Promote with detailed notes
         var promotionNotes = "Promoting because this pattern is critical for responsive UI and proper resource cleanup. " +
                            "All async operations should support cancellation.";
-        
+
         _testLogger.LogInformation("Promoting with notes: {Notes}", promotionNotes);
-        
+
         var promotions = new List<LearningPromotionSelection>
         {
             new()
@@ -470,7 +470,7 @@ public class LearningPromotionAcceptanceTests : IAsyncLifetime
         // Assert - Promotion succeeded with notes
         Assert.True(result.AllSucceeded);
         Assert.Single(result.SuccessfulPromotions);
-        
+
         var promotedLearning = await _learningService.GetLearningAsync(learningId);
         Assert.NotNull(promotedLearning);
         Assert.Equal("Project", promotedLearning.Scope);

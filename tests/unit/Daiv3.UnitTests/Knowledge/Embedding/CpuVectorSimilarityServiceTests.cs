@@ -122,7 +122,7 @@ public class CpuVectorSimilarityServiceTests
         // Arrange - 384 dimensions (typical for embeddings)
         float[] vector1 = new float[384];
         float[] vector2 = new float[384];
-        
+
         for (int i = 0; i < 384; i++)
         {
             vector1[i] = i / 384.0f;
@@ -161,7 +161,7 @@ public class CpuVectorSimilarityServiceTests
     {
         // Arrange
         float[] queryVector = [1.0f, 0.0f, 0.0f];
-        float[] targetVectors = 
+        float[] targetVectors =
         [
             1.0f, 0.0f, 0.0f,  // Same as query - should be 1.0
             0.0f, 1.0f, 0.0f,  // Orthogonal - should be 0.0
@@ -184,7 +184,7 @@ public class CpuVectorSimilarityServiceTests
         // Arrange - Simulate Tier 1 search with 1000 documents
         int vectorCount = 1000;
         int dimensions = 384;
-        
+
         float[] queryVector = new float[dimensions];
         for (int i = 0; i < dimensions; i++)
             queryVector[i] = i / (float)dimensions;
@@ -206,13 +206,13 @@ public class CpuVectorSimilarityServiceTests
 
         // Assert
         Assert.Equal(vectorCount, results.Length);
-        
+
         // First vector should be most similar
         Assert.True(results[0] > 0.9f);
-        
+
         // Last vector should be least similar
         Assert.True(results[vectorCount - 1] < results[0]);
-        
+
         // All results should be in valid range
         foreach (var score in results)
         {
@@ -280,7 +280,7 @@ public class CpuVectorSimilarityServiceTests
     {
         // Arrange
         float[] queryVector = [1.0f, 2.0f, 3.0f];
-        float[] targetVectors = 
+        float[] targetVectors =
         [
             1.0f, 2.0f, 3.0f,  // Valid vector
             0.0f, 0.0f, 0.0f   // Zero magnitude
@@ -312,7 +312,7 @@ public class CpuVectorSimilarityServiceTests
         // Assert
         Assert.Equal(0.6f, normalized[0], precision: 6); // 3/5
         Assert.Equal(0.8f, normalized[1], precision: 6); // 4/5
-        
+
         // Verify unit length
         float magnitude = MathF.Sqrt(normalized[0] * normalized[0] + normalized[1] * normalized[1]);
         Assert.Equal(1.0f, magnitude, precision: 6);
@@ -335,7 +335,7 @@ public class CpuVectorSimilarityServiceTests
         float sumOfSquares = 0f;
         for (int i = 0; i < 384; i++)
             sumOfSquares += normalized[i] * normalized[i];
-        
+
         float magnitude = MathF.Sqrt(sumOfSquares);
         Assert.Equal(1.0f, magnitude, precision: 5);
     }
@@ -418,7 +418,7 @@ public class CpuVectorSimilarityServiceTests
         // Arrange - Simulate Tier 1 search target: <10ms for 10,000 vectors
         int vectorCount = 10000;
         int dimensions = 384;
-        
+
         float[] queryVector = new float[dimensions];
         Array.Fill(queryVector, 0.1f);
 
@@ -434,11 +434,11 @@ public class CpuVectorSimilarityServiceTests
 
         // Assert
         Assert.Equal(vectorCount, results.Length);
-        
+
         // Log performance (not a hard requirement for unit test, but useful info)
         // Target is <10ms on CPU for ~10,000 vectors (per KM-NFR-001)
         // Note: This may vary widely based on CPU, so we don't fail on performance here
-        Assert.True(stopwatch.ElapsedMilliseconds < 1000, 
+        Assert.True(stopwatch.ElapsedMilliseconds < 1000,
             $"Batch operation took {stopwatch.ElapsedMilliseconds}ms, expected under 1000ms");
     }
 
@@ -451,39 +451,39 @@ public class CpuVectorSimilarityServiceTests
         int vectorCount = 100000;  // 100K documents
         int dimensions = 768;      // Tier 2 dimensions
         int iterations = 5;        // Multiple search queries
-        
+
         float[] queryVector = new float[dimensions];
         float[] targetVectors = new float[vectorCount * dimensions];
         float[] results = new float[vectorCount];
-        
+
         var random = new Random(42);
         for (int i = 0; i < dimensions; i++)
             queryVector[i] = (float)random.NextDouble();
-        
+
         for (int i = 0; i < targetVectors.Length; i++)
             targetVectors[i] = (float)random.NextDouble();
 
         // Act - Run multiple iterations to show sustained CPU activity
         var totalStopwatch = System.Diagnostics.Stopwatch.StartNew();
-        
+
         for (int iter = 0; iter < iterations; iter++)
         {
             var iterStopwatch = System.Diagnostics.Stopwatch.StartNew();
             _service.BatchCosineSimilarity(queryVector, targetVectors, vectorCount, dimensions, results);
             iterStopwatch.Stop();
-            
+
             // Find top results
             var topScores = results.OrderByDescending(x => x).Take(10).ToList();
         }
-        
+
         totalStopwatch.Stop();
 
         // Assert - Should complete but will take a few seconds
         Assert.Equal(vectorCount, results.Length);
-        
+
         // This should take several seconds and show CPU activity in Task Manager
         // On a modern CPU with SIMD: ~500-2000ms per iteration expected
-        Assert.True(totalStopwatch.ElapsedMilliseconds > 100, 
+        Assert.True(totalStopwatch.ElapsedMilliseconds > 100,
             "Stress test completed too quickly - increase workload");
         Assert.True(totalStopwatch.ElapsedMilliseconds < 30000,
             $"Stress test took too long: {totalStopwatch.ElapsedMilliseconds}ms - may indicate performance issue");

@@ -258,7 +258,7 @@ public class AgentManager : IAgentManager
         _logger.LogDebug("Retrieved agent {AgentId} '{Name}' from repository", hydrated.Id, hydrated.Name);
         return hydrated;
     }
-        
+
     public Task<List<Agent>> ListAgentsAsync(Guid? projectId = null, CancellationToken ct = default)
     {
         var agents = _agents.Values.ToList();
@@ -409,7 +409,7 @@ public class AgentManager : IAgentManager
 
         var stopwatch = Stopwatch.StartNew();
         var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(options.TimeoutSeconds));
-        
+
         // Link cancellation tokens: user token, timeout token, and control stop token if available
         var linkedCts = control != null
             ? CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token, control.StopToken)
@@ -419,7 +419,7 @@ public class AgentManager : IAgentManager
         {
             // Execute iteration loop
             string? lastFailureContext = null;
-            
+
             for (int iteration = 1; iteration <= options.MaxIterations; iteration++)
             {
                 // Check for pause before each iteration
@@ -523,7 +523,7 @@ public class AgentManager : IAgentManager
                     result.Success = true;
                     result.TerminationReason = "Success";
                     result.Output = step.Output;
-                    
+
                     _logger.LogInformation(
                         "Agent {AgentId} completed task successfully after {Iterations} iterations. SuccessCriteria met with {Confidence:P} confidence",
                         agent.Id, iteration, criteriaEvaluation.ConfidenceScore);
@@ -534,7 +534,7 @@ public class AgentManager : IAgentManager
                 if (!criteriaEvaluation.MeetsCriteria && options.EnableSelfCorrection && iteration < options.MaxIterations)
                 {
                     lastFailureContext = $"Iteration {iteration} failed criteria evaluation: {criteriaEvaluation.EvaluationMessage ?? "Unknown failure"}";
-                    
+
                     if (!string.IsNullOrEmpty(criteriaEvaluation.SuggestedCorrection))
                     {
                         lastFailureContext += $"\nSuggested correction: {criteriaEvaluation.SuggestedCorrection}";
@@ -546,7 +546,7 @@ public class AgentManager : IAgentManager
                         criteriaEvaluation.ConfidenceScore,
                         iteration + 1,
                         criteriaEvaluation.EvaluationMessage);
-                    
+
                     // Continue to next iteration with failure context
                     continue;
                 }
@@ -573,7 +573,7 @@ public class AgentManager : IAgentManager
             result.Success = false;
             result.TerminationReason = "Timeout";
             result.ErrorMessage = $"Execution timeout ({options.TimeoutSeconds}s) exceeded";
-            
+
             _logger.LogWarning(
                 "Agent {AgentId} execution timed out after {Elapsed}ms",
                 agent.Id, stopwatch.ElapsedMilliseconds);
@@ -581,7 +581,7 @@ public class AgentManager : IAgentManager
         catch (OperationCanceledException)
         {
             result.Success = false;
-            
+
             // Determine if it was a user stop or other cancellation
             if (control?.IsStopped == true)
             {
@@ -593,7 +593,7 @@ public class AgentManager : IAgentManager
                 result.TerminationReason = "Cancelled";
                 result.ErrorMessage = "Execution cancelled by user";
             }
-            
+
             _logger.LogInformation(
                 "Agent {AgentId} execution cancelled (reason: {Reason})",
                 agent.Id, result.TerminationReason);
@@ -603,7 +603,7 @@ public class AgentManager : IAgentManager
             result.Success = false;
             result.TerminationReason = "Error";
             result.ErrorMessage = ex.Message;
-            
+
             _logger.LogError(ex,
                 "Agent {AgentId} execution failed with error",
                 agent.Id);
@@ -612,14 +612,14 @@ public class AgentManager : IAgentManager
         {
             stopwatch.Stop();
             result.CompletedAt = DateTimeOffset.UtcNow;
-            
+
             // Capture paused duration if control was used
             if (control != null)
             {
                 result.PausedDuration = control.TotalPausedDuration;
                 metrics.TotalPausedDuration = control.TotalPausedDuration;
             }
-            
+
             // Update final metrics
             metrics.TotalDuration = stopwatch.Elapsed;
             metrics.ExecutionStatus = "Completed";
@@ -656,7 +656,7 @@ public class AgentManager : IAgentManager
                             { "iterations", result.IterationsExecuted.ToString() }
                         }
                     });
-                
+
                 // Don't await this, fire and forget with logging
                 _ = _messageBroker.PublishAsync(executionMessage, CancellationToken.None).ContinueWith(
                     t =>
@@ -714,7 +714,7 @@ public class AgentManager : IAgentManager
 
         // Retrieve relevant learnings for this task (LM-REQ-005)
         var learningsContext = await RetrieveAndFormatLearningsAsync(agent, taskGoal, context, ct);
-        
+
         if (!string.IsNullOrEmpty(learningsContext))
         {
             stepDescription += $"\n\nRelevant Learnings:\n{learningsContext}";
@@ -800,7 +800,7 @@ public class AgentManager : IAgentManager
         if (tools.Count > 0)
         {
             var selectedTool = tools.First();
-            
+
             _logger.LogInformation("Agent attempting to invoke tool '{ToolId}' ({Backend} backend) for task: {Goal}",
                 selectedTool.ToolId, selectedTool.Backend, taskGoal);
 
@@ -1029,7 +1029,7 @@ public class AgentManager : IAgentManager
 
             // Format learnings for injection into agent context
             var formattedLearnings = new List<string>();
-            
+
             foreach (var retrieved in retrievedLearnings)
             {
                 var learning = retrieved.Learning;
@@ -1037,12 +1037,12 @@ public class AgentManager : IAgentManager
                                $"Title: {learning.Title}\n" +
                                $"Description: {learning.Description}\n" +
                                $"Scope: {learning.Scope}, Trigger: {learning.TriggerType}";
-                
+
                 if (!string.IsNullOrWhiteSpace(learning.Tags))
                 {
                     formatted += $"\nTags: {learning.Tags}";
                 }
-                
+
                 formattedLearnings.Add(formatted);
             }
 

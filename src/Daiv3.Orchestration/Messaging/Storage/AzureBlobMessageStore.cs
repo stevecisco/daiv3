@@ -303,7 +303,7 @@ public class AzureBlobMessageStore : IMessageStore
                         var message = DeserializeMessage(serializable);
 
                         // Check expiration
-                        if (message.Metadata.ExpiresAt.HasValue && 
+                        if (message.Metadata.ExpiresAt.HasValue &&
                             DateTimeOffset.UtcNow > message.Metadata.ExpiresAt.Value)
                             continue;
 

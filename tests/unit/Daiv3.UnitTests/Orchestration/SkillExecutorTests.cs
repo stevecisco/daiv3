@@ -269,7 +269,7 @@ public class SkillExecutorTests
             Parameters = new()
         };
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(100); // Cancel after 100ms
 
         // Act

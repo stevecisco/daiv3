@@ -59,7 +59,7 @@ public class SkillExecutor : ISkillExecutor
                 _logger.LogWarning(
                     "Skill execution failed for '{SkillName}' from {CallerContext}: {Error}",
                     request.SkillName, callerContext, errorMsg);
-                
+
                 return new SkillExecutionResult
                 {
                     Success = false,
@@ -70,7 +70,7 @@ public class SkillExecutor : ISkillExecutor
 
             // Check sandbox mode
             var sandboxMode = _sandboxConfig.GetEffectiveMode(request.SkillName);
-            
+
             _logger.LogDebug(
                 "Skill '{SkillName}' sandbox mode: {SandboxMode}",
                 request.SkillName, sandboxMode);
@@ -85,7 +85,7 @@ public class SkillExecutor : ISkillExecutor
                     _logger.LogWarning(
                         "Skill '{SkillName}' from {CallerContext} blocked by permission check: {Reason}",
                         request.SkillName, callerContext, permissionCheck.DenialReason);
-                    
+
                     return new SkillExecutionResult
                     {
                         Success = false,
@@ -104,7 +104,7 @@ public class SkillExecutor : ISkillExecutor
                 _logger.LogWarning(
                     "Skill execution failed for '{SkillName}' from {CallerContext}: Parameter validation failed - {Error}",
                     request.SkillName, callerContext, errorMsg);
-                
+
                 return new SkillExecutionResult
                 {
                     Success = false,
@@ -173,7 +173,7 @@ public class SkillExecutor : ISkillExecutor
                 ex,
                 "Skill '{SkillName}' from {CallerContext} timed out after {ElapsedMs}ms",
                 request.SkillName, callerContext, stopwatch.ElapsedMilliseconds);
-            
+
             return new SkillExecutionResult
             {
                 Success = false,
@@ -189,7 +189,7 @@ public class SkillExecutor : ISkillExecutor
                 ex,
                 "Skill '{SkillName}' from {CallerContext} failed with exception after {ElapsedMs}ms",
                 request.SkillName, callerContext, stopwatch.ElapsedMilliseconds);
-            
+
             return new SkillExecutionResult
             {
                 Success = false,

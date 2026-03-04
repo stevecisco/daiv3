@@ -48,13 +48,13 @@ public class TaskOrchestrator : ITaskOrchestrator
         {
             // Resolve intent
             var intent = await _intentResolver.ResolveAsync(request.Input, request.Context, ct);
-            
+
             if (intent.Confidence < _options.MinimumIntentConfidence)
             {
                 _logger.LogWarning(
                     "Intent confidence {Confidence} below threshold {Threshold}",
                     intent.Confidence, _options.MinimumIntentConfidence);
-                
+
                 return new OrchestrationResult
                 {
                     SessionId = sessionId,
@@ -94,8 +94,8 @@ public class TaskOrchestrator : ITaskOrchestrator
                 SessionId = sessionId,
                 TaskResults = results,
                 Success = results.All(r => r.Success),
-                ErrorMessage = results.All(r => r.Success) 
-                    ? null 
+                ErrorMessage = results.All(r => r.Success)
+                    ? null
                     : "One or more tasks failed"
             };
         }
@@ -161,7 +161,7 @@ public class TaskOrchestrator : ITaskOrchestrator
     }
 
     private async Task<List<TaskExecutionResult>> ExecuteTasksAsync(
-        List<ResolvedTask> tasks, 
+        List<ResolvedTask> tasks,
         CancellationToken ct)
     {
         var results = new List<TaskExecutionResult>();
@@ -177,7 +177,7 @@ public class TaskOrchestrator : ITaskOrchestrator
             // Execute tasks in the same order group concurrently
             var groupResults = await Task.WhenAll(
                 groupTasks.Select(task => ExecuteTaskAsync(task, ct)));
-            
+
             results.AddRange(groupResults);
 
             // Stop if any task in the group failed

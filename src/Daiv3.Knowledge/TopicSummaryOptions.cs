@@ -37,10 +37,10 @@ public class TopicSummaryOptions
     {
         if (MinSentences < 1)
             throw new InvalidOperationException("MinSentences must be at least 1");
-        
+
         if (MaxSentences < MinSentences)
             throw new InvalidOperationException("MaxSentences must be >= MinSentences");
-        
+
         if (MaxCharacters < 50)
             throw new InvalidOperationException("MaxCharacters must be at least 50");
     }

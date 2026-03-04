@@ -67,7 +67,7 @@ public abstract class RepositoryBase<TEntity> : IRepository<TEntity> where TEnti
     protected async Task<List<TEntity>> ExecuteReaderAsync(string sql, Func<SqliteDataReader, TEntity> mapper, Action<SqliteParameterCollection>? configureParameters = null, CancellationToken ct = default)
     {
         var results = new List<TEntity>();
-        
+
         await using var connection = await DatabaseContext.GetConnectionAsync(ct).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = sql;

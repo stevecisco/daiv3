@@ -25,17 +25,17 @@ public class LearningRepositoryTests : IAsyncLifetime
     {
         // Use a temporary database file for each test
         _testDbPath = Path.Combine(Path.GetTempPath(), $"learning-test-{Guid.NewGuid()}.db");
-        
+
         // Set up test SQLite database
         var services = new ServiceCollection();
         services.AddLogging();
-        
+
         // Configure persistence with test database path
         services.Configure<PersistenceOptions>(options =>
         {
             options.DatabasePath = _testDbPath;
         });
-        
+
         services.AddPersistence();
 
         _serviceProvider = services.BuildServiceProvider();
@@ -57,7 +57,7 @@ public class LearningRepositoryTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _databaseContext.DisposeAsync();
-        
+
         // Clean up test database file
         try
         {
@@ -277,7 +277,7 @@ public class LearningRepositoryTests : IAsyncLifetime
         // Arrange
         var learning1 = CreateTestLearning("Learning 1");
         learning1.SourceAgent = "agent-1";
-        
+
         var learning2 = CreateTestLearning("Learning 2");
         learning2.SourceAgent = "agent-2";
 
@@ -302,7 +302,7 @@ public class LearningRepositoryTests : IAsyncLifetime
         var taskId = Guid.NewGuid().ToString();
         var learning1 = CreateTestLearning("Learning 1");
         learning1.SourceTaskId = taskId;
-        
+
         var learning2 = CreateTestLearning("Learning 2");
         learning2.SourceTaskId = Guid.NewGuid().ToString();
 
@@ -343,7 +343,7 @@ public class LearningRepositoryTests : IAsyncLifetime
         var withEmbedding = CreateTestLearning("With Embedding");
         withEmbedding.EmbeddingBlob = new byte[] { 1, 2, 3, 4 };
         withEmbedding.EmbeddingDimensions = 384;
-        
+
         var withoutEmbedding = CreateTestLearning("Without Embedding");
         withoutEmbedding.EmbeddingBlob = null;
 

@@ -61,11 +61,11 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
     {
         var testDbPath = Path.Combine(Path.GetTempPath(), $"daiv3_learning_test_{Guid.NewGuid():N}.db");
         _testDbPaths.Add(testDbPath);
-        
+
         var options = Options.Create(new PersistenceOptions { DatabasePath = testDbPath });
         var context = new DatabaseContext(_loggerFactory.CreateLogger<DatabaseContext>(), options);
         await context.InitializeAsync();
-        
+
         var learningRepository = new Daiv3.Persistence.Repositories.LearningRepository(
             context,
             _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.LearningRepository>());
@@ -86,7 +86,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         var options = Options.Create(new PersistenceOptions { DatabasePath = existingDbPath });
         var context = new DatabaseContext(_loggerFactory.CreateLogger<DatabaseContext>(), options);
         await context.InitializeAsync();
-        
+
         return new Daiv3.Persistence.Repositories.PromotionRepository(
             context,
             _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.PromotionRepository>());
@@ -554,10 +554,10 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
     {
         // Arrange: Create learnings at different scopes
         var learningService = await CreateServiceAsync();
-        
+
         var agentLearningId = await learningService.CreateLearningAsync(
             "Agent Learning", "desc", "Explicit", "Agent", 0.8);
-        
+
         var projectLearningId = await learningService.CreateLearningAsync(
             "Project Learning", "desc", "Explicit", "Project", 0.85);
 
@@ -577,10 +577,10 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         var learningService = await CreateServiceAsync();
         var learning1Id = await learningService.CreateLearningAsync(
             "Learning 1", "Active learning", "Explicit", "Skill", 0.8);
-        
+
         var learning2Id = await learningService.CreateLearningAsync(
             "Learning 2", "To suppress", "Explicit", "Agent", 0.75);
-        
+
         var learning3Id = await learningService.CreateLearningAsync(
             "Learning 3", "To supersede", "Explicit", "Project", 0.7);
 
@@ -633,10 +633,10 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
 
         // Assert: Promotion was recorded
         Assert.Equal("Agent", newScope);
-        
+
         var promotions = await promotionRepo.GetByLearningIdAsync(learningId);
         Assert.Single(promotions);
-        
+
         var promotion = promotions[0];
         Assert.Equal(learningId, promotion.LearningId);
         Assert.Equal("Skill", promotion.FromScope);
@@ -669,13 +669,13 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         // Assert: All promotions recorded
         var promotions = await promotionRepo.GetByLearningIdAsync(learningId);
         Assert.Equal(3, promotions.Count);
-        
+
         // Verify we have all three scope transitions (order may vary due to timing)
         var scopeTransitions = promotions.Select(p => $"{p.FromScope}→{p.ToScope}").ToHashSet();
         Assert.Contains("Skill→Agent", scopeTransitions);
         Assert.Contains("Agent→Project", scopeTransitions);
         Assert.Contains("Project→Domain", scopeTransitions);
-        
+
         // Verify timestamps are in descending order (most recent first)
         for (int i = 0; i < promotions.Count - 1; i++)
         {
@@ -690,7 +690,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         // Arrange - KBP-DATA-001: Query promotions by source task
         var learningService = await CreateServiceAsync();
         var taskId = Guid.NewGuid().ToString();
-        
+
         var learning1Id = await learningService.CreateLearningAsync(
             "Pattern 1", "Description 1", "UserFeedback", "Skill", 0.9);
         var learning2Id = await learningService.CreateLearningAsync(
@@ -714,7 +714,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
     {
         // Arrange - KBP-DATA-002: Query by target scope
         var learningService = await CreateServiceAsync();
-        
+
         var learning1Id = await learningService.CreateLearningAsync(
             "Global Pattern 1", "Desc 1", "UserFeedback", "Domain", 0.95);
         var learning2Id = await learningService.CreateLearningAsync(
@@ -748,18 +748,18 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         _testDbPaths.Add(testDbPath);
 
         string learningId;
-        
+
         // Session 1: Create and promote
         {
             var options = Options.Create(new PersistenceOptions { DatabasePath = testDbPath });
             var context = new DatabaseContext(_loggerFactory.CreateLogger<DatabaseContext>(), options);
             await context.InitializeAsync();
-            
+
             var learningRepo = new Daiv3.Persistence.Repositories.LearningRepository(
                 context, _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.LearningRepository>());
             var promotionRepo = new Daiv3.Persistence.Repositories.PromotionRepository(
                 context, _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.PromotionRepository>());
-            
+
             var service = new LearningStorageService(
                 learningRepo,
                 _loggerFactory.CreateLogger<LearningStorageService>(),
@@ -769,7 +769,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
             learningId = await service.CreateLearningAsync(
                 "Persistent Pattern", "Description", "UserFeedback", "Skill", 0.9);
             await service.PromoteLearningAsync(learningId, "user1", "task-1");
-            
+
             await context.DisposeAsync();
         }
 
@@ -778,7 +778,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
             var options = Options.Create(new PersistenceOptions { DatabasePath = testDbPath });
             var context = new DatabaseContext(_loggerFactory.CreateLogger<DatabaseContext>(), options);
             await context.InitializeAsync();
-            
+
             var promotionRepo = new Daiv3.Persistence.Repositories.PromotionRepository(
                 context, _loggerFactory.CreateLogger<Daiv3.Persistence.Repositories.PromotionRepository>());
 
@@ -787,7 +787,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
             Assert.Single(promotions);
             Assert.Equal("Skill", promotions[0].FromScope);
             Assert.Equal("Agent", promotions[0].ToScope);
-            
+
             await context.DisposeAsync();
         }
     }
@@ -809,7 +809,7 @@ public class LearningManagementWorkflowTests : IAsyncLifetime
         // Assert: Promotion recorded with null optional fields
         var promotions = await promotionRepo.GetByLearningIdAsync(learningId);
         Assert.Single(promotions);
-        
+
         var promotion = promotions[0];
         Assert.Null(promotion.SourceTaskId);
         Assert.Null(promotion.SourceAgent);

@@ -44,7 +44,7 @@ public class WebFetchCancellationTests : IAsyncLifetime
     {
         // Arrange
         var fetcher = new WebFetcher(_httpClient, _logger, _mockHtmlParser.Object, null, _metrics);
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(50); // Cancel immediately
 
         // Act & Assert
@@ -57,7 +57,7 @@ public class WebFetchCancellationTests : IAsyncLifetime
     {
         // Arrange
         var fetcher = new WebFetcher(_httpClient, _logger, _mockHtmlParser.Object, null, _metrics);
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(50);
 
         // Act
@@ -106,7 +106,7 @@ public class WebFetchCancellationTests : IAsyncLifetime
     {
         // Arrange
         var fetcher = new WebFetcher(_httpClient, _logger, _mockHtmlParser.Object, null, _metrics);
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(50); // Cancel after 50ms
 
         // Act
@@ -134,7 +134,7 @@ public class WebFetchCancellationTests : IAsyncLifetime
         // Act - Record multiple cancellations
         for (int i = 0; i < 3; i++)
         {
-            var cts = new CancellationTokenSource();
+            using var cts = new CancellationTokenSource();
             cts.CancelAfter(50);
 
             try
@@ -180,7 +180,7 @@ public class WebFetchCancellationTests : IAsyncLifetime
     {
         // Arrange
         var fetcher = new WebFetcher(_httpClient, _logger, _mockHtmlParser.Object, null, _metrics);
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(50);
 
         // Act

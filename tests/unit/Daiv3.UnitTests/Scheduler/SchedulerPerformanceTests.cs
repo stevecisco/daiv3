@@ -34,7 +34,7 @@ public sealed class SchedulerPerformanceTests : IDisposable
     public SchedulerPerformanceTests(ITestOutputHelper output)
     {
         _output = output;
-        var loggerFactory = LoggerFactory.Create(builder =>
+        using var loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(LogLevel.Warning);
         });
@@ -229,7 +229,7 @@ public sealed class SchedulerPerformanceTests : IDisposable
         // Assert
         Assert.True(jobs.Count >= 100);
         _output.WriteLine($"GetAllJobsAsync completed in {stopwatch.ElapsedMilliseconds}ms for {jobs.Count} jobs");
-        
+
         // For larger datasets, we allow more time but should still be reasonable
         Assert.True(stopwatch.ElapsedMilliseconds < 50,
             $"Query operation for large dataset took {stopwatch.ElapsedMilliseconds}ms, expected < 50ms");
@@ -263,7 +263,7 @@ public sealed class SchedulerPerformanceTests : IDisposable
         // Arrange - register a job for an event
         var job = new TestJob("perf-test-event");
         await _scheduler.ScheduleOnEventAsync(job, "perf-test-event-type");
-        
+
         var schedulerEvent = new TestSchedulerEvent
         {
             EventType = "perf-test-event-type",
@@ -328,7 +328,7 @@ public sealed class SchedulerPerformanceTests : IDisposable
         // Arrange
         var job = new TestJob("perf-test-modify");
         var jobId = await _scheduler.ScheduleRecurringAsync(job, intervalSeconds: 60);
-        
+
         var modificationRequest = new ScheduleModificationRequest
         {
             IntervalSeconds = 120
@@ -352,17 +352,17 @@ public sealed class SchedulerPerformanceTests : IDisposable
     {
         // Arrange & Act - perform multiple scheduling operations in sequence
         var stopwatch = Stopwatch.StartNew();
-        
+
         for (int i = 0; i < 20; i++)
         {
             await _scheduler.ScheduleAtTimeAsync(new TestJob($"perf-burst-{i}"), DateTime.UtcNow.AddHours(1));
         }
-        
+
         stopwatch.Stop();
 
         // Assert
         _output.WriteLine($"20 schedule operations completed in {stopwatch.ElapsedMilliseconds}ms ({stopwatch.ElapsedMilliseconds / 20.0:F2}ms average)");
-        
+
         // Average should be well under threshold
         var averageMs = stopwatch.ElapsedMilliseconds / 20.0;
         Assert.True(averageMs < ScheduleOperationThreshold,
@@ -382,17 +382,17 @@ public sealed class SchedulerPerformanceTests : IDisposable
 
         // Act - perform multiple query operations
         var stopwatch = Stopwatch.StartNew();
-        
+
         for (int i = 0; i < 20; i++)
         {
             await _scheduler.GetJobMetadataAsync(jobIds[i % jobIds.Count]);
         }
-        
+
         stopwatch.Stop();
 
         // Assert
         _output.WriteLine($"20 query operations completed in {stopwatch.ElapsedMilliseconds}ms ({stopwatch.ElapsedMilliseconds / 20.0:F2}ms average)");
-        
+
         var averageMs = stopwatch.ElapsedMilliseconds / 20.0;
         Assert.True(averageMs < QueryOperationThreshold,
             $"Average query operation took {averageMs:F2}ms, expected < {QueryOperationThreshold}ms");

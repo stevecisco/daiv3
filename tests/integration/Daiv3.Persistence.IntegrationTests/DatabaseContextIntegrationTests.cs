@@ -22,7 +22,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
     public DatabaseContextIntegrationTests()
     {
         _testDbPath = Path.Combine(Path.GetTempPath(), $"daiv3_integration_test_{Guid.NewGuid():N}.db");
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
         _logger = loggerFactory.CreateLogger<DatabaseContext>();
     }
 
@@ -38,12 +38,12 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
 
         // Clear connection pools before attempting file deletion
         SqliteConnection.ClearAllPools();
-        
+
         // Give time for finalizers to complete
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
-        
+
         // Wait a bit for any lingering file handles to release
         await Task.Delay(200);
 
@@ -160,7 +160,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         var version = await _context.GetSchemaVersionAsync();
 
         // Assert
-           Assert.Equal(8, version);
+        Assert.Equal(8, version);
     }
 
     [Fact]
@@ -173,7 +173,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         // Act
         await _context.MigrateToLatestAsync();
         var version1 = await _context.GetSchemaVersionAsync();
-        
+
         await _context.MigrateToLatestAsync(); // Run again
         var version2 = await _context.GetSchemaVersionAsync();
 
@@ -244,7 +244,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         // Act
         await using (var transaction = await _context.BeginTransactionAsync())
         {
-            var dbTran = (DatabaseTransaction)transaction;
+            using var dbTran = (DatabaseTransaction)transaction;
             await using var command = dbTran.Connection!.CreateCommand();
             command.Transaction = dbTran.InnerTransaction;
             command.CommandText = @"
@@ -279,7 +279,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         // Act
         await using (var transaction = await _context.BeginTransactionAsync())
         {
-            var dbTran = (DatabaseTransaction)transaction;
+            using var dbTran = (DatabaseTransaction)transaction;
             await using var command = dbTran.Connection!.CreateCommand();
             command.Transaction = dbTran.InnerTransaction;
             command.CommandText = @"
@@ -343,7 +343,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
 
         var docId = Guid.NewGuid().ToString();
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        
+
         // Create a test embedding (768-dimensional vector)
         var embedding = new byte[768 * sizeof(float)];
         new Random().NextBytes(embedding);
@@ -375,7 +375,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
             command.CommandText = "SELECT embedding_blob FROM topic_index WHERE doc_id = $docId";
             command.Parameters.AddWithValue("$docId", docId);
             var retrievedBlob = (byte[])(await command.ExecuteScalarAsync())!;
-            
+
             Assert.NotNull(retrievedBlob);
             Assert.Equal(embedding.Length, retrievedBlob.Length);
             Assert.Equal(embedding, retrievedBlob);
@@ -471,7 +471,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         await using var connection = await _context!.GetConnectionAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
-        
+
         var tables = new List<string>();
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())

@@ -229,7 +229,7 @@ public class SchemaScriptsTests
         var ifNotExistsCount = CountOccurrences(sql, "IF NOT EXISTS");
 
         // Assert - All CREATE TABLE statements should have IF NOT EXISTS
-        Assert.True(ifNotExistsCount >= createTableCount, 
+        Assert.True(ifNotExistsCount >= createTableCount,
             $"Expected at least {createTableCount} IF NOT EXISTS clauses, found {ifNotExistsCount}");
     }
 
@@ -248,7 +248,7 @@ public class SchemaScriptsTests
 
         // Assert - Should have multiple valid SQL statements
         Assert.True(statements.Count > 8, $"Expected more than 8 SQL statements, found {statements.Count}");
-        
+
         // Each statement should start with a SQL keyword
         foreach (var statement in statements)
         {
@@ -261,7 +261,7 @@ public class SchemaScriptsTests
 
     private static string GetMigration001Sql()
     {
-        var field = typeof(SchemaScripts).GetField("Migration001_InitialSchema", 
+        var field = typeof(SchemaScripts).GetField("Migration001_InitialSchema",
             BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
         return field?.GetValue(null) as string ?? throw new InvalidOperationException("Could not access Migration001_InitialSchema");
     }

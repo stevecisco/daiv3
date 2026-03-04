@@ -73,7 +73,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
             ConfirmationMode = ConfirmationMode.Never // Bypass confirmation for this test
         };
 
-        var router = CreateRouter(options);
+        using var router = CreateRouter(options);
         var largeRequest = new ExecutionRequest
         {
             Id = Guid.NewGuid(),
@@ -105,7 +105,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
             }
         };
 
-        var router = CreateRouter(mappingConfig: mappingConfig);
+        using var router = CreateRouter(mappingConfig: mappingConfig);
         var request = new ExecutionRequest
         {
             Id = Guid.NewGuid(),
@@ -126,7 +126,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
     public async Task GetTokenUsageAsync_ReturnsCurrentUsage()
     {
         // Arrange
-        var router = CreateRouter();
+        using var router = CreateRouter();
         var provider = "openai";
 
         // Act
@@ -142,7 +142,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
     public async Task GetTokenUsageAsync_InvalidProvider_ThrowsException()
     {
         // Arrange
-        var router = CreateRouter();
+        using var router = CreateRouter();
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -163,7 +163,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
             }
         };
 
-        var router = CreateRouter(options);
+        using var router = CreateRouter(options);
 
         // Act
         var providers = await router.ListProvidersAsync();
@@ -179,7 +179,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
     public async Task IsProviderAvailableAsync_WithConfiguredProvider_ReturnsTrue()
     {
         // Arrange
-        var router = CreateRouter();
+        using var router = CreateRouter();
 
         // Act
         var isAvailable = await router.IsProviderAvailableAsync("openai");
@@ -192,7 +192,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
     public async Task IsProviderAvailableAsync_WithUnconfiguredProvider_ReturnsFalse()
     {
         // Arrange
-        var router = CreateRouter();
+        using var router = CreateRouter();
 
         // Act
         var isAvailable = await router.IsProviderAvailableAsync("non-existent");
@@ -205,7 +205,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
     public async Task ExecuteAsync_EstimatesTokensCorrectly()
     {
         // Arrange
-        var router = CreateRouter();
+        using var router = CreateRouter();
         var request = new ExecutionRequest
         {
             Id = Guid.NewGuid(),
@@ -280,7 +280,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
             }
         };
 
-        var router = CreateRouter(options, mappingConfig);
+        using var router = CreateRouter(options, mappingConfig);
         var request = new ExecutionRequest
         {
             Id = Guid.NewGuid(),
@@ -330,7 +330,7 @@ public class OnlineProviderRouterSmartRoutingTests : IDisposable
             }
         };
 
-        var router = CreateRouter(options, mappingConfig);
+        using var router = CreateRouter(options, mappingConfig);
         var request = new ExecutionRequest
         {
             Id = Guid.NewGuid(),

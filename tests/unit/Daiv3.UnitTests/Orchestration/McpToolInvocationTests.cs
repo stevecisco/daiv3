@@ -29,11 +29,11 @@ public class McpToolInvocationTests
 
         // Register orchestration services first to get all dependencies
         services.AddOrchestrationServices();
-        
+
         // Then override the MCP provider with our mock
         services.AddScoped(_ => _mockMcpProvider.Object);
 
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         _registry = (ToolRegistry)serviceProvider.GetRequiredService<IToolRegistry>();
         _routingService = (ToolRoutingService)serviceProvider.GetRequiredService<IToolInvoker>();
     }
@@ -454,7 +454,7 @@ public class McpToolInvocationTests
 
         await _registry.RegisterToolAsync(tool);
 
-        var cts = new CancellationTokenSource(100); // 100ms timeout
+        using var cts = new CancellationTokenSource(100); // 100ms timeout
 
         _mockMcpProvider
             .Setup(p => p.InvokeToolAsync(

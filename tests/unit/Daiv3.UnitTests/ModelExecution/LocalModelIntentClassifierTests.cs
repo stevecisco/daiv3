@@ -129,7 +129,7 @@ public class LocalModelIntentClassifierTests
     {
         // Arrange
         var optionsWrapper = Options.Create(_options);
-        
+
         // Set up the mock to throw once (first call in try block), 
         // then return safely for the fallback call
         var callCount = 0;

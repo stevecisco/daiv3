@@ -17,7 +17,7 @@ public class SchedulerServiceExtensionsTests
 
         // Act
         services.AddScheduler();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var scheduler = provider.GetService<IScheduler>();
@@ -32,7 +32,7 @@ public class SchedulerServiceExtensionsTests
 
         // Act
         services.AddScheduler();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var hostedService = provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>()
@@ -55,7 +55,7 @@ public class SchedulerServiceExtensionsTests
             options.MaxConcurrentJobs = 8;
         });
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SchedulerOptions>>();
 
         // Assert
@@ -72,7 +72,7 @@ public class SchedulerServiceExtensionsTests
 
         // Act
         services.AddScheduler();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SchedulerOptions>>();
 
         // Assert
@@ -93,7 +93,7 @@ public class SchedulerServiceExtensionsTests
         // Act
         services.AddScheduler();
         services.AddScheduler();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Get all IScheduler instances (should be same singleton)
         var schedulers = provider.GetServices<IScheduler>().ToList();

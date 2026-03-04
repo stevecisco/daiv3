@@ -26,11 +26,11 @@ public class ToolRoutingServiceTests
         _mockRegistry = new Mock<IToolRegistry>();
         _mockMcpProvider = new Mock<IMcpToolProvider>();
         _mockHttpClientFactory = new Mock<IHttpClientFactory>();
-        
+
         // Setup a basic HttpClient for the mock factory
         _mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>()))
             .Returns(new HttpClient());
-        
+
         _routingService = new ToolRoutingService(
             _mockLogger.Object,
             _mockRegistry.Object,
@@ -285,8 +285,8 @@ public class ToolRoutingServiceTests
         _mockMcpProvider.Setup(p => p.InvokeToolAsync(
                 "test-server",
                 "mcp-tool",
-                It.Is<Dictionary<string, object>>(d => 
-                    d.ContainsKey("query") && 
+                It.Is<Dictionary<string, object>>(d =>
+                    d.ContainsKey("query") &&
                     d["query"].ToString() == "test query" &&
                     d.ContainsKey("limit") &&
                     (int)d["limit"] == 10),

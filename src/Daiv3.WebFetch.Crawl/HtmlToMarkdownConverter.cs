@@ -112,7 +112,7 @@ public class HtmlToMarkdownConverter : IHtmlToMarkdownConverter
     private async Task<string> CleanHtmlAsync(string htmlContent, CancellationToken cancellationToken)
     {
         // Parse the HTML document using AngleSharp
-        var document = await _browsingContext.OpenAsync(req => req.Content(htmlContent), cancellationToken);
+        using var document = await _browsingContext.OpenAsync(req => req.Content(htmlContent), cancellationToken);
 
         // Remove excluded tags
         RemoveExcludedTags(document);

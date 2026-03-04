@@ -97,7 +97,7 @@ public class OnlineProviderRouterTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Contains( "azure-openai", result.Content);
+        Assert.Contains("azure-openai", result.Content);
     }
 
     [Fact]

@@ -31,11 +31,11 @@ public class Program
 
         // Database commands
         var dbCommand = new Command("db", "Database management commands");
-        
+
         var dbInitCommand = new Command("init", "Initialize the database");
         dbInitCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await DatabaseInitCommand(host);
             Environment.Exit(exitCode);
         });
@@ -43,7 +43,7 @@ public class Program
         var dbStatusCommand = new Command("status", "Show database status");
         dbStatusCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await DatabaseStatusCommand(host);
             Environment.Exit(exitCode);
         });
@@ -56,7 +56,7 @@ public class Program
         var dashboardCommand = new Command("dashboard", "Show system dashboard and status");
         dashboardCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await Task.FromResult(DashboardCommand(host));
             Environment.Exit(exitCode);
         });
@@ -70,7 +70,7 @@ public class Program
         chatCommand.AddOption(messageOption);
         chatCommand.SetHandler(async (string? message) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await Task.FromResult(ChatCommand(host, message));
             Environment.Exit(exitCode);
         }, messageOption);
@@ -78,11 +78,11 @@ public class Program
 
         // Projects command
         var projectsCommand = new Command("projects", "Project management commands");
-        
+
         var projectsListCommand = new Command("list", "List all projects");
         projectsListCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ProjectsListCommand(host);
             Environment.Exit(exitCode);
         });
@@ -90,7 +90,8 @@ public class Program
         var projectsCreateCommand = new Command("create", "Create a new project");
         var projectNameOption = new Option<string>(
             aliases: new[] { "--name", "-n" },
-            description: "Project name") { IsRequired = true };
+            description: "Project name")
+        { IsRequired = true };
         var projectDescOption = new Option<string>(
             aliases: new[] { "--description", "-d" },
             description: "Project description",
@@ -118,7 +119,7 @@ public class Program
         projectsCreateCommand.AddOption(fallbackModelOption);
         projectsCreateCommand.SetHandler(async (string name, string desc, string[] rootPaths, string? instructions, string? preferredModel, string? fallbackModel) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ProjectsCreateCommand(host, name, desc, rootPaths, instructions, preferredModel, fallbackModel);
             Environment.Exit(exitCode);
         }, projectNameOption, projectDescOption, projectRootPathOption, projectInstructionsOption, preferredModelOption, fallbackModelOption);
@@ -129,7 +130,7 @@ public class Program
 
         // Tasks command
         var tasksCommand = new Command("tasks", "Task management commands");
-        
+
         var tasksListCommand = new Command("list", "List all tasks");
         var taskProjectIdOption = new Option<string?>(
             aliases: new[] { "--project-id", "-p" },
@@ -141,7 +142,7 @@ public class Program
         tasksListCommand.AddOption(taskStatusOption);
         tasksListCommand.SetHandler(async (string? projectId, string? status) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await TasksListCommand(host, projectId, status);
             Environment.Exit(exitCode);
         }, taskProjectIdOption, taskStatusOption);
@@ -149,7 +150,8 @@ public class Program
         var tasksCreateCommand = new Command("create", "Create a new task");
         var taskTitleOption = new Option<string>(
             aliases: new[] { "--title", "-t" },
-            description: "Task title") { IsRequired = true };
+            description: "Task title")
+        { IsRequired = true };
         var taskDescriptionOption = new Option<string?>(
             aliases: new[] { "--description", "-d" },
             description: "Task description");
@@ -162,9 +164,9 @@ public class Program
             getDefaultValue: () => 5);
         var taskDependenciesOption = new Option<string[]>(
             aliases: new[] { "--dependency", "--dep" },
-            description: "Task dependency (repeat option for multiple)") 
-        { 
-            Arity = ArgumentArity.ZeroOrMore 
+            description: "Task dependency (repeat option for multiple)")
+        {
+            Arity = ArgumentArity.ZeroOrMore
         };
         tasksCreateCommand.AddOption(taskTitleOption);
         tasksCreateCommand.AddOption(taskDescriptionOption);
@@ -173,7 +175,7 @@ public class Program
         tasksCreateCommand.AddOption(taskDependenciesOption);
         tasksCreateCommand.SetHandler(async (string title, string? description, string? projectId, int priority, string[] dependencies) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await TasksCreateCommand(host, title, description, projectId, priority, dependencies);
             Environment.Exit(exitCode);
         }, taskTitleOption, taskDescriptionOption, taskProjectOption, taskPriorityOption, taskDependenciesOption);
@@ -181,7 +183,8 @@ public class Program
         var tasksUpdateCommand = new Command("update", "Update a task");
         var taskIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Task ID") { IsRequired = true };
+            description: "Task ID")
+        { IsRequired = true };
         var taskUpdateStatusOption = new Option<string?>(
             aliases: new[] { "--status", "-s" },
             description: "Update status");
@@ -193,7 +196,7 @@ public class Program
         tasksUpdateCommand.AddOption(taskUpdatePriorityOption);
         tasksUpdateCommand.SetHandler(async (string id, string? status, int? priority) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await TasksUpdateCommand(host, id, status, priority);
             Environment.Exit(exitCode);
         }, taskIdOption, taskUpdateStatusOption, taskUpdatePriorityOption);
@@ -205,7 +208,7 @@ public class Program
 
         // Schedule command
         var scheduleCommand = new Command("schedule", "Job scheduling commands");
-        
+
         var scheduleListCommand = new Command("list", "List all scheduled jobs");
         var scheduleStatusFilter = new Option<string?>(
             aliases: new[] { "--status", "-s" },
@@ -213,7 +216,7 @@ public class Program
         scheduleListCommand.AddOption(scheduleStatusFilter);
         scheduleListCommand.SetHandler(async (string? status) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ScheduleListCommand(host, status);
             Environment.Exit(exitCode);
         }, scheduleStatusFilter);
@@ -221,15 +224,17 @@ public class Program
         var scheduleCronCommand = new Command("cron", "Schedule a job using cron expression");
         var cronJobNameOption = new Option<string>(
             aliases: new[] { "--name", "-n" },
-            description: "Job name") { IsRequired = true };
+            description: "Job name")
+        { IsRequired = true };
         var cronExpressionOption = new Option<string>(
             aliases: new[] { "--expression", "-e" },
-            description: "Cron expression (e.g., '0 0 * * *' for daily at midnight)") { IsRequired = true };
+            description: "Cron expression (e.g., '0 0 * * *' for daily at midnight)")
+        { IsRequired = true };
         scheduleCronCommand.AddOption(cronJobNameOption);
         scheduleCronCommand.AddOption(cronExpressionOption);
         scheduleCronCommand.SetHandler(async (string jobName, string cronExpression) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ScheduleCronCommand(host, jobName, cronExpression);
             Environment.Exit(exitCode);
         }, cronJobNameOption, cronExpressionOption);
@@ -237,15 +242,17 @@ public class Program
         var scheduleOnceCommand = new Command("once", "Schedule a one-time job");
         var onceJobNameOption = new Option<string>(
             aliases: new[] { "--name", "-n" },
-            description: "Job name") { IsRequired = true };
+            description: "Job name")
+        { IsRequired = true };
         var onceTimeOption = new Option<DateTime>(
             aliases: new[] { "--time", "-t" },
-            description: "UTC time to run (ISO 8601 format, e.g., '2026-03-01T10:30:00Z')") { IsRequired = true };
+            description: "UTC time to run (ISO 8601 format, e.g., '2026-03-01T10:30:00Z')")
+        { IsRequired = true };
         scheduleOnceCommand.AddOption(onceJobNameOption);
         scheduleOnceCommand.AddOption(onceTimeOption);
         scheduleOnceCommand.SetHandler(async (string jobName, DateTime time) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ScheduleOnceCommand(host, jobName, time);
             Environment.Exit(exitCode);
         }, onceJobNameOption, onceTimeOption);
@@ -253,15 +260,17 @@ public class Program
         var scheduleEventCommand = new Command("on-event", "Schedule a job to run on event");
         var eventJobNameOption = new Option<string>(
             aliases: new[] { "--name", "-n" },
-            description: "Job name") { IsRequired = true };
+            description: "Job name")
+        { IsRequired = true };
         var eventTypeOption = new Option<string>(
             aliases: new[] { "--event-type", "-e" },
-            description: "Event type to listen for") { IsRequired = true };
+            description: "Event type to listen for")
+        { IsRequired = true };
         scheduleEventCommand.AddOption(eventJobNameOption);
         scheduleEventCommand.AddOption(eventTypeOption);
         scheduleEventCommand.SetHandler(async (string jobName, string eventType) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ScheduleEventCommand(host, jobName, eventType);
             Environment.Exit(exitCode);
         }, eventJobNameOption, eventTypeOption);
@@ -269,11 +278,12 @@ public class Program
         var scheduleCancelCommand = new Command("cancel", "Cancel a scheduled job");
         var cancelJobIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Job ID") { IsRequired = true };
+            description: "Job ID")
+        { IsRequired = true };
         scheduleCancelCommand.AddOption(cancelJobIdOption);
         scheduleCancelCommand.SetHandler(async (string jobId) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ScheduleCancelCommand(host, jobId);
             Environment.Exit(exitCode);
         }, cancelJobIdOption);
@@ -281,11 +291,12 @@ public class Program
         var scheduleInfoCommand = new Command("info", "Show detailed information about a scheduled job");
         var infoJobIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Job ID") { IsRequired = true };
+            description: "Job ID")
+        { IsRequired = true };
         scheduleInfoCommand.AddOption(infoJobIdOption);
         scheduleInfoCommand.SetHandler(async (string jobId) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ScheduleInfoCommand(host, jobId);
             Environment.Exit(exitCode);
         }, infoJobIdOption);
@@ -300,11 +311,12 @@ public class Program
         var schedulePauseCommand = new Command("pause", "Pause a scheduled job");
         var pauseJobIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Job ID") { IsRequired = true };
+            description: "Job ID")
+        { IsRequired = true };
         schedulePauseCommand.AddOption(pauseJobIdOption);
         schedulePauseCommand.SetHandler(async (string jobId) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await SchedulePauseCommand(host, jobId);
             Environment.Exit(exitCode);
         }, pauseJobIdOption);
@@ -312,11 +324,12 @@ public class Program
         var scheduleResumeCommand = new Command("resume", "Resume a paused job");
         var resumeJobIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Job ID") { IsRequired = true };
+            description: "Job ID")
+        { IsRequired = true };
         scheduleResumeCommand.AddOption(resumeJobIdOption);
         scheduleResumeCommand.SetHandler(async (string jobId) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ScheduleResumeCommand(host, jobId);
             Environment.Exit(exitCode);
         }, resumeJobIdOption);
@@ -324,7 +337,8 @@ public class Program
         var scheduleModifyCommand = new Command("modify", "Modify a scheduled job");
         var modifyJobIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Job ID") { IsRequired = true };
+            description: "Job ID")
+        { IsRequired = true };
         var modifyTimeOption = new Option<DateTime?>(
             aliases: new[] { "--time", "-t" },
             description: "New scheduled time (UTC, ISO 8601 format) for one-time jobs");
@@ -344,7 +358,7 @@ public class Program
         scheduleModifyCommand.AddOption(modifyEventTypeOption);
         scheduleModifyCommand.SetHandler(async (string jobId, DateTime? time, uint? interval, string? cron, string? eventType) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ScheduleModifyCommand(host, jobId, time, interval, cron, eventType);
             Environment.Exit(exitCode);
         }, modifyJobIdOption, modifyTimeOption, modifyIntervalOption, modifyCronOption, modifyEventTypeOption);
@@ -360,7 +374,7 @@ public class Program
         var agentListCommand = new Command("list", "List all agents");
         agentListCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentListCommand(host);
             Environment.Exit(exitCode);
         });
@@ -368,10 +382,12 @@ public class Program
         var agentCreateCommand = new Command("create", "Create a new agent");
         var agentNameOption = new Option<string>(
             aliases: new[] { "--name", "-n" },
-            description: "Agent name") { IsRequired = true };
+            description: "Agent name")
+        { IsRequired = true };
         var agentPurposeOption = new Option<string>(
             aliases: new[] { "--purpose", "-p" },
-            description: "Agent purpose or description") { IsRequired = true };
+            description: "Agent purpose or description")
+        { IsRequired = true };
         var agentSkillsOption = new Option<string[]>(
             aliases: new[] { "--skills", "-s" },
             description: "Enabled skill names (repeat option for multiple skills)")
@@ -383,7 +399,7 @@ public class Program
         agentCreateCommand.AddOption(agentSkillsOption);
         agentCreateCommand.SetHandler(async (string name, string purpose, string[] skills) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentCreateCommand(host, name, purpose, skills);
             Environment.Exit(exitCode);
         }, agentNameOption, agentPurposeOption, agentSkillsOption);
@@ -391,7 +407,8 @@ public class Program
         var agentCreateForTaskCommand = new Command("create-for-task", "Create or reuse a dynamic agent for a task type");
         var agentTaskTypeOption = new Option<string>(
             aliases: new[] { "--task-type", "-t" },
-            description: "Task type to map to a dynamic agent") { IsRequired = true };
+            description: "Task type to map to a dynamic agent")
+        { IsRequired = true };
         var agentTaskNameOption = new Option<string?>(
             aliases: new[] { "--name", "-n" },
             description: "Optional explicit agent name override");
@@ -410,7 +427,7 @@ public class Program
         agentCreateForTaskCommand.AddOption(agentTaskSkillsOption);
         agentCreateForTaskCommand.SetHandler(async (string taskType, string? name, string? purpose, string[] skills) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentCreateForTaskTypeCommand(host, taskType, name, purpose, skills);
             Environment.Exit(exitCode);
         }, agentTaskTypeOption, agentTaskNameOption, agentTaskPurposeOption, agentTaskSkillsOption);
@@ -418,11 +435,12 @@ public class Program
         var agentGetCommand = new Command("get", "Get agent details");
         var agentIdGetOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Agent ID") { IsRequired = true };
+            description: "Agent ID")
+        { IsRequired = true };
         agentGetCommand.AddOption(agentIdGetOption);
         agentGetCommand.SetHandler(async (string id) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentGetCommand(host, id);
             Environment.Exit(exitCode);
         }, agentIdGetOption);
@@ -430,11 +448,12 @@ public class Program
         var agentDeleteCommand = new Command("delete", "Delete an agent");
         var agentIdDeleteOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Agent ID") { IsRequired = true };
+            description: "Agent ID")
+        { IsRequired = true };
         agentDeleteCommand.AddOption(agentIdDeleteOption);
         agentDeleteCommand.SetHandler(async (string id) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentDeleteCommand(host, id);
             Environment.Exit(exitCode);
         }, agentIdDeleteOption);
@@ -442,10 +461,12 @@ public class Program
         var agentExecuteCommand = new Command("execute", "Execute a task using an agent");
         var agentIdExecuteOption = new Option<string>(
             aliases: new[] { "--agent-id", "-a" },
-            description: "Agent ID to use for execution") { IsRequired = true };
+            description: "Agent ID to use for execution")
+        { IsRequired = true };
         var agentGoalOption = new Option<string>(
             aliases: new[] { "--goal", "-g" },
-            description: "Task goal or objective") { IsRequired = true };
+            description: "Task goal or objective")
+        { IsRequired = true };
         var agentMaxIterationsOption = new Option<int>(
             aliases: new[] { "--max-iterations", "-i" },
             description: "Maximum number of iterations (default: 10)",
@@ -465,7 +486,7 @@ public class Program
         agentExecuteCommand.AddOption(agentTokenBudgetOption);
         agentExecuteCommand.SetHandler(async (string agentId, string goal, int maxIterations, int timeout, int tokenBudget) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentExecuteCommand(host, agentId, goal, maxIterations, timeout, tokenBudget);
             Environment.Exit(exitCode);
         }, agentIdExecuteOption, agentGoalOption, agentMaxIterationsOption, agentTimeoutOption, agentTokenBudgetOption);
@@ -473,7 +494,8 @@ public class Program
         var agentLoadCommand = new Command("load", "Load agent(s) from a configuration file or directory");
         var agentConfigPathOption = new Option<string>(
             aliases: new[] { "--path", "-p" },
-            description: "Path to configuration file (.json) or directory of configuration files") { IsRequired = true };
+            description: "Path to configuration file (.json) or directory of configuration files")
+        { IsRequired = true };
         var agentRecursiveOption = new Option<bool>(
             aliases: new[] { "--recursive", "-r" },
             description: "When loading from directory, search subdirectories recursively",
@@ -487,7 +509,7 @@ public class Program
         agentLoadCommand.AddOption(agentValidateOnlyOption);
         agentLoadCommand.SetHandler(async (string path, bool recursive, bool validateOnly) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentLoadCommand(host, path, recursive, validateOnly);
             Environment.Exit(exitCode);
         }, agentConfigPathOption, agentRecursiveOption, agentValidateOnlyOption);
@@ -503,7 +525,7 @@ public class Program
 
         // Learning command
         var learningCommand = new Command("learning", "Learning management commands");
-        
+
         var learningListCommand = new Command("list", "List learnings with optional filters");
         var learningStatusOption = new Option<string?>(
             aliases: new[] { "--status", "-s" },
@@ -523,7 +545,7 @@ public class Program
         learningListCommand.AddOption(learningMinConfidenceOption);
         learningListCommand.SetHandler(async (string? status, string? scope, string? agent, double? minConfidence) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await LearningListCommand(host, status, scope, agent, minConfidence);
             Environment.Exit(exitCode);
         }, learningStatusOption, learningScopeOption, learningAgentOption, learningMinConfidenceOption);
@@ -531,10 +553,12 @@ public class Program
         var learningCreateCommand = new Command("create", "Manually create a new learning");
         var learningCreateTitleOption = new Option<string>(
             aliases: new[] { "--title", "-t" },
-            description: "Short summary of the learning") { IsRequired = true };
+            description: "Short summary of the learning")
+        { IsRequired = true };
         var learningCreateDescOption = new Option<string>(
             aliases: new[] { "--description", "-d" },
-            description: "Full explanation of what was learned") { IsRequired = true };
+            description: "Full explanation of what was learned")
+        { IsRequired = true };
         var learningCreateScopeOption = new Option<string>(
             aliases: new[] { "--scope", "-s" },
             description: "Scope where this applies: Global, Agent, Skill, Project, Domain",
@@ -561,7 +585,7 @@ public class Program
         learningCreateCommand.AddOption(learningCreateSourceTaskOption);
         learningCreateCommand.SetHandler(async (string title, string description, string scope, double confidence, string? tags, string? sourceAgent, string? sourceTask) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await LearningCreateCommand(host, title, description, scope, confidence, tags, sourceAgent, sourceTask);
             Environment.Exit(exitCode);
         }, learningCreateTitleOption, learningCreateDescOption, learningCreateScopeOption, learningCreateConfidenceOption, learningCreateTagsOption, learningCreateSourceAgentOption, learningCreateSourceTaskOption);
@@ -569,11 +593,12 @@ public class Program
         var learningViewCommand = new Command("view", "View detailed information about a specific learning");
         var learningIdViewOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Learning ID") { IsRequired = true };
+            description: "Learning ID")
+        { IsRequired = true };
         learningViewCommand.AddOption(learningIdViewOption);
         learningViewCommand.SetHandler(async (string id) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await LearningViewCommand(host, id);
             Environment.Exit(exitCode);
         }, learningIdViewOption);
@@ -581,7 +606,8 @@ public class Program
         var learningEditCommand = new Command("edit", "Edit learning properties");
         var learningIdEditOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Learning ID") { IsRequired = true };
+            description: "Learning ID")
+        { IsRequired = true };
         var learningEditTitleOption = new Option<string?>(
             aliases: new[] { "--title" },
             description: "Update title");
@@ -609,7 +635,7 @@ public class Program
         learningEditCommand.AddOption(learningEditScopeOption);
         learningEditCommand.SetHandler(async (string id, string? title, string? description, double? confidence, string? tags, string? status, string? scope) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await LearningEditCommand(host, id, title, description, confidence, tags, status, scope);
             Environment.Exit(exitCode);
         }, learningIdEditOption, learningEditTitleOption, learningEditDescOption, learningEditConfidenceOption, learningEditTagsOption, learningEditStatusOption, learningEditScopeOption);
@@ -617,7 +643,7 @@ public class Program
         var learningStatsCommand = new Command("stats", "Show learning statistics and aggregates");
         learningStatsCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await LearningStatsCommand(host);
             Environment.Exit(exitCode);
         });
@@ -625,11 +651,12 @@ public class Program
         var learningSuppressCommand = new Command("suppress", "Suppress a learning (prevent injection into prompts)");
         var learningIdSuppressOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Learning ID") { IsRequired = true };
+            description: "Learning ID")
+        { IsRequired = true };
         learningSuppressCommand.AddOption(learningIdSuppressOption);
         learningSuppressCommand.SetHandler(async (string id) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await LearningSuppressCommand(host, id);
             Environment.Exit(exitCode);
         }, learningIdSuppressOption);
@@ -637,11 +664,12 @@ public class Program
         var learningPromoteCommand = new Command("promote", "Promote a learning to broader scope (Skill→Agent→Project→Domain→Global)");
         var learningIdPromoteOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Learning ID") { IsRequired = true };
+            description: "Learning ID")
+        { IsRequired = true };
         learningPromoteCommand.AddOption(learningIdPromoteOption);
         learningPromoteCommand.SetHandler(async (string id) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await LearningPromoteCommand(host, id);
             Environment.Exit(exitCode);
         }, learningIdPromoteOption);
@@ -649,11 +677,12 @@ public class Program
         var learningSupersedeCommand = new Command("supersede", "Mark a learning as superseded (replaced by newer learning)");
         var learningIdSupersedeOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Learning ID") { IsRequired = true };
+            description: "Learning ID")
+        { IsRequired = true };
         learningSupersedeCommand.AddOption(learningIdSupersedeOption);
         learningSupersedeCommand.SetHandler(async (string id) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await LearningSupersedeCommand(host, id);
             Environment.Exit(exitCode);
         }, learningIdSupersedeOption);
@@ -670,7 +699,7 @@ public class Program
 
         // Agent promotion proposal commands (KBP-REQ-003)
         var agentProposalCommand = new Command("agent-proposal", "Agent-proposed learning promotions requiring confirmation");
-        
+
         var agentProposalListCommand = new Command("list", "List pending agent-proposed promotions");
         var proposalStatusOption = new Option<string?>(
             aliases: new[] { "--status", "-s" },
@@ -678,7 +707,7 @@ public class Program
         agentProposalListCommand.AddOption(proposalStatusOption);
         agentProposalListCommand.SetHandler(async (string? status) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentProposalListCommand(host, status);
             Environment.Exit(exitCode);
         }, proposalStatusOption);
@@ -686,11 +715,12 @@ public class Program
         var agentProposalViewCommand = new Command("view", "View detailed information about a proposal");
         var proposalIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Proposal ID") { IsRequired = true };
+            description: "Proposal ID")
+        { IsRequired = true };
         agentProposalViewCommand.AddOption(proposalIdOption);
         agentProposalViewCommand.SetHandler(async (string id) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentProposalViewCommand(host, id);
             Environment.Exit(exitCode);
         }, proposalIdOption);
@@ -698,11 +728,12 @@ public class Program
         var agentProposalApproveCommand = new Command("approve", "Approve an agent-proposed promotion");
         var approveProposalIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Proposal ID") { IsRequired = true };
+            description: "Proposal ID")
+        { IsRequired = true };
         agentProposalApproveCommand.AddOption(approveProposalIdOption);
         agentProposalApproveCommand.SetHandler(async (string id) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentProposalApproveCommand(host, id);
             Environment.Exit(exitCode);
         }, approveProposalIdOption);
@@ -710,7 +741,8 @@ public class Program
         var agentProposalRejectCommand = new Command("reject", "Reject an agent-proposed promotion");
         var rejectProposalIdOption = new Option<string>(
             aliases: new[] { "--id" },
-            description: "Proposal ID") { IsRequired = true };
+            description: "Proposal ID")
+        { IsRequired = true };
         var rejectReasonOption = new Option<string?>(
             aliases: new[] { "--reason", "-r" },
             description: "Optional reason for rejection");
@@ -718,7 +750,7 @@ public class Program
         agentProposalRejectCommand.AddOption(rejectReasonOption);
         agentProposalRejectCommand.SetHandler(async (string id, string? reason) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentProposalRejectCommand(host, id, reason);
             Environment.Exit(exitCode);
         }, rejectProposalIdOption, rejectReasonOption);
@@ -726,7 +758,7 @@ public class Program
         var agentProposalStatsCommand = new Command("stats", "Show statistics about agent promotion proposals");
         agentProposalStatsCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await AgentProposalStatsCommand(host);
             Environment.Exit(exitCode);
         });
@@ -740,11 +772,11 @@ public class Program
 
         // Settings command
         var settingsCommand = new Command("settings", "Configuration management");
-        
+
         var settingsShowCommand = new Command("show", "Show current settings");
         settingsShowCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await Task.FromResult(SettingsShowCommand(host));
             Environment.Exit(exitCode);
         });
@@ -754,11 +786,11 @@ public class Program
 
         // Knowledge commands
         var knowledgeCommand = new Command("knowledge", "Knowledge layer management (indexing and search)");
-        
+
         var knowledgeLoadCommand = new Command("load-index", "Load topic embeddings into memory for fast search");
         knowledgeLoadCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await KnowledgeLoadIndexCommand(host);
             Environment.Exit(exitCode);
         });
@@ -768,7 +800,7 @@ public class Program
 
         // Embedding commands
         var embeddingCommand = new Command("embedding", "Embedding generation and testing");
-        
+
         var embeddingTestCommand = new Command("test", "Test embedding generation with sample text");
         var textOption = new Option<string>(
             aliases: new[] { "--text", "-t" },
@@ -777,7 +809,7 @@ public class Program
         embeddingTestCommand.AddOption(textOption);
         embeddingTestCommand.SetHandler(async (string text) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await EmbeddingTestCommand(host, text);
             Environment.Exit(exitCode);
         }, textOption);
@@ -787,7 +819,7 @@ public class Program
 
         // Multimodal CLIP commands
         var multimodalCommand = new Command("multimodal", "CLIP multimodal image-text embedding testing");
-        
+
         var multimodalTextCommand = new Command("text", "Test text embedding with CLIP");
         var multimodalTextOption = new Option<string>(
             aliases: new[] { "--text", "-t" },
@@ -796,7 +828,7 @@ public class Program
         multimodalTextCommand.AddOption(multimodalTextOption);
         multimodalTextCommand.SetHandler(async (string text) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await MultimodalTextCommand(host, text);
             Environment.Exit(exitCode);
         }, multimodalTextOption);
@@ -806,11 +838,11 @@ public class Program
 
         // OCR commands
         var ocrCommand = new Command("ocr", "Optical Character Recognition (OCR) testing");
-        
+
         var ocrTestCommand = new Command("test", "Test OCR with sample text");
         ocrTestCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await OcrTestCommand(host);
             Environment.Exit(exitCode);
         });
@@ -820,13 +852,13 @@ public class Program
 
         // Learning promotion commands (KBP-REQ-002)
         var learningPromotionCommand = new Command("learning-promote", "Learning promotion commands");
-        
+
         var listTaskLearningsCommand = new Command("list-from-task", "List learnings from a completed task");
         var taskIdArgument = new Argument<string>("taskId", "The task ID to list learnings from");
         listTaskLearningsCommand.AddArgument(taskIdArgument);
         listTaskLearningsCommand.SetHandler(async (string taskId) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ListTaskLearningsCommand(host, taskId);
             Environment.Exit(exitCode);
         }, taskIdArgument);
@@ -857,7 +889,7 @@ public class Program
         promoteFromTaskCommand.AddOption(promotionNotesOption);
         promoteFromTaskCommand.SetHandler(async (string taskId, string[] learningIds, string[] targetScopes, string? notes) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await PromoteLearningsFromTaskCommand(host, taskId, learningIds, targetScopes, notes);
             Environment.Exit(exitCode);
         }, promoteTaskIdArgument, learningIdsOption, targetScopesOption, promotionNotesOption);
@@ -877,7 +909,7 @@ public class Program
         listPromotionsCommand.AddOption(limitOption);
         listPromotionsCommand.SetHandler(async (int limit) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ListPromotionHistoryCommand(host, limit);
             Environment.Exit(exitCode);
         }, limitOption);
@@ -887,7 +919,7 @@ public class Program
         viewPromotionHistoryCommand.AddArgument(learningIdArgForHistory);
         viewPromotionHistoryCommand.SetHandler(async (string learningId) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ViewLearningPromotionHistoryCommand(host, learningId);
             Environment.Exit(exitCode);
         }, learningIdArgForHistory);
@@ -897,7 +929,7 @@ public class Program
         byTaskCommand.AddArgument(taskIdArgForHistory);
         byTaskCommand.SetHandler(async (string taskId) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ViewPromotionsByTaskCommand(host, taskId);
             Environment.Exit(exitCode);
         }, taskIdArgForHistory);
@@ -907,7 +939,7 @@ public class Program
         byScopeCommand.AddArgument(scopeArgForHistory);
         byScopeCommand.SetHandler(async (string scope) =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ViewPromotionsByScopeCommand(host, scope);
             Environment.Exit(exitCode);
         }, scopeArgForHistory);
@@ -915,7 +947,7 @@ public class Program
         var promotionStatsCommand = new Command("stats", "Show statistics about promotion activity");
         promotionStatsCommand.SetHandler(async () =>
         {
-            var host = CreateHost();
+            using var host = CreateHost();
             var exitCode = await ShowPromotionStatsCommand(host);
             Environment.Exit(exitCode);
         });
@@ -989,16 +1021,16 @@ public class Program
         try
         {
             Console.WriteLine("Initializing Daiv3 database...");
-            
+
             await host.Services.InitializeDatabaseAsync();
-            
+
             var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
             var version = await dbContext.GetSchemaVersionAsync();
-            
+
             Console.WriteLine($"✓ Database initialized successfully");
             Console.WriteLine($"  Path: {dbContext.DatabasePath}");
             Console.WriteLine($"  Schema Version: {version}");
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -1021,10 +1053,10 @@ public class Program
         try
         {
             var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
-            
+
             Console.WriteLine("Database Status:");
             Console.WriteLine($"  Path: {dbContext.DatabasePath}");
-            
+
             if (!File.Exists(dbContext.DatabasePath))
             {
                 Console.WriteLine($"  Status: Not initialized");
@@ -1034,10 +1066,10 @@ public class Program
             var fileInfo = new FileInfo(dbContext.DatabasePath);
             Console.WriteLine($"  Size: {fileInfo.Length:N0} bytes");
             Console.WriteLine($"  Last Modified: {fileInfo.LastWriteTime}");
-            
+
             var version = await dbContext.GetSchemaVersionAsync();
             Console.WriteLine($"  Schema Version: {version}");
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -1075,7 +1107,7 @@ public class Program
 
             Console.WriteLine("NOTE: Full hardware detection and queue monitoring pending integration.");
             Console.WriteLine("      Use 'db status' to check database, 'projects list' for projects.");
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -1090,7 +1122,7 @@ public class Program
         try
         {
             var logger = host.Services.GetRequiredService<ILogger<Program>>();
-            
+
             if (singleMessage != null)
             {
                 // Single message mode
@@ -1111,7 +1143,7 @@ public class Program
             {
                 Console.Write("You: ");
                 var input = Console.ReadLine();
-                
+
                 if (string.IsNullOrWhiteSpace(input))
                     continue;
 
@@ -1125,7 +1157,7 @@ public class Program
                 Console.WriteLine($"AI: Echo: {input} (Orchestration integration pending)");
                 logger.LogInformation("Processed chat message: {Message}", input);
             }
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -1181,7 +1213,7 @@ public class Program
                 Console.WriteLine($"  Updated: {FromUnixSeconds(project.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
                 Console.WriteLine();
             }
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -1255,7 +1287,7 @@ public class Program
             Console.WriteLine($"  Fallback Model: {effectiveProjectConfiguration.ModelPreferences.FallbackModelId ?? string.Empty}");
             Console.WriteLine("  Status: active");
             Console.WriteLine($"  Created: {FromUnixSeconds(now):yyyy-MM-dd HH:mm:ss} UTC");
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -1318,7 +1350,7 @@ public class Program
             Console.WriteLine("  Token Budget: 8192 (default)");
             Console.WriteLine();
             Console.WriteLine("NOTE: Settings persistence integration pending.");
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -1370,7 +1402,7 @@ public class Program
                 Console.WriteLine($"  Project: {task.ProjectId ?? "(none)"}");
                 Console.WriteLine($"  Status: {task.Status}");
                 Console.WriteLine($"  Priority: {task.Priority}");
-                
+
                 if (!string.IsNullOrEmpty(task.DependenciesJson))
                 {
                     Console.WriteLine($"  Dependencies: {task.DependenciesJson}");
@@ -1908,11 +1940,11 @@ public class Program
     }
 
     private static async Task<int> ScheduleModifyCommand(
-        IHost host, 
-        string jobId, 
-        DateTime? time, 
-        uint? interval, 
-        string? cron, 
+        IHost host,
+        string jobId,
+        DateTime? time,
+        uint? interval,
+        string? cron,
         string? eventType)
     {
         try
@@ -2001,7 +2033,7 @@ public class Program
                 Console.WriteLine($"  Job ID: {jobId}");
                 Console.WriteLine($"  Job Name: {metadata.JobName}");
                 Console.WriteLine($"  Schedule Type: {metadata.ScheduleType}");
-                
+
                 if (request.ScheduledAtUtc.HasValue)
                 {
                     Console.WriteLine($"  New Scheduled Time: {request.ScheduledAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC");
@@ -2173,7 +2205,7 @@ public class Program
             Console.WriteLine($"  Purpose: {agent.Purpose}");
             Console.WriteLine($"  Enabled Skills: {(agent.EnabledSkills.Count > 0 ? string.Join(", ", agent.EnabledSkills) : "(none)")}");
             Console.WriteLine($"  Created: {agent.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
-            
+
             if (agent.Config.Count > 0)
             {
                 Console.WriteLine("  Configuration:");
@@ -2339,7 +2371,7 @@ public class Program
 
             // Load configuration file(s)
             var batch = await loader.LoadAgentBatchAsync(configPath, recursive);
-            
+
             if (batch.Agents.Count == 0)
             {
                 Console.WriteLine("✗ No agent configurations found at the specified path.");
@@ -2522,7 +2554,7 @@ public class Program
         {
             var logger = host.Services.GetRequiredService<ILogger<Program>>();
             var learningOrchService = host.Services.GetRequiredService<LearningService>();
-            
+
             logger.LogInformation("Creating manual learning: {Title}", title);
 
             // Validate inputs
@@ -2628,7 +2660,7 @@ public class Program
             Console.WriteLine($"  Status: {learning.Status}");
             Console.WriteLine($"  Confidence: {learning.Confidence:F3}");
             Console.WriteLine($"  Times Applied: {learning.TimesApplied}");
-            
+
             if (!string.IsNullOrEmpty(learning.Tags))
             {
                 Console.WriteLine($"  Tags: {learning.Tags}");
@@ -2671,7 +2703,7 @@ public class Program
         }
     }
 
-    private static async Task<int> LearningEditCommand(IHost host, string id, string? title, string? description, 
+    private static async Task<int> LearningEditCommand(IHost host, string id, string? title, string? description,
         double? confidence, string? tags, string? status, string? scope)
     {
         try
@@ -3032,30 +3064,30 @@ public class Program
             Console.WriteLine("=======================");
             Console.WriteLine();
             Console.Write("Loading topic embeddings into memory... ");
-            
+
             await host.Services.InitializeKnowledgeLayerAsync().ConfigureAwait(false);
-            
+
             Console.WriteLine("✓ Success!");
             Console.WriteLine();
-            
+
             var indexService = host.Services.GetRequiredService<ITwoTierIndexService>();
             var stats = await indexService.GetStatisticsAsync().ConfigureAwait(false);
-            
+
             Console.WriteLine("INDEX STATISTICS");
             Console.WriteLine("================");
             Console.WriteLine($"Total documents: {stats.DocumentCount}");
             Console.WriteLine($"Total chunks (Tier 2): {stats.ChunkCount}");
             Console.WriteLine($"Cached topic embeddings: {stats.CachedTopicEmbeddings}");
-            
+
             if (stats.EstimatedMemoryBytes > 0)
             {
                 var memoryMB = stats.EstimatedMemoryBytes / (1024.0 * 1024.0);
                 Console.WriteLine($"Memory usage: {memoryMB:F2} MB");
             }
-            
+
             Console.WriteLine();
             Console.WriteLine("✓ Knowledge index is ready for semantic search");
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -3078,33 +3110,33 @@ public class Program
             logger.LogInformation("Testing embedding generation with text: {Text}", text);
 
             var generator = host.Services.GetRequiredService<IEmbeddingGenerator>();
-            
+
             Console.WriteLine("EMBEDDING TEST");
             Console.WriteLine("==============");
             Console.WriteLine($"Input text: {text}");
             Console.WriteLine();
             Console.Write("Generating embedding... ");
-            
+
             var embedding = await generator.GenerateEmbeddingAsync(text);
-            
+
             Console.WriteLine("✓ Success!");
             Console.WriteLine();
             Console.WriteLine($"Embedding dimensions: {embedding.Length}");
-            
+
             // Calculate basic statistics
             float magnitude = 0;
             float max = embedding[0];
             float min = embedding[0];
-            
+
             for (int i = 0; i < embedding.Length; i++)
             {
                 magnitude += embedding[i] * embedding[i];
                 if (embedding[i] > max) max = embedding[i];
                 if (embedding[i] < min) min = embedding[i];
             }
-            
+
             magnitude = (float)Math.Sqrt(magnitude);
-            
+
             Console.WriteLine($"Vector magnitude: {magnitude:F4}");
             Console.WriteLine($"Value range: [{min:F6}, {max:F6}]");
             Console.WriteLine();
@@ -3113,15 +3145,15 @@ public class Program
             {
                 Console.WriteLine($"  [{i,3}] = {embedding[i]:F6}");
             }
-            
+
             if (embedding.Length > 10)
             {
                 Console.WriteLine($"  ... ({embedding.Length - 10} more values)");
             }
-            
+
             logger.LogInformation("✓ Embedding test completed successfully. Dimensions: {Dimensions}, Magnitude: {Magnitude:F4}",
                 embedding.Length, magnitude);
-            
+
             return 0;
         }
         catch (Exception ex)
@@ -3144,7 +3176,7 @@ public class Program
             Console.WriteLine("==================================");
             Console.WriteLine($"Input text: {text}");
             Console.WriteLine();
-            
+
             // TODO: Integrate with actual CLIP text encoder when available
             Console.WriteLine("Status: CLIP text encoder integration pending");
             Console.WriteLine();
@@ -3159,7 +3191,7 @@ public class Program
             Console.WriteLine("  • Vision Encoder Output Dims: 512");
             Console.WriteLine("  • Hardware: NPU/GPU (full precision), CPU (quantized)");
             Console.WriteLine();
-            
+
             logger.LogInformation("CLIP text encoding test completed (integration pending)");
             return 0;
         }
@@ -3182,7 +3214,7 @@ public class Program
             Console.WriteLine("OCR (OPTICAL CHARACTER RECOGNITION) TEST");
             Console.WriteLine("========================================");
             Console.WriteLine();
-            
+
             // TODO: Integrate with actual TrOCR encoder-decoder when available
             Console.WriteLine("Status: TrOCR integration pending");
             Console.WriteLine();
@@ -3205,7 +3237,7 @@ public class Program
             Console.WriteLine("  ocr test");
             Console.WriteLine("    Demonstrates OCR capabilities on sample images");
             Console.WriteLine();
-            
+
             logger.LogInformation("OCR test completed (integration pending)");
             return 0;
         }
@@ -3457,19 +3489,19 @@ public class Program
     {
         // Tier 1: all-MiniLM-L6-v2 (384 dimensions) - Topic/Summary level
         const string Tier1ModelDownloadUrl = "https://stdaiv3.blob.core.windows.net/models/embedding/onnx/all-MiniLM-L6-v2/model.onnx";
-        
+
         // Tier 2: nomic-embed-text-v1.5 (768 dimensions) - Chunk level
         const string Tier2ModelDownloadUrl = "https://stdaiv3.blob.core.windows.net/models/embedding/onnx/nomic-embed-text-v1.5/model.onnx";
-        
+
         try
         {
             var tier1Path = GetTier1ModelPath();
             var tier2Path = GetTier2ModelPath();
-            
+
             // Check if both models already exist
             var tier1Exists = File.Exists(tier1Path);
             var tier2Exists = File.Exists(tier2Path);
-            
+
             if (tier1Exists && tier2Exists)
             {
                 return; // Both models already exist, no need to download
@@ -3941,7 +3973,7 @@ public class Program
 
             var bootstrapService = tempHost.Services.GetRequiredService<EmbeddingModelBootstrapService>();
             var logger = tempHost.Services.GetRequiredService<ILogger<Program>>();
-            
+
             // Bootstrap all models (embeddings Tier 1/2, OCR, multimodal) with progress reporting
             var success = await bootstrapService.EnsureModelsAsync(progress =>
             {
@@ -4289,17 +4321,17 @@ public class Program
                 Console.WriteLine($"  Scope Change: {promo.FromScope} → {promo.ToScope}");
                 Console.WriteLine($"  Promoted By: {promo.PromotedBy}");
                 Console.WriteLine($"  Promoted At: {DateTimeOffset.FromUnixTimeSeconds(promo.PromotedAt):u}");
-                
+
                 if (!string.IsNullOrEmpty(promo.SourceTaskId))
                 {
                     Console.WriteLine($"  Source Task: {promo.SourceTaskId}");
                 }
-                
+
                 if (!string.IsNullOrEmpty(promo.SourceAgent))
                 {
                     Console.WriteLine($"  Source Agent: {promo.SourceAgent}");
                 }
-                
+
                 if (!string.IsNullOrEmpty(promo.Notes))
                 {
                     Console.WriteLine($"  Notes: {promo.Notes}");
@@ -4372,12 +4404,12 @@ public class Program
                 Console.WriteLine($"{promo.FromScope} → {promo.ToScope}");
                 Console.WriteLine($"  Promoted By: {promo.PromotedBy}");
                 Console.WriteLine($"  Promoted At: {DateTimeOffset.FromUnixTimeSeconds(promo.PromotedAt):u}");
-                
+
                 if (!string.IsNullOrEmpty(promo.SourceTaskId))
                 {
                     Console.WriteLine($"  Source Task: {promo.SourceTaskId}");
                 }
-                
+
                 if (!string.IsNullOrEmpty(promo.Notes))
                 {
                     Console.WriteLine($"  Notes: {promo.Notes}");
@@ -4432,7 +4464,7 @@ public class Program
                 Console.WriteLine($"  Scope Change: {promo.FromScope} → {promo.ToScope}");
                 Console.WriteLine($"  Promoted By: {promo.PromotedBy}");
                 Console.WriteLine($"  Promoted At: {DateTimeOffset.FromUnixTimeSeconds(promo.PromotedAt):u}");
-                
+
                 if (!string.IsNullOrEmpty(promo.Notes))
                 {
                     Console.WriteLine($"  Notes: {promo.Notes}");
@@ -4497,12 +4529,12 @@ public class Program
                 Console.WriteLine($"  From Scope: {promo.FromScope}");
                 Console.WriteLine($"  Promoted By: {promo.PromotedBy}");
                 Console.WriteLine($"  Promoted At: {DateTimeOffset.FromUnixTimeSeconds(promo.PromotedAt):u}");
-                
+
                 if (!string.IsNullOrEmpty(promo.SourceTaskId))
                 {
                     Console.WriteLine($"  Source Task: {promo.SourceTaskId}");
                 }
-                
+
                 if (!string.IsNullOrEmpty(promo.Notes))
                 {
                     Console.WriteLine($"  Notes: {promo.Notes}");

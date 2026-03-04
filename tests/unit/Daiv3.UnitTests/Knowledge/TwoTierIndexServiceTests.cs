@@ -66,18 +66,18 @@ public class TwoTierIndexServiceTests
         // Arrange
         var topics = new List<TopicIndex>
         {
-            new TopicIndex 
-            { 
-                DocId = "doc1", 
-                SummaryText = "Document 1", 
-                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]), 
+            new TopicIndex
+            {
+                DocId = "doc1",
+                SummaryText = "Document 1",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
                 EmbeddingDimensions = 384
             },
-            new TopicIndex 
-            { 
-                DocId = "doc2", 
-                SummaryText = "Document 2", 
-                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]), 
+            new TopicIndex
+            {
+                DocId = "doc2",
+                SummaryText = "Document 2",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
                 EmbeddingDimensions = 384
             }
         };
@@ -121,7 +121,7 @@ public class TwoTierIndexServiceTests
 
         // Act & Assert - should not throw
         await _service.InitializeAsync(CancellationToken.None);
-        
+
         var stats = await _service.GetStatisticsAsync(CancellationToken.None);
         Assert.Equal(0, stats.CachedTopicEmbeddings);
     }
@@ -132,11 +132,11 @@ public class TwoTierIndexServiceTests
         // Arrange
         var topics = new List<TopicIndex>
         {
-            new TopicIndex 
-            { 
-                DocId = "doc1", 
-                SummaryText = "Result 1", 
-                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]), 
+            new TopicIndex
+            {
+                DocId = "doc1",
+                SummaryText = "Result 1",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
                 EmbeddingDimensions = 384,
                 SourcePath = "/docs/file1.txt"
             }
@@ -175,7 +175,7 @@ public class TwoTierIndexServiceTests
     {
         // Arrange
         var queryEmbedding = new float[384];
-        
+
         // Act - search without initializing
         var results = await _service.SearchAsync(queryEmbedding, 10, 5, CancellationToken.None);
 
@@ -225,10 +225,10 @@ public class TwoTierIndexServiceTests
         // Arrange
         var topics = new List<TopicIndex>
         {
-            new TopicIndex 
-            { 
-                DocId = "doc1", 
-                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]), 
+            new TopicIndex
+            {
+                DocId = "doc1",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
                 EmbeddingDimensions = 384
             }
         };
@@ -310,10 +310,10 @@ public class TwoTierIndexServiceTests
         // Arrange
         var topics = new List<TopicIndex>
         {
-            new TopicIndex 
-            { 
-                DocId = "doc1", 
-                EmbeddingBlob = ConvertEmbeddingToBytes(new float[dimensions]), 
+            new TopicIndex
+            {
+                DocId = "doc1",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[dimensions]),
                 EmbeddingDimensions = dimensions
             }
         };
@@ -342,10 +342,10 @@ public class TwoTierIndexServiceTests
         // Arrange
         var topics = new List<TopicIndex>
         {
-            new TopicIndex 
-            { 
-                DocId = "doc1", 
-                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]), 
+            new TopicIndex
+            {
+                DocId = "doc1",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
                 EmbeddingDimensions = 384
             }
         };
@@ -371,7 +371,7 @@ public class TwoTierIndexServiceTests
         var wrongDimensionVector = new float[768]; // Wrong dimensions
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => 
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             _service.SearchAsync(wrongDimensionVector, 10, 5, CancellationToken.None));
     }
 
@@ -381,10 +381,10 @@ public class TwoTierIndexServiceTests
         // Arrange
         var topics = new List<TopicIndex>
         {
-            new TopicIndex 
-            { 
-                DocId = "doc1", 
-                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]), 
+            new TopicIndex
+            {
+                DocId = "doc1",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
                 EmbeddingDimensions = 384
             }
         };
@@ -404,7 +404,7 @@ public class TwoTierIndexServiceTests
         // Act & Assert - should not throw when called multiple times
         await _service.InitializeAsync(CancellationToken.None);
         var stats1 = await _service.GetStatisticsAsync(CancellationToken.None);
-        
+
         await _service.InitializeAsync(CancellationToken.None);
         var stats2 = await _service.GetStatisticsAsync(CancellationToken.None);
 
@@ -418,10 +418,10 @@ public class TwoTierIndexServiceTests
         // Arrange
         var topics = new List<TopicIndex>
         {
-            new TopicIndex 
-            { 
-                DocId = "doc1", 
-                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]), 
+            new TopicIndex
+            {
+                DocId = "doc1",
+                EmbeddingBlob = ConvertEmbeddingToBytes(new float[384]),
                 EmbeddingDimensions = 384
             }
         };

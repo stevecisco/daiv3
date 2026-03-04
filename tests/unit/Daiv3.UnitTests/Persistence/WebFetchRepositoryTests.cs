@@ -26,15 +26,15 @@ public class WebFetchRepositoryTests : IAsyncLifetime
     {
         // Use a temporary database file for each test
         _testDbPath = Path.Combine(Path.GetTempPath(), $"web-fetch-test-{Guid.NewGuid()}.db");
-        
+
         var services = new ServiceCollection();
         services.AddLogging();
-        
+
         services.Configure<PersistenceOptions>(options =>
         {
             options.DatabasePath = _testDbPath;
         });
-        
+
         services.AddPersistence();
 
         _serviceProvider = services.BuildServiceProvider();
@@ -59,7 +59,7 @@ public class WebFetchRepositoryTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _databaseContext.DisposeAsync();
-        
+
         try
         {
             if (File.Exists(_testDbPath))
@@ -129,7 +129,7 @@ public class WebFetchRepositoryTests : IAsyncLifetime
         // Assert
         Assert.NotNull(result);
         Assert.Equal(webFetch.WebFetchId, result);
-        
+
         var retrieved = await _repository.GetByIdAsync(webFetch.WebFetchId);
         Assert.NotNull(retrieved);
         Assert.Equal(webFetch.SourceUrl, retrieved.SourceUrl);
@@ -272,10 +272,10 @@ public class WebFetchRepositoryTests : IAsyncLifetime
         // Arrange
         var docId1 = Guid.NewGuid().ToString();
         var docId2 = Guid.NewGuid().ToString();
-        
+
         var doc1 = CreateTestDocument(docId1, "/test/path1.md");
         var doc2 = CreateTestDocument(docId2, "/test/path2.md");
-        
+
         await _documentRepository.AddAsync(doc1);
         await _documentRepository.AddAsync(doc2);
 
@@ -292,7 +292,7 @@ public class WebFetchRepositoryTests : IAsyncLifetime
         // Assert
         Assert.Single(activeResults);
         Assert.Equal("active", activeResults[0].Status);
-        
+
         Assert.Single(staleResults);
         Assert.Equal("stale", staleResults[0].Status);
     }
@@ -311,7 +311,7 @@ public class WebFetchRepositoryTests : IAsyncLifetime
 
         var fetch1 = CreateTestWebFetch(docId, "https://example.com/1");
         fetch1.FetchDate = twoHoursAgo;
-        
+
         var fetch2 = CreateTestWebFetch(docId, "https://example.com/2");
         fetch2.FetchDate = oneHourAgo;
 
@@ -340,7 +340,7 @@ public class WebFetchRepositoryTests : IAsyncLifetime
 
         var fetch1 = CreateTestWebFetch(docId, "https://example.com/1");
         fetch1.FetchDate = twoHoursAgo;
-        
+
         var fetch2 = CreateTestWebFetch(docId, "https://example.com/2");
         fetch2.FetchDate = oneHourAgo;
 
@@ -360,10 +360,10 @@ public class WebFetchRepositoryTests : IAsyncLifetime
         // Arrange
         var docId1 = Guid.NewGuid().ToString();
         var docId2 = Guid.NewGuid().ToString();
-        
+
         var doc1 = CreateTestDocument(docId1, "/test/path1.md");
         var doc2 = CreateTestDocument(docId2, "/test/path2.md");
-        
+
         await _documentRepository.AddAsync(doc1);
         await _documentRepository.AddAsync(doc2);
 
@@ -395,7 +395,7 @@ public class WebFetchRepositoryTests : IAsyncLifetime
 
         var fetchOld = CreateTestWebFetch(docId, sourceUrl, "hash1");
         fetchOld.FetchDate = now - 3600;
-        
+
         var fetchNew = CreateTestWebFetch(docId, sourceUrl, "hash2");
         fetchNew.FetchDate = now;
 
@@ -466,10 +466,10 @@ public class WebFetchRepositoryTests : IAsyncLifetime
         // Arrange
         var docId1 = Guid.NewGuid().ToString();
         var docId2 = Guid.NewGuid().ToString();
-        
+
         var doc1 = CreateTestDocument(docId1, "/test/path1.md");
         var doc2 = CreateTestDocument(docId2, "/test/path2.md");
-        
+
         await _documentRepository.AddAsync(doc1);
         await _documentRepository.AddAsync(doc2);
 
@@ -512,10 +512,10 @@ public class WebFetchRepositoryTests : IAsyncLifetime
         // Arrange
         var docId1 = Guid.NewGuid().ToString();
         var docId2 = Guid.NewGuid().ToString();
-        
+
         var doc1 = CreateTestDocument(docId1, "/test/path1.md");
         var doc2 = CreateTestDocument(docId2, "/test/path2.md");
-        
+
         await _documentRepository.AddAsync(doc1);
         await _documentRepository.AddAsync(doc2);
 
@@ -532,7 +532,7 @@ public class WebFetchRepositoryTests : IAsyncLifetime
         // Assert
         Assert.Single(results1);
         Assert.Equal("https://site1.com/page", results1[0].SourceUrl);
-        
+
         Assert.Single(results2);
         Assert.Equal("https://site2.com/page", results2[0].SourceUrl);
     }

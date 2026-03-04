@@ -229,11 +229,11 @@ public sealed class KnowledgeFileOrchestrationServiceTests
         // Arrange
         var oldPath = @"C:\test\old.txt";
         var newPath = @"C:\test\new.txt";
-        
+
         _mockDocumentProcessor
             .Setup(x => x.RemoveDocumentAsync(oldPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        
+
         _mockDocumentProcessor
             .Setup(x => x.ProcessDocumentAsync(newPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DocumentProcessingResult

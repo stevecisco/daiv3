@@ -116,7 +116,7 @@ public class ModelQueue : IModelQueue
         {
             lock (_executionStateLock)
             {
-                if (_currentlyExecuting != null && 
+                if (_currentlyExecuting != null &&
                     _currentlyExecuting.Priority != ExecutionPriority.Immediate &&
                     _currentExecutionCts != null && !_currentExecutionCts.IsCancellationRequested)
                 {
@@ -272,7 +272,7 @@ public class ModelQueue : IModelQueue
             for (int i = 0; i < maxLookahead && _normalChannel.Reader.TryRead(out var req); i++)
             {
                 var reqModelId = DetermineModelId(req.Request);
-                
+
                 if (reqModelId == _currentModelId)
                 {
                     // Found match! Requeue others and return this one
@@ -340,7 +340,7 @@ public class ModelQueue : IModelQueue
             for (int i = 0; i < maxLookahead && _backgroundChannel.Reader.TryRead(out var req); i++)
             {
                 var reqModelId = DetermineModelId(req.Request);
-                
+
                 if (reqModelId == _currentModelId)
                 {
                     // Found match! Requeue others and return this one

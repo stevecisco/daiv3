@@ -154,7 +154,7 @@ public class DatabaseContextTests
             "subdirectory",
             "another_subdirectory",
             "test.db");
-        
+
         var options = Options.Create(new PersistenceOptions
         {
             DatabasePath = longPath,

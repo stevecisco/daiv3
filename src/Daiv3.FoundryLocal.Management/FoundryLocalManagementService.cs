@@ -118,7 +118,7 @@ public sealed class FoundryLocalManagementService : IAsyncDisposable
         // The cached directory name matches the model ID without the version suffix
         // e.g., "Phi-4-mini-instruct-generic-cpu:5" -> "Phi-4-mini-instruct-generic-cpu"
         var modelId = model.ModelId;
-        
+
         if (string.IsNullOrEmpty(modelId))
         {
             return null;
@@ -127,7 +127,7 @@ public sealed class FoundryLocalManagementService : IAsyncDisposable
         // Strip version suffix (":1", ":2", etc.)
         var colonIndex = modelId.IndexOf(':');
         var cachedName = colonIndex > 0 ? modelId.Substring(0, colonIndex) : modelId;
-        
+
         return cachedName.ToLowerInvariant();
     }
 

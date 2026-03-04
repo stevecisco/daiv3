@@ -231,7 +231,7 @@ public class CliCommandsTests
         // Act & Assert
         foreach (var name in commandNames)
         {
-            Assert.True(name.All(c => char.IsLower(c) || char.IsDigit(c)), 
+            Assert.True(name.All(c => char.IsLower(c) || char.IsDigit(c)),
                 $"Command name '{name}' should be lowercase");
         }
     }

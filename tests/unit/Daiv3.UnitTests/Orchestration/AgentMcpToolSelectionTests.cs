@@ -37,12 +37,12 @@ public class AgentMcpToolSelectionTests
 
         services.AddPersistence(options => options.DatabasePath = _dbPath);
         services.AddOrchestrationServices();
-        
+
         // Set up mocks after orchestration services to override defaults
         services.AddScoped(_ => _mockToolRegistry.Object);
         services.AddScoped(_ => _mockToolInvoker.Object);
 
-        var serviceProvider = services.BuildServiceProvider();
+        using var serviceProvider = services.BuildServiceProvider();
         serviceProvider.InitializeDatabaseAsync().GetAwaiter().GetResult();
 
         _agentRepository = serviceProvider.GetRequiredService<AgentRepository>();

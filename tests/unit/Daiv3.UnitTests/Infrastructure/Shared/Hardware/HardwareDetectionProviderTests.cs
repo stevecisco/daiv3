@@ -49,14 +49,14 @@ public class HardwareDetectionProviderTests
         // Assert
         Assert.NotNull(tiers);
         Assert.NotEmpty(tiers);
-        
+
         // The actual behavior depends on the runtime platform and DirectML availability
         // On Windows 11 Copilot+ with DirectML installed, we should detect NPU and/or GPU in addition to CPU
         // On non-Windows platforms or without DirectML, only CPU will be available
-        
+
         // Always verify CPU is present (it's the universal fallback)
         Assert.Contains(HardwareAccelerationTier.Cpu, tiers);
-        
+
         // If we detect multiple tiers, verify they include NPU or GPU (hardware acceleration)
         if (tiers.Count > 1)
         {
@@ -90,7 +90,7 @@ public class HardwareDetectionProviderTests
 
         // Assert - Document actual hardware detected
         Assert.NotNull(tiers);
-        
+
 #if NET10_0_WINDOWS10_0_26100_OR_GREATER
         // On Snapdragon X Elite/Plus with Windows 11 24H2+, NPU should be detected
         var osVersion = Environment.OSVersion.Version;
@@ -211,7 +211,7 @@ public class HardwareDetectionProviderTests
 
         // Act
         services.AddHardwareDetection();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var hardwareDetection = provider.GetService<IHardwareDetectionProvider>();
@@ -226,7 +226,8 @@ public class HardwareDetectionProviderTests
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddDebug());
         services.AddHardwareDetection();
-        var provider = services.BuildServiceProvider();
+
+        using var provider = services.BuildServiceProvider();
 
         // Act
         var instance1 = provider.GetService<IHardwareDetectionProvider>();
@@ -343,7 +344,7 @@ public class HardwareDetectionProviderTests
     {
         // This test runs the hardware detection demo to show actual detected hardware
         // Useful for manual verification of hardware detection on different systems
-        
+
         // Redirect console output to capture the demo output
         var originalOut = Console.Out;
         using var writer = new System.IO.StringWriter();
@@ -353,17 +354,17 @@ public class HardwareDetectionProviderTests
         {
             // Run the demo
             HardwareDetectionDemo.Run();
-            
+
             // Get the output
             var output = writer.ToString();
-            
+
             // Restore console
             Console.SetOut(originalOut);
-            
+
             // Write output to test results for visibility
             Console.WriteLine("Hardware Detection Demo Output:");
             Console.WriteLine(output);
-            
+
             // Basic validation that demo ran
             Assert.Contains("Hardware Detection", output);
             Assert.Contains("Hardware Acceleration Tiers", output);

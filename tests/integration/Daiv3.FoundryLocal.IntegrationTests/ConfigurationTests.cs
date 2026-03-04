@@ -158,7 +158,7 @@ public sealed class ConfigurationTests : IAsyncLifetime, IDisposable
         Assert.Equal("./full_custom_data", config.AppDataDir);
         Assert.Equal("{AppDataDir}/models", config.ModelCacheDir);
         Assert.Equal("{AppDataDir}/logs", config.LogsDir);
-        
+
         _logger.LogInformation("Full custom configuration applied successfully");
     }
 

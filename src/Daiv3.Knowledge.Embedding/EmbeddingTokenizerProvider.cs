@@ -28,12 +28,12 @@ public sealed class EmbeddingTokenizerProvider : IEmbeddingTokenizerProvider
     {
         if (loggerFactory == null)
             throw new ArgumentNullException(nameof(loggerFactory));
-        
+
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger("EmbeddingTokenizerProvider");
         _onnxOptions = onnxOptions?.Value ?? throw new ArgumentNullException(nameof(onnxOptions));
         _tokenizationOptions = tokenizationOptions?.Value ?? throw new ArgumentNullException(nameof(tokenizationOptions));
-        
+
         _registry = new EmbeddingTokenizerRegistry(loggerFactory);
         RegisterTokenizers();
     }
@@ -60,7 +60,7 @@ public sealed class EmbeddingTokenizerProvider : IEmbeddingTokenizerProvider
             _tokenizationOptions.Validate();
 
             var modelId = DetermineModelId(_onnxOptions.ModelPath);
-            
+
             _logger.LogDebug("Selecting tokenizer for model {ModelId} from path {ModelPath}.", modelId, _onnxOptions.ModelPath);
 
             if (!_registry.IsRegistered(modelId))
@@ -120,7 +120,7 @@ public sealed class EmbeddingTokenizerProvider : IEmbeddingTokenizerProvider
 
         // Path format: %LOCALAPPDATA%\Daiv3\models\embeddings\{modelId}\model.onnx
         var pathSegments = modelPath.Replace('/', '\\').Split('\\');
-        
+
         // Find the segment that contains "embeddings" and get the next segment
         for (int i = 0; i < pathSegments.Length - 1; i++)
         {

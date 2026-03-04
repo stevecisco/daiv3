@@ -35,7 +35,7 @@ public class MessageBrokerResult
     /// <summary>
     /// Initializes a failed result with an error message.
     /// </summary>
-    public static MessageBrokerResult Failure(string error) => 
+    public static MessageBrokerResult Failure(string error) =>
         new() { IsSuccess = false, ErrorMessage = error };
 
     /// <summary>

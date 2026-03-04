@@ -37,7 +37,7 @@ public static class HardwareDetectionDemo
         // Display detected hardware tiers
         Console.WriteLine("Detected Hardware Acceleration Tiers:");
         Console.WriteLine("─────────────────────────────────────────────────────────────");
-        
+
         if (availableTiers.Count == 0)
         {
             Console.WriteLine("  ⚠️  No hardware acceleration detected (fallback to CPU)");
@@ -50,9 +50,9 @@ public static class HardwareDetectionDemo
                 var isBest = tier == bestTier;
                 var prefix = isBest ? "  ✅" : "  ▫️";
                 var suffix = isBest ? " (BEST - will be used for inference)" : "";
-                
+
                 Console.WriteLine($"{prefix} {tier}{suffix}");
-                
+
                 // Provide context for each tier
                 switch (tier)
                 {

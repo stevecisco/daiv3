@@ -113,7 +113,7 @@ public class MessageBrokerTests
     public async Task SubscribeAsync_WithNullTopic_ThrowsArgumentException()
     {
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() => 
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
             _broker.SubscribeAsync<object>(null!, async (m, ct) => await Task.CompletedTask));
     }
 
@@ -121,7 +121,7 @@ public class MessageBrokerTests
     public async Task SubscribeAsync_WithNullHandler_ThrowsArgumentNullException()
     {
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() => 
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
             _broker.SubscribeAsync<object>("topic", null!));
     }
 

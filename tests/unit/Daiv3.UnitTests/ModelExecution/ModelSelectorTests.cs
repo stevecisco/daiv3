@@ -101,7 +101,7 @@ public class ModelSelectorTests
         };
 
         // Act & Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => 
+        var ex = Assert.Throws<InvalidOperationException>(() =>
             selector.SelectModel(TaskType.Chat, preferences));
         Assert.Contains("unavailable-model", ex.Message);
     }
@@ -183,7 +183,7 @@ public class ModelSelectorTests
         var selector = new ModelSelector(options, _logger);
 
         // Act & Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => 
+        var ex = Assert.Throws<InvalidOperationException>(() =>
             selector.SelectModel(TaskType.Chat));
         Assert.Contains("No models available", ex.Message);
     }
@@ -199,7 +199,7 @@ public class ModelSelectorTests
         var selector = new ModelSelector(options, _logger);
 
         // Act & Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => 
+        var ex = Assert.Throws<InvalidOperationException>(() =>
             selector.SelectModel(TaskType.Chat));
         Assert.Contains("No models available", ex.Message);
     }

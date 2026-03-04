@@ -14,18 +14,18 @@ public class KnowledgeGraphExtensibilityTests
     {
         // Verify interface exists and has required methods
         var type = typeof(ISearchEnhancer);
-        
+
         Assert.NotNull(type);
         Assert.True(type.IsInterface);
-        
+
         // Check for required methods
         var enhanceMethod = type.GetMethod(nameof(ISearchEnhancer.EnhanceSearchResultsAsync));
         Assert.NotNull(enhanceMethod);
-        
+
         // Check for IsEnabled property
         var isEnabledProperty = type.GetProperty(nameof(ISearchEnhancer.IsEnabled));
         Assert.NotNull(isEnabledProperty);
-        
+
         // Check for Name property
         var nameProperty = type.GetProperty(nameof(ISearchEnhancer.Name));
         Assert.NotNull(nameProperty);
@@ -36,18 +36,18 @@ public class KnowledgeGraphExtensibilityTests
     {
         // Verify interface exists and has required methods
         var type = typeof(IIndexEnhancer);
-        
+
         Assert.NotNull(type);
         Assert.True(type.IsInterface);
-        
+
         // Check for required methods
         var enhanceMethod = type.GetMethod(nameof(IIndexEnhancer.EnhanceIndexAsync));
         Assert.NotNull(enhanceMethod);
-        
+
         // Check for IsEnabled property
         var isEnabledProperty = type.GetProperty(nameof(IIndexEnhancer.IsEnabled));
         Assert.NotNull(isEnabledProperty);
-        
+
         // Check for Name property
         var nameProperty = type.GetProperty(nameof(IIndexEnhancer.Name));
         Assert.NotNull(nameProperty);
@@ -58,7 +58,7 @@ public class KnowledgeGraphExtensibilityTests
     {
         // Verify interface exists as a marker for future extensions
         var type = typeof(IKnowledgeGraphQuery);
-        
+
         Assert.NotNull(type);
         Assert.True(type.IsInterface);
     }
@@ -68,7 +68,7 @@ public class KnowledgeGraphExtensibilityTests
     {
         // Verify that a mock enhancer can be created
         var enhancer = new MockSearchEnhancer();
-        
+
         Assert.NotNull(enhancer);
         Assert.IsAssignableFrom<ISearchEnhancer>(enhancer);
     }
@@ -78,7 +78,7 @@ public class KnowledgeGraphExtensibilityTests
     {
         // Verify that a mock enhancer can be created
         var enhancer = new MockIndexEnhancer();
-        
+
         Assert.NotNull(enhancer);
         Assert.IsAssignableFrom<IIndexEnhancer>(enhancer);
     }
@@ -137,7 +137,7 @@ public class KnowledgeLayerExternalInterfaceImmutabilityTests
         var searchMethod = type.GetMethod(
             nameof(ITwoTierIndexService.SearchAsync),
             new[] { typeof(float[]), typeof(int), typeof(int), typeof(CancellationToken) });
-        
+
         Assert.NotNull(searchMethod);
         Assert.Equal(typeof(Task<TwoTierSearchResults>), searchMethod?.ReturnType);
     }
@@ -153,7 +153,7 @@ public class KnowledgeLayerExternalInterfaceImmutabilityTests
             null,
             new[] { typeof(CancellationToken) },
             null);
-        
+
         // Method has optional CancellationToken parameter, so may check with no params too
         if (initMethod == null)
         {
@@ -161,7 +161,7 @@ public class KnowledgeLayerExternalInterfaceImmutabilityTests
             initMethod = type.GetMethods()
                 .FirstOrDefault(m => m.Name == nameof(ITwoTierIndexService.InitializeAsync));
         }
-        
+
         Assert.NotNull(initMethod);
     }
 
@@ -171,7 +171,7 @@ public class KnowledgeLayerExternalInterfaceImmutabilityTests
         // Verify vector store interface is stable
         var type = typeof(IVectorStoreService);
         var storeMethod = type.GetMethod(nameof(IVectorStoreService.StoreTopicIndexAsync));
-        
+
         Assert.NotNull(storeMethod);
         Assert.NotNull(storeMethod?.ReturnType);
     }
@@ -182,7 +182,7 @@ public class KnowledgeLayerExternalInterfaceImmutabilityTests
         // Verify document processor interface is stable
         var type = typeof(IKnowledgeDocumentProcessor);
         var processMethod = type.GetMethod(nameof(IKnowledgeDocumentProcessor.ProcessDocumentAsync));
-        
+
         Assert.NotNull(processMethod);
     }
 
@@ -192,14 +192,14 @@ public class KnowledgeLayerExternalInterfaceImmutabilityTests
         // Verify that ISearchEnhancer.IsEnabled allows optional registration
         var enhancerInterface = typeof(ISearchEnhancer);
         var isEnabledProp = enhancerInterface.GetProperty(nameof(ISearchEnhancer.IsEnabled));
-        
+
         Assert.NotNull(isEnabledProp);
         Assert.True(isEnabledProp?.CanRead);
-        
+
         // Same for IIndexEnhancer
         enhancerInterface = typeof(IIndexEnhancer);
         isEnabledProp = enhancerInterface.GetProperty(nameof(IIndexEnhancer.IsEnabled));
-        
+
         Assert.NotNull(isEnabledProp);
         Assert.True(isEnabledProp?.CanRead);
     }
@@ -217,7 +217,7 @@ public class SearchResultFlexibilityTests
         // The current TwoTierSearchResults should allow subclassing or modification
         // without changing ITwoTierIndexService.SearchAsync signature
         var results = new TwoTierSearchResults();
-        
+
         Assert.NotNull(results);
         Assert.NotNull(results.Tier1Results);
         Assert.NotNull(results.Tier2Results);
@@ -234,7 +234,7 @@ public class SearchResultFlexibilityTests
             SimilarityScore = 0.95f,
             SourcePath = "test"
         };
-        
+
         Assert.NotNull(result);
         Assert.Equal("doc-1", result.DocumentId);
         Assert.Equal(0.95f, result.SimilarityScore);

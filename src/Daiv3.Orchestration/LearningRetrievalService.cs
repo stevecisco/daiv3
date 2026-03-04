@@ -231,7 +231,7 @@ public class LearningRetrievalService : ILearningRetrievalService
                     {
                         retrieved.Learning.TimesApplied++;
                         await _storageService.UpdateLearningAsync(retrieved.Learning, CancellationToken.None).ConfigureAwait(false);
-                        
+
                         // Fire application event
                         if (_metricsCollector != null)
                         {
@@ -346,7 +346,7 @@ public class LearningRetrievalService : ILearningRetrievalService
                     }
 
                     var learningEmbedding = ConvertFromByteArray(learning.EmbeddingBlob);
-                    
+
                     if (learningEmbedding.Length != dimensions)
                     {
                         _logger.LogWarning(
@@ -370,10 +370,10 @@ public class LearningRetrievalService : ILearningRetrievalService
                 for (int i = 0; i < groupLearnings.Count; i++)
                 {
                     var score = (double)similarityScores[i];
-                    
+
                     // Clamp score to valid range [0, 1]
                     score = Math.Clamp(score, 0.0, 1.0);
-                    
+
                     results.Add((groupLearnings[i], score));
                 }
 

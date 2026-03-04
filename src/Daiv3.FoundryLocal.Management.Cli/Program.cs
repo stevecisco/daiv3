@@ -154,8 +154,8 @@ static async Task DownloadAsync(FoundryLocalManagementService service, Dictionar
         aliasOrId = modelEntry.Alias;
         version = modelEntry.Version;
         device = modelEntry.Device;
-        Console.WriteLine($"Selected: {aliasOrId}" + 
-            (version.HasValue ? $" v{version}" : "") + 
+        Console.WriteLine($"Selected: {aliasOrId}" +
+            (version.HasValue ? $" v{version}" : "") +
             (device.HasValue ? $" [{device}]" : " [auto]"));
     }
     else

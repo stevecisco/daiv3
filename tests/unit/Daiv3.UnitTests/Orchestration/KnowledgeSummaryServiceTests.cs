@@ -314,7 +314,7 @@ public class KnowledgeSummaryServiceTests
         // Assert
         Assert.NotNull(summary.Details);
         Assert.Single(summary.Details);
-        
+
         var detail = summary.Details[0];
         Assert.Equal("learning-1", detail.LearningId);
         Assert.Equal("Test Learning", detail.Title);

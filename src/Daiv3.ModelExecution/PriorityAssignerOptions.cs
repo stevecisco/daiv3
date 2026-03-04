@@ -49,19 +49,19 @@ public class PriorityAssignerOptions
             // Interactive tasks get Immediate priority
             [nameof(TaskType.Chat)] = nameof(ExecutionPriority.Immediate),
             [nameof(TaskType.QuestionAnswer)] = nameof(ExecutionPriority.Immediate),
-            
+
             // User-initiated tasks get Normal priority
             [nameof(TaskType.Code)] = nameof(ExecutionPriority.Normal),
             [nameof(TaskType.Rewrite)] = nameof(ExecutionPriority.Normal),
             [nameof(TaskType.Translation)] = nameof(ExecutionPriority.Normal),
             [nameof(TaskType.Generation)] = nameof(ExecutionPriority.Normal),
-            
+
             // Background/batch tasks get Background priority
             [nameof(TaskType.Search)] = nameof(ExecutionPriority.Background),
             [nameof(TaskType.Summarize)] = nameof(ExecutionPriority.Background),
             [nameof(TaskType.Analysis)] = nameof(ExecutionPriority.Background),
             [nameof(TaskType.Extraction)] = nameof(ExecutionPriority.Background),
-            
+
             // Unknown defaults to Normal
             [nameof(TaskType.Unknown)] = nameof(ExecutionPriority.Normal)
         };

@@ -266,7 +266,7 @@ public class KnowledgeLayerTelemetryTests
             opts.RecordDetailedMetrics = true;
         });
         services.AddScoped<IKnowledgeLayerTelemetry, KnowledgeLayerTelemetry>();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         var telemetry = provider.GetRequiredService<IKnowledgeLayerTelemetry>();
 
         // Act - record more than max samples
@@ -293,7 +293,7 @@ public class KnowledgeLayerTelemetryTests
             opts.RecordDetailedMetrics = false;
         });
         services.AddScoped<IKnowledgeLayerTelemetry, KnowledgeLayerTelemetry>();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         var telemetry = provider.GetRequiredService<IKnowledgeLayerTelemetry>();
 
         // Act

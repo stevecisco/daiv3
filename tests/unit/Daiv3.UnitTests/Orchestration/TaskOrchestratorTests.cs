@@ -40,7 +40,8 @@ public class TaskOrchestratorTests
                 It.IsAny<string>(),
                 It.IsAny<DynamicAgentCreationOptions?>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string taskType, DynamicAgentCreationOptions? _, CancellationToken _) => new Agent            {
+            .ReturnsAsync((string taskType, DynamicAgentCreationOptions? _, CancellationToken _) => new Agent
+            {
                 Id = Guid.NewGuid(),
                 Name = $"task-{taskType}-agent",
                 Purpose = $"Dynamic agent for {taskType}",
@@ -154,7 +155,7 @@ public class TaskOrchestratorTests
             ProjectId = Guid.NewGuid()
         };
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.Cancel();
 
         _mockIntentResolver

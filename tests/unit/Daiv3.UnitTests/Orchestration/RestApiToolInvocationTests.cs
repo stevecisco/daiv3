@@ -93,7 +93,7 @@ public sealed class RestApiToolInvocationTests : IDisposable
             .ReturnsAsync(tool);
 
         HttpRequestMessage? capturedRequest = null;
-        SetupHttpResponse(HttpStatusCode.Created, "{\"id\": \"123\", \"status\": \"created\"}", 
+        SetupHttpResponse(HttpStatusCode.Created, "{\"id\": \"123\", \"status\": \"created\"}",
             req => capturedRequest = req);
 
         var parameters = new Dictionary<string, object>
@@ -132,7 +132,7 @@ public sealed class RestApiToolInvocationTests : IDisposable
             .ReturnsAsync(tool);
 
         HttpRequestMessage? capturedRequest = null;
-        SetupHttpResponse(HttpStatusCode.OK, "{\"data\": \"protected content\"}", 
+        SetupHttpResponse(HttpStatusCode.OK, "{\"data\": \"protected content\"}",
             req => capturedRequest = req);
 
         // Act
@@ -162,7 +162,7 @@ public sealed class RestApiToolInvocationTests : IDisposable
             .ReturnsAsync(tool);
 
         HttpRequestMessage? capturedRequest = null;
-        SetupHttpResponse(HttpStatusCode.OK, "{\"data\": \"value\"}", 
+        SetupHttpResponse(HttpStatusCode.OK, "{\"data\": \"value\"}",
             req => capturedRequest = req);
 
         // Act
@@ -190,7 +190,7 @@ public sealed class RestApiToolInvocationTests : IDisposable
             .ReturnsAsync(tool);
 
         HttpRequestMessage? capturedRequest = null;
-        SetupHttpResponse(HttpStatusCode.OK, "{\"post\": \"data\"}", 
+        SetupHttpResponse(HttpStatusCode.OK, "{\"post\": \"data\"}",
             req => capturedRequest = req);
 
         var parameters = new Dictionary<string, object>
@@ -416,7 +416,7 @@ public sealed class RestApiToolInvocationTests : IDisposable
             .ReturnsAsync(tool);
 
         HttpRequestMessage? capturedRequest = null;
-        SetupHttpResponse(HttpStatusCode.OK, "{\"data\": \"value\"}", 
+        SetupHttpResponse(HttpStatusCode.OK, "{\"data\": \"value\"}",
             req => capturedRequest = req);
 
         // Act
@@ -443,7 +443,7 @@ public sealed class RestApiToolInvocationTests : IDisposable
             .ReturnsAsync(tool);
 
         HttpRequestMessage? capturedRequest = null;
-        SetupHttpResponse(HttpStatusCode.OK, "{\"updated\": true}", 
+        SetupHttpResponse(HttpStatusCode.OK, "{\"updated\": true}",
             req => capturedRequest = req);
 
         var parameters = new Dictionary<string, object>
@@ -476,7 +476,7 @@ public sealed class RestApiToolInvocationTests : IDisposable
             .ReturnsAsync(tool);
 
         HttpRequestMessage? capturedRequest = null;
-        SetupHttpResponse(HttpStatusCode.NoContent, string.Empty, 
+        SetupHttpResponse(HttpStatusCode.NoContent, string.Empty,
             req => capturedRequest = req);
 
         var parameters = new Dictionary<string, object>

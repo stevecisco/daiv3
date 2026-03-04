@@ -434,7 +434,7 @@ public class FileSystemMessageStore : IMessageStore
             ReplyToTopic = message.Metadata.ReplyToTopic,
             Priority = message.Metadata.Priority,
             ExpiresAt = message.Metadata.ExpiresAt,
-            Tags = message.Metadata.Tags as Dictionary<string, string> ?? 
+            Tags = message.Metadata.Tags as Dictionary<string, string> ??
                    new Dictionary<string, string>(message.Metadata.Tags),
             Payload = message.Payload
         };

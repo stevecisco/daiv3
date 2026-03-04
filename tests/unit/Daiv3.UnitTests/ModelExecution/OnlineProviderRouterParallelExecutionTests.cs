@@ -23,7 +23,7 @@ public class OnlineProviderRouterParallelExecutionTests
     [Fact]
     public async Task ExecuteBatchAsync_NullRequests_ThrowsArgumentNullException()
     {
-        var router = CreateRouter();
+        using var router = CreateRouter();
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
             router.ExecuteBatchAsync(null!, CancellationToken.None));
@@ -32,7 +32,7 @@ public class OnlineProviderRouterParallelExecutionTests
     [Fact]
     public async Task ExecuteBatchAsync_EmptyRequests_ReturnsEmptyResults()
     {
-        var router = CreateRouter();
+        using var router = CreateRouter();
 
         var results = await router.ExecuteBatchAsync(Array.Empty<ExecutionRequest>());
 
@@ -42,7 +42,7 @@ public class OnlineProviderRouterParallelExecutionTests
     [Fact]
     public async Task ExecuteBatchAsync_ParallelEnabled_ExecutesDifferentProvidersConcurrently()
     {
-        var router = CreateRouter(allowParallelProviderExecution: true);
+        using var router = CreateRouter(allowParallelProviderExecution: true);
         var requests = new[]
         {
             new ExecutionRequest
@@ -74,7 +74,7 @@ public class OnlineProviderRouterParallelExecutionTests
     [Fact]
     public async Task ExecuteBatchAsync_ParallelDisabled_ExecutesSequentially()
     {
-        var router = CreateRouter(allowParallelProviderExecution: false);
+        using var router = CreateRouter(allowParallelProviderExecution: false);
         var requests = new[]
         {
             new ExecutionRequest

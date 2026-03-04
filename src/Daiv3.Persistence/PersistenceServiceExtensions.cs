@@ -51,22 +51,22 @@ public static class PersistenceServiceExtensions
         services.AddScoped<ProjectRepository>();
         services.AddScoped<TaskRepository>();
         services.AddScoped<AgentRepository>();
-        
+
         // LM-REQ-003: Learning repository for learning memory persistence
         services.AddScoped<LearningRepository>();
-        
+
         // KBP-DATA-001/002: Promotion repository for learning promotion tracking
         services.AddScoped<PromotionRepository>();
-        
+
         // KBP-NFR-001: Revert promotion repository for reversible promotions
         services.AddScoped<RevertPromotionRepository>();
-        
+
         // KBP-NFR-001: Promotion metrics repository for transparency/instrumentation
         services.AddScoped<PromotionMetricRepository>();
-        
+
         // KBP-REQ-003: Agent promotion proposal repository for agent-proposed promotions requiring confirmation
         services.AddScoped<AgentPromotionProposalRepository>();
-        
+
         // MQ-REQ-013: Model queue repository for offline queueing
         services.AddScoped<IModelQueueRepository, ModelQueueRepository>();
 

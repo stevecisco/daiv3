@@ -25,7 +25,7 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
     {
         _output = output;
         _testDbPath = Path.Combine(Path.GetTempPath(), $"daiv3_perf_test_{Guid.NewGuid():N}.db");
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
         _logger = loggerFactory.CreateLogger<DatabaseContext>();
     }
 
@@ -41,12 +41,12 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
 
         // Clear connection pools before attempting file deletion
         SqliteConnection.ClearAllPools();
-        
+
         // Give time for finalizers to complete
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
-        
+
         // Wait a bit for any lingering file handles to release
         await Task.Delay(200);
 
@@ -95,12 +95,12 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         // Assert
         var count = await GetDocumentCountAsync();
         Assert.Equal(documentCount, count);
-        
+
         _output.WriteLine($"Inserted {documentCount} documents in {sw.ElapsedMilliseconds}ms");
         _output.WriteLine($"Average: {sw.ElapsedMilliseconds / (double)documentCount:F2}ms per document");
-        
+
         // Should complete in under 10 seconds for 1000 documents
-        Assert.True(sw.ElapsedMilliseconds < 10000, 
+        Assert.True(sw.ElapsedMilliseconds < 10000,
             $"Document insertion took too long: {sw.ElapsedMilliseconds}ms");
     }
 
@@ -134,12 +134,12 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         // Assert
         var count = await GetDocumentCountAsync();
         Assert.Equal(documentCount, count);
-        
+
         _output.WriteLine($"Inserted {documentCount} documents (transactional) in {sw.ElapsedMilliseconds}ms");
         _output.WriteLine($"Average: {sw.ElapsedMilliseconds / (double)documentCount:F2}ms per document");
-        
+
         // Transactional insert should be much faster - under 2 seconds
-        Assert.True(sw.ElapsedMilliseconds < 2000, 
+        Assert.True(sw.ElapsedMilliseconds < 2000,
             $"Transactional insertion took too long: {sw.ElapsedMilliseconds}ms");
     }
 
@@ -163,10 +163,10 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
             for (int i = 0; i < documentCount; i++)
             {
                 var docId = Guid.NewGuid().ToString();
-                
+
                 // Insert document
                 await InsertDocumentAsync(transaction, docId, $"/test/doc_{i}.txt", timestamp);
-                
+
                 // Insert topic index with embedding
                 var embedding = CreateRandomEmbedding(embeddingDimensions);
                 await InsertTopicIndexAsync(transaction, docId, embedding, timestamp);
@@ -179,14 +179,14 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         // Assert
         var count = await GetTopicCountAsync();
         Assert.Equal(documentCount, count);
-        
+
         var totalSize = documentCount * embeddingSize;
         _output.WriteLine($"Inserted {documentCount} embeddings ({embeddingDimensions}-dim) in {sw.ElapsedMilliseconds}ms");
         _output.WriteLine($"Total blob storage: {totalSize / 1024.0 / 1024.0:F2} MB");
         _output.WriteLine($"Average: {sw.ElapsedMilliseconds / (double)documentCount:F2}ms per embedding");
-        
+
         // Should handle 1000 embeddings in under 3 seconds
-        Assert.True(sw.ElapsedMilliseconds < 3000, 
+        Assert.True(sw.ElapsedMilliseconds < 3000,
             $"Embedding insertion took too long: {sw.ElapsedMilliseconds}ms");
     }
 
@@ -221,9 +221,9 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         // Assert
         Assert.Equal(1000, results.Count);
         _output.WriteLine($"Queried {results.Count} documents by status in {sw.ElapsedMilliseconds}ms");
-        
+
         // Index-based query should be very fast
-        Assert.True(sw.ElapsedMilliseconds < 100, 
+        Assert.True(sw.ElapsedMilliseconds < 100,
             $"Indexed query took too long: {sw.ElapsedMilliseconds}ms");
     }
 
@@ -268,9 +268,9 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         Assert.All(results, result => Assert.Equal(100, result));
         _output.WriteLine($"Executed 20 concurrent queries in {sw.ElapsedMilliseconds}ms");
         _output.WriteLine($"Average: {sw.ElapsedMilliseconds / 20.0:F2}ms per query");
-        
+
         // All queries should complete quickly
-        Assert.True(sw.ElapsedMilliseconds < 1000, 
+        Assert.True(sw.ElapsedMilliseconds < 1000,
             $"Concurrent queries took too long: {sw.ElapsedMilliseconds}ms");
     }
 
@@ -307,9 +307,9 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         // Assert
         Assert.Equal(documentCount, embeddings.Count);
         _output.WriteLine($"Full table scan of {documentCount} embeddings in {sw.ElapsedMilliseconds}ms");
-        
+
         // Full scan should complete in reasonable time
-        Assert.True(sw.ElapsedMilliseconds < 500, 
+        Assert.True(sw.ElapsedMilliseconds < 500,
             $"Full table scan took too long: {sw.ElapsedMilliseconds}ms");
     }
 
@@ -404,7 +404,7 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT doc_id FROM documents WHERE status = $status";
         command.Parameters.AddWithValue("$status", status);
-        
+
         var results = new List<string>();
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -419,7 +419,7 @@ public class DatabaseContextPerformanceTests : IAsyncLifetime
         await using var connection = await _context!.GetConnectionAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT embedding_blob FROM topic_index";
-        
+
         var results = new List<byte[]>();
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())

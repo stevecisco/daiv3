@@ -34,12 +34,12 @@ public sealed class KnowledgeDocumentProcessorTests : IDisposable
     {
         // Create mock for IDatabaseContext
         _mockDatabaseContext = new Mock<IDatabaseContext>();
-        
+
         // Create mock for DocumentRepository with NullLogger
         _mockDocumentRepository = new Mock<DocumentRepository>(
             _mockDatabaseContext.Object,
             NullLogger<DocumentRepository>.Instance);
-        
+
         _mockVectorStore = new Mock<IVectorStoreService>();
         _mockTextChunker = new Mock<ITextChunker>();
         _mockTokenizerProvider = new Mock<ITokenizerProvider>();
@@ -51,7 +51,7 @@ public sealed class KnowledgeDocumentProcessorTests : IDisposable
         var mockTopicSummaryService = new Mock<ITopicSummaryService>();
         mockTopicSummaryService
             .Setup(x => x.GenerateSummaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string text, CancellationToken _) => 
+            .ReturnsAsync((string text, CancellationToken _) =>
                 text.Split('.').First() + ".");
 
         _mockTextExtractor
@@ -163,11 +163,11 @@ public sealed class KnowledgeDocumentProcessorTests : IDisposable
             .ReturnsAsync(new List<Document> { existingDoc });
 
         var options = new DocumentProcessingOptions { SkipUnchangedDocuments = true };
-        
+
         var mockTopicSummaryService = new Mock<ITopicSummaryService>();
         mockTopicSummaryService
             .Setup(x => x.GenerateSummaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string text, CancellationToken _) => 
+            .ReturnsAsync((string text, CancellationToken _) =>
                 text.Split('.').First() + ".");
 
         var serviceWithOptions = new KnowledgeDocumentProcessor(

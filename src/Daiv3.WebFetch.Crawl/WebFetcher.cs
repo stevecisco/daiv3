@@ -82,7 +82,7 @@ public class WebFetcher : IWebFetcher
 
             _logger.LogDebug("Sending HTTP request to {Url} with timeout {TimeoutMs}ms", url, _options.RequestTimeoutMs);
 
-            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
 
             // Check status code
             if (_options.ThrowOnResponseError && !response.IsSuccessStatusCode)
@@ -126,7 +126,7 @@ public class WebFetcher : IWebFetcher
             }
 
             // Read content with size check
-            var contentStream = await response.Content.ReadAsStreamAsync(cts.Token);
+            using var contentStream = await response.Content.ReadAsStreamAsync(cts.Token);
             byte[] contentBuffer = new byte[_options.MaxContentSizeBytes + 1]; // +1 to detect overflow
             int bytesRead = 0;
             int bytesToRead = contentBuffer.Length;

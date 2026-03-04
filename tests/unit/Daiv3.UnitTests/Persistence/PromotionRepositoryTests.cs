@@ -25,17 +25,17 @@ public class PromotionRepositoryTests : IAsyncLifetime
     {
         // Use a temporary database file for each test
         _testDbPath = Path.Combine(Path.GetTempPath(), $"promotion-test-{Guid.NewGuid()}.db");
-        
+
         // Set up test SQLite database
         var services = new ServiceCollection();
         services.AddLogging();
-        
+
         // Configure persistence with test database path
         services.Configure<PersistenceOptions>(options =>
         {
             options.DatabasePath = _testDbPath;
         });
-        
+
         services.AddPersistence();
 
         _serviceProvider = services.BuildServiceProvider();
@@ -63,7 +63,7 @@ public class PromotionRepositoryTests : IAsyncLifetime
         {
             disposable.Dispose();
         }
-        
+
         // Clean up test database file
         try
         {
@@ -193,7 +193,7 @@ public class PromotionRepositoryTests : IAsyncLifetime
         Assert.NotEmpty(promotions);
         Assert.Equal(3, promotions.Count);
         Assert.All(promotions, p => Assert.Equal(learning.LearningId, p.LearningId));
-        
+
         // Should be ordered by most recent first
         Assert.True(promotions[0].PromotedAt >= promotions[1].PromotedAt);
         Assert.True(promotions[1].PromotedAt >= promotions[2].PromotedAt);
@@ -261,7 +261,7 @@ public class PromotionRepositoryTests : IAsyncLifetime
     {
         // Arrange - KBP-DATA-001: Query promotions by source task
         var taskId = Guid.NewGuid().ToString();
-        
+
         var learning1 = CreateTestLearning();
         var learning2 = CreateTestLearning();
         await _learningRepository.AddAsync(learning1);
@@ -346,13 +346,13 @@ public class PromotionRepositoryTests : IAsyncLifetime
         await _learningRepository.AddAsync(learning);
 
         var baseTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        
+
         var promotion1 = CreateTestPromotion(learning.LearningId);
         promotion1.PromotedAt = baseTime - 3600; // 1 hour ago
-        
+
         var promotion2 = CreateTestPromotion(learning.LearningId);
         promotion2.PromotedAt = baseTime - 1800; // 30 minutes ago
-        
+
         var promotion3 = CreateTestPromotion(learning.LearningId);
         promotion3.PromotedAt = baseTime + 3600; // 1 hour from now
 
