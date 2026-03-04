@@ -1,3 +1,5 @@
+using Daiv3.App.Maui.Models;
+using Daiv3.App.Maui.Services;
 using Daiv3.App.Maui.ViewModels;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -7,35 +9,53 @@ namespace Daiv3.UnitTests.Presentation;
 
 /// <summary>
 /// Unit tests for DashboardViewModel.
+/// Tests CT-REQ-003: Real-time transparency dashboard.
+/// Tests CT-NFR-001: Async/await patterns for UI responsiveness.
 /// </summary>
 public class DashboardViewModelTests
 {
     private readonly Mock<ILogger<DashboardViewModel>> _mockLogger;
+    private readonly Mock<IDashboardService> _mockDashboardService;
 
     public DashboardViewModelTests()
     {
         _mockLogger = new Mock<ILogger<DashboardViewModel>>();
+        _mockDashboardService = new Mock<IDashboardService>();
     }
 
     [Fact]
-    public void Constructor_ShouldInitializeProperties()
+    public void Constructor_ShouldInitializeWithService()
     {
         // Act
-        var viewModel = new DashboardViewModel(_mockLogger.Object);
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
 
         // Assert
         Assert.Equal("Dashboard", viewModel.Title);
         Assert.NotNull(viewModel.HardwareStatus);
-        Assert.NotNull(viewModel.NpuStatus);
-        Assert.NotNull(viewModel.GpuStatus);
-        Assert.NotNull(viewModel.CurrentActivity);
+        Assert.False(viewModel.IsMonitoring);
+    }
+
+    [Fact]
+    public void Constructor_WithNullLogger_ShouldThrow()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() =>
+            new DashboardViewModel(null!, _mockDashboardService.Object));
+    }
+
+    [Fact]
+    public void Constructor_WithNullService_ShouldThrow()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() =>
+            new DashboardViewModel(_mockLogger.Object, null!));
     }
 
     [Fact]
     public void HardwareStatus_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new DashboardViewModel(_mockLogger.Object);
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
         var newStatus = "GPU Available";
 
         // Act
@@ -49,7 +69,7 @@ public class DashboardViewModelTests
     public void NpuStatus_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new DashboardViewModel(_mockLogger.Object);
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
         var newStatus = "NPU Active";
 
         // Act
@@ -63,7 +83,7 @@ public class DashboardViewModelTests
     public void GpuStatus_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new DashboardViewModel(_mockLogger.Object);
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
         var newStatus = "GPU Ready";
 
         // Act
@@ -77,8 +97,8 @@ public class DashboardViewModelTests
     public void QueuedTasks_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new DashboardViewModel(_mockLogger.Object);
-        var taskCount = 5;
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        const int taskCount = 5;
 
         // Act
         viewModel.QueuedTasks = taskCount;
@@ -91,8 +111,8 @@ public class DashboardViewModelTests
     public void CompletedTasks_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new DashboardViewModel(_mockLogger.Object);
-        var taskCount = 10;
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        const int taskCount = 10;
 
         // Act
         viewModel.CompletedTasks = taskCount;
@@ -105,29 +125,160 @@ public class DashboardViewModelTests
     public void CurrentActivity_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new DashboardViewModel(_mockLogger.Object);
-        var activity = "Processing request";
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        var newActivity = "Processing tasks";
 
         // Act
-        viewModel.CurrentActivity = activity;
+        viewModel.CurrentActivity = newActivity;
 
         // Assert
-        Assert.Equal(activity, viewModel.CurrentActivity);
+        Assert.Equal(newActivity, viewModel.CurrentActivity);
     }
 
     [Fact]
-    public async Task Refresh_ShouldUpdateIsBusyFlag()
+    public void IsMonitoring_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new DashboardViewModel(_mockLogger.Object);
-        await Task.Delay(600); // Wait for initial load
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
 
         // Act
-        viewModel.Refresh();
-        var isBusyDuringRefresh = viewModel.IsBusy;
-        await Task.Delay(600); // Wait for refresh to complete
+        viewModel.IsMonitoring = true;
 
-        // Assert - IsBusy should be true during refresh and false after
-        Assert.True(isBusyDuringRefresh || !viewModel.IsBusy);
+        // Assert
+        Assert.True(viewModel.IsMonitoring);
+    }
+
+    [Fact]
+    public void LastUpdateTime_WhenSet_ShouldUpdateProperty()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        var timestamp = "14:30:45";
+
+        // Act
+        viewModel.LastUpdateTime = timestamp;
+
+        // Assert
+        Assert.Equal(timestamp, viewModel.LastUpdateTime);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_WhenNotBusy_ShouldStartMonitoring()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        var testData = new DashboardData
+        {
+            CollectedAt = DateTimeOffset.UtcNow,
+            Hardware = new HardwareStatus { OverallStatus = "Ready" }
+        };
+
+        _mockDashboardService
+            .Setup(s => s.GetDashboardDataAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(testData);
+
+        // Act
+        await viewModel.InitializeAsync();
+
+        // Assert
+        _mockDashboardService.Verify(s => s.GetDashboardDataAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_WhenBusy_ShouldNotInitialize()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        viewModel.IsBusy = true;
+
+        // Act
+        await viewModel.InitializeAsync();
+
+        // Assert
+        _mockDashboardService.Verify(s => s.GetDashboardDataAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_ShouldStopMonitoring()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        viewModel.IsMonitoring = true;
+
+        // Act
+        await viewModel.ShutdownAsync();
+
+        // Assert
+        _mockDashboardService.Verify(s => s.StopMonitoringAsync(), Times.Once);
+        Assert.False(viewModel.IsMonitoring);
+    }
+
+    [Fact]
+    public async Task ManualRefreshAsync_WhenNotBusy_ShouldRefreshData()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        var testData = new DashboardData
+        {
+            CollectedAt = DateTimeOffset.UtcNow,
+            Hardware = new HardwareStatus { OverallStatus = "Ready" }
+        };
+
+        _mockDashboardService
+            .Setup(s => s.GetDashboardDataAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(testData);
+
+        // Initialize the view model (needed to set up _viewLifetimeCts)
+        await viewModel.InitializeAsync();
+
+        // Reset the mock to track the manual refresh call
+        _mockDashboardService.Reset();
+        _mockDashboardService
+            .Setup(s => s.GetDashboardDataAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(testData);
+
+        // Act
+        await viewModel.ManualRefreshAsync();
+
+        // Assert - The service should have been called again
+        _mockDashboardService.Verify(s => s.GetDashboardDataAsync(It.IsAny<CancellationToken>()), Times.Once);
+
+        // Cleanup
+        await viewModel.ShutdownAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_ShouldCleanupResources()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+
+        // Act
+        await viewModel.DisposeAsync();
+
+        // Assert - Should not throw
+        Assert.NotNull(viewModel);
+    }
+
+    [Fact]
+    public void PropertyChanged_ShouldNotifyWhenPropertyUpdates()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        var propertyChangedCalled = false;
+        var changedProperty = string.Empty;
+
+        viewModel.PropertyChanged += (s, e) =>
+        {
+            propertyChangedCalled = true;
+            changedProperty = e.PropertyName;
+        };
+
+        // Act
+        viewModel.HardwareStatus = "New Status";
+
+        // Assert
+        Assert.True(propertyChangedCalled);
+        Assert.Equal(nameof(viewModel.HardwareStatus), changedProperty);
     }
 }

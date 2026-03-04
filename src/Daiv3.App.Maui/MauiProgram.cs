@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Daiv3.App.Maui.Pages;
 using Daiv3.App.Maui.ViewModels;
+using Daiv3.App.Maui.Services;
 using Daiv3.Knowledge;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Infrastructure.Shared.Logging;
@@ -29,6 +30,21 @@ public static class MauiProgram
         builder.Logging.SetMinimumLevel(LogLevel.Debug);
 #endif
         builder.Logging.AddFileLogging("maui", LogLevel.Debug);
+
+        // Register Dashboard Service (CT-REQ-003)
+        var dashboardConfig = new DashboardConfiguration
+        {
+            RefreshIntervalMs = 3000,
+            EnableCaching = true,
+            EnableLogging = true,
+            ContinueOnError = true,
+            DataCollectionTimeoutMs = 5000
+        };
+        builder.Services.AddSingleton(dashboardConfig);
+        builder.Services.AddSingleton<IDashboardService>(serviceProvider =>
+            new DashboardService(
+                serviceProvider.GetRequiredService<ILogger<DashboardService>>(),
+                dashboardConfig));
 
         // Register ViewModels
         builder.Services.AddSingleton<ChatViewModel>();
@@ -59,13 +75,13 @@ public static class MauiProgram
 
         // Bootstrap embedding and OCR models on app startup
         // This runs in the background and logs progress
-        var logger = app.Services.GetRequiredService<ILogger<EmbeddingModelBootstrapService>>();
+        var logger = app.Services.GetRequiredService<ILogger<Daiv3.Knowledge.Embedding.EmbeddingModelBootstrapService>>();
         _ = Task.Run(async () =>
         {
             try
             {
                 logger.LogInformation("Starting model bootstrap (embedding Tier 1, Tier 2, and OCR models)");
-                var bootstrapService = app.Services.GetRequiredService<EmbeddingModelBootstrapService>();
+                var bootstrapService = app.Services.GetRequiredService<Daiv3.Knowledge.Embedding.EmbeddingModelBootstrapService>();
 
                 var success = await bootstrapService.EnsureModelsAsync(progress =>
                 {

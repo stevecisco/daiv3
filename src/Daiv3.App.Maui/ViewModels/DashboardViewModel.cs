@@ -1,29 +1,37 @@
 using Microsoft.Extensions.Logging;
+using Daiv3.App.Maui.Models;
+using Daiv3.App.Maui.Services;
 
 namespace Daiv3.App.Maui.ViewModels;
 
 /// <summary>
 /// ViewModel for the Status Dashboard.
-/// Displays system status, hardware info, model queue status, and recent activity.
+/// Implements CT-REQ-003: Real-time transparency dashboard.
+/// Implements CT-NFR-001: Async/await patterns with debouncing for UI responsiveness.
+/// Displays system status, hardware info, model queue status, and agent activity with real-time updates.
 /// </summary>
-public class DashboardViewModel : BaseViewModel
+public class DashboardViewModel : BaseViewModel, IAsyncDisposable
 {
     private readonly ILogger<DashboardViewModel> _logger;
+    private readonly IDashboardService _dashboardService;
+    private CancellationTokenSource? _viewLifetimeCts;
     private string _hardwareStatus = "Detecting...";
     private string _npuStatus = "Unknown";
     private string _gpuStatus = "Unknown";
     private int _queuedTasks;
     private int _completedTasks;
-    private string _currentActivity = "Idle";
+    private string _currentActivity = "Initializing...";
+    private string _lastUpdateTime = "Never";
+    private bool _isMonitoring;
 
-    public DashboardViewModel(ILogger<DashboardViewModel> logger)
+    public DashboardViewModel(
+        ILogger<DashboardViewModel> logger,
+        IDashboardService dashboardService)
     {
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _dashboardService = dashboardService ?? throw new ArgumentNullException(nameof(dashboardService));
         Title = "Dashboard";
         _logger.LogInformation("DashboardViewModel initialized");
-
-        // Initialize with placeholder data
-        LoadDashboardData();
     }
 
     /// <summary>
@@ -80,36 +88,190 @@ public class DashboardViewModel : BaseViewModel
         set => SetProperty(ref _currentActivity, value);
     }
 
-    private void LoadDashboardData()
+    /// <summary>
+    /// Gets or sets the formatted timestamp of the last data update.
+    /// </summary>
+    public string LastUpdateTime
     {
+        get => _lastUpdateTime;
+        set => SetProperty(ref _lastUpdateTime, value);
+    }
+
+    /// <summary>
+    /// Gets or sets whether the dashboard is actively monitoring for updates.
+    /// </summary>
+    public bool IsMonitoring
+    {
+        get => _isMonitoring;
+        set => SetProperty(ref _isMonitoring, value);
+    }
+
+    /// <summary>
+    /// Initializes monitoring and loads initial dashboard data.
+    /// Called when the view becomes visible.
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        if (IsBusy)
+            return;
+
+        _logger.LogInformation("Initializing dashboard");
         IsBusy = true;
 
-        // TODO: Integrate with hardware detection and model queue services
-        Task.Run(async () =>
+        try
         {
-            await Task.Delay(500); // Simulate data loading
+            // Create cancellation token for this view's lifetime
+            _viewLifetimeCts = new CancellationTokenSource();
 
+            // Load initial data
+            await RefreshDashboardDataAsync(_viewLifetimeCts.Token).ConfigureAwait(false);
+
+            // Start continuous monitoring
+            // Use MainThread to ensure UI updates are marshaled safely
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await _dashboardService.StartMonitoringAsync(
+                    refreshIntervalMs: 3000,
+                    cancellationToken: _viewLifetimeCts.Token)
+                    .ConfigureAwait(false);
+            });
+
+            IsMonitoring = true;
+
+            // Subscribe to updates
+            _dashboardService.DataUpdated += OnDashboardDataUpdated;
+
+            _logger.LogInformation("Dashboard monitoring started");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initializing dashboard");
+            CurrentActivity = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Stops monitoring and cleans up resources.
+    /// Called when the view is destroyed.
+    /// </summary>
+    public async Task ShutdownAsync()
+    {
+        _logger.LogInformation("Shutting down dashboard");
+
+        try
+        {
+            // Unsubscribe from updates
+            _dashboardService.DataUpdated -= OnDashboardDataUpdated;
+
+            // Stop monitoring
+            await _dashboardService.StopMonitoringAsync().ConfigureAwait(false);
+
+            IsMonitoring = false;
+
+            // Cancel any pending operations
+            _viewLifetimeCts?.Cancel();
+            _viewLifetimeCts?.Dispose();
+            _viewLifetimeCts = null;
+
+            _logger.LogInformation("Dashboard shutdown complete");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error shutting down dashboard");
+        }
+    }
+
+    /// <summary>
+    /// Refreshes dashboard data once from the service.
+    /// Used for initial load or manual refresh.
+    /// </summary>
+    private async Task RefreshDashboardDataAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var data = await _dashboardService.GetDashboardDataAsync(cancellationToken).ConfigureAwait(false);
+            
+            // Marshal UI updates to main thread (CT-NFR-001)
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                HardwareStatus = "System Ready";
-                NpuStatus = "Available (NPU detection pending)";
-                GpuStatus = "Available (GPU detection pending)";
-                QueuedTasks = 0;
-                CompletedTasks = 0;
-                CurrentActivity = "Ready for tasks";
-                IsBusy = false;
-
-                _logger.LogInformation("Dashboard data loaded");
+                UpdateUIFromDashboardData(data);
             });
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Dashboard refresh cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refreshing dashboard data");
+            CurrentActivity = $"Error: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Called when dashboard service provides updated data.
+    /// This is the main event handler for data updates.
+    /// Will be called from the background monitoring thread, so we must marshal to main thread.
+    /// </summary>
+    private void OnDashboardDataUpdated(object? sender, DashboardDataUpdatedEventArgs e)
+    {
+        // Marshal to main thread for UI safety (CT-NFR-001)
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            try
+            {
+                UpdateUIFromDashboardData(e.Data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing dashboard update");
+            }
         });
     }
 
     /// <summary>
-    /// Refreshes the dashboard data.
+    /// Updates all UI properties from dashboard data.
+    /// This method is always called on the main thread.
     /// </summary>
-    public void Refresh()
+    private void UpdateUIFromDashboardData(DashboardData data)
     {
-        _logger.LogInformation("Refreshing dashboard");
-        LoadDashboardData();
+        // Update hardware status
+        HardwareStatus = data.Hardware.OverallStatus;
+        NpuStatus = data.Hardware.NpuStatus;
+        GpuStatus = data.Hardware.GpuStatus;
+
+        // Update queue status
+        QueuedTasks = data.Queue.PendingCount;
+        CompletedTasks = data.Queue.CompletedCount;
+
+        // Update activity and timestamp
+        CurrentActivity = data.IsValid ? "Monitoring active" : $"Error: {data.CollectionError}";
+        LastUpdateTime = data.CollectedAt.ToString("HH:mm:ss");
+
+        _logger.LogDebug("Dashboard UI updated from gathered telemetry");
+    }
+
+    /// <summary>
+    /// Manual refresh command for user-initiated refresh.
+    /// </summary>
+    public async Task ManualRefreshAsync()
+    {
+        if (IsBusy || _viewLifetimeCts?.Token.IsCancellationRequested != false)
+            return;
+
+        _logger.LogInformation("Manual dashboard refresh requested");
+        await RefreshDashboardDataAsync(_viewLifetimeCts.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Implements IAsyncDisposable for proper resource cleanup.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        await ShutdownAsync().ConfigureAwait(false);
     }
 }
