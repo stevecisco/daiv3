@@ -342,13 +342,12 @@ public class SchedulerHostedServiceTests : IAsyncLifetime
         // Act
         await Task.Delay(500);
         var metadata = await _scheduler.GetJobMetadataAsync(jobId);
-
         // Assert
         Assert.NotNull(metadata);
         Assert.Equal(1, metadata.ExecutionCount);
-        Assert.NotNull(metadata.CreatedAtUtc);
-        Assert.NotNull(metadata.LastStartedAtUtc);
-        Assert.NotNull(metadata.LastCompletedAtUtc);
+        Assert.True(metadata.CreatedAtUtc > DateTime.MinValue);
+        Assert.True(metadata.LastStartedAtUtc > DateTime.MinValue);
+        Assert.True(metadata.LastCompletedAtUtc > DateTime.MinValue);
     }
 
     [Fact]

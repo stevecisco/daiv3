@@ -305,7 +305,7 @@ public class AgentExecutionMetricsCollectorTests
     }
 
     [Fact]
-    public void StepMetricsRetentionLimit_TrimsOldMetrics()
+    public async Task StepMetricsRetentionLimit_TrimsOldMetrics()
     {
         // Arrange
         var options = new AgentExecutionObservabilityOptions
@@ -337,7 +337,7 @@ public class AgentExecutionMetricsCollectorTests
             stepTasks.Add(collector.OnStepCompletedAsync(executionId, stepMetrics));
         }
 
-        Task.WaitAll(stepTasks.ToArray());
+        await Task.WhenAll(stepTasks);
 
         // Assert - Should have at most MaxStepMetricsToRetain + 1 (the one added after trimming starts)
         Assert.True(metrics.StepMetricsCollection.Count <= options.MaxStepMetricsToRetain + 1);

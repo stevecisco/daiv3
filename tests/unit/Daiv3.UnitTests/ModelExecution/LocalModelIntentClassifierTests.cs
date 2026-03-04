@@ -153,7 +153,6 @@ public class LocalModelIntentClassifierTests
 
         // Act & Assert - should not throw, should use pattern fallback
         var result = await classifier.ClassifyAsync("Some test input");
-        Assert.NotNull(result);
         Assert.Equal(TaskType.Unknown, result); // Should have fallen back to pattern classification
     }
 

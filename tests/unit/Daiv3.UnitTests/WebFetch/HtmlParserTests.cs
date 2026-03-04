@@ -176,8 +176,8 @@ public class HtmlParserTests
 
         // Assert
         Assert.NotEmpty(links);
-        Assert.True(links.Any(l => l.Url == "https://example.com"));
-        Assert.True(links.Any(l => l.Url == "https://google.com"));
+        Assert.Contains(links, l => l.Url == "https://example.com");
+        Assert.Contains(links, l => l.Url == "https://google.com");
     }
 
     [Fact]

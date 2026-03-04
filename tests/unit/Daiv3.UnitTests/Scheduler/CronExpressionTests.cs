@@ -37,7 +37,7 @@ public class CronExpressionTests
     [InlineData("0 0 32 * *")]      // Invalid day (> 31)
     [InlineData("0 0 * 13 *")]      // Invalid month (> 12)
     [InlineData("0 0 * * 7")]       // Invalid day of week (> 6)
-    public void Constructor_WithInvalidExpression_ThrowsArgumentException(string expression)
+    public void Constructor_WithInvalidExpression_ThrowsArgumentException(string? expression)
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() => new CronExpression(expression));

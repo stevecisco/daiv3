@@ -417,12 +417,11 @@ public class WebFetcherTests
         try
         {
             await fetcher.FetchAsync("http://example.com", cts.Token);
-            Assert.False(true, "Should have thrown an exception");
+            Assert.Fail("Should have thrown an exception");
         }
         catch (OperationCanceledException)
         {
             // Expected behavior - both OperationCanceledException and TaskCanceledException are acceptable
-            Assert.True(true);
         }
     }
 

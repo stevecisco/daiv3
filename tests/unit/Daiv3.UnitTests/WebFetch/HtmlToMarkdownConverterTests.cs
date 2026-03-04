@@ -343,9 +343,9 @@ public class HtmlToMarkdownConverterTests
         // Assert - should either complete (if fast enough) or throw OperationCanceledException
         try
         {
-            await task;
+            var result = await task;
             // If it completes, that's okay - short operations may complete before cancel takes effect
-            Assert.NotNull(task.Result);
+            Assert.NotNull(result);
         }
         catch (OperationCanceledException)
         {

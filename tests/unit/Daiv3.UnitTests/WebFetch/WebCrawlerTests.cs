@@ -115,11 +115,10 @@ public class WebCrawlerTests
         handler.AddHtml("http://example.com/a", "<p>child</p>");
 
         var crawler = CreateCrawler(handler);
-
         var result = await crawler.CrawlAsync("http://example.com", maxDepth: 1);
 
         Assert.Equal(2, result.PagesCrawled);
-        Assert.Single(result.Pages.Where(p => p.Url.StartsWith("http://example.com/a", StringComparison.OrdinalIgnoreCase)));
+        Assert.Single(result.Pages, p => p.Url.StartsWith("http://example.com/a", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
