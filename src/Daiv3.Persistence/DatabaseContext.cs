@@ -308,6 +308,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 8,
                 Description = "Add web_fetches table for web content metadata tracking (WFC-DATA-001)",
                 Sql = SchemaScripts.Migration008_WebFetchMetadata
+            },
+            new Migration
+            {
+                Version = 9,
+                Description = "Add app_settings and settings_version_history tables with versioning support (CT-DATA-001)",
+                Sql = SchemaScripts.Migration009_ApplicationSettings
             }
         };
     }

@@ -543,3 +543,131 @@ public class WebFetch
     /// </summary>
     public long UpdatedAt { get; set; }
 }
+
+/// <summary>
+/// Represents an application setting with versioning support.
+/// Stores user configuration with change tracking for upgrades.
+/// Implements CT-DATA-001: Settings SHALL be versioned to support upgrades.
+/// </summary>
+public class AppSetting
+{
+    /// <summary>
+    /// Unique identifier for the setting (UUID as string).
+    /// </summary>
+    public string SettingId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The setting key (e.g., 'data_directory', 'online_providers_enabled').
+    /// Must be unique across the application.
+    /// </summary>
+    public string SettingKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The setting value (stored as its appropriate type: string, JSON, integer, boolean, real).
+    /// For complex types, JSON is used.
+    /// </summary>
+    public string SettingValue { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The data type of the setting value.
+    /// Allowed values: 'string', 'json', 'integer', 'boolean', 'real'.
+    /// Helps with deserialization and validation.
+    /// </summary>
+    public string ValueType { get; set; } = "json";
+
+    /// <summary>
+    /// The category this setting belongs to.
+    /// Can be one of: 'general', 'paths', 'models', 'providers', 'hardware', 'ui', 'knowledge'.
+    /// Used for organizing settings in the UI.
+    /// </summary>
+    public string Category { get; set; } = "general";
+
+    /// <summary>
+    /// The settings schema version when this value was stored.
+    /// Used for tracking which migration version set this value.
+    /// Supports schema upgrade paths.
+    /// </summary>
+    public int SchemaVersion { get; set; } = 1;
+
+    /// <summary>
+    /// Human-readable description of what this setting does.
+    /// Displayed in UI help text.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Whether this setting contains sensitive data (passwords, tokens, etc.).
+    /// If true, should not be logged or displayed in plain text.
+    /// </summary>
+    public bool IsSensitive { get; set; }
+
+    /// <summary>
+    /// When this setting was first created (Unix timestamp).
+    /// </summary>
+    public long CreatedAt { get; set; }
+
+    /// <summary>
+    /// When this setting was last updated (Unix timestamp).
+    /// Updated each time the value changes.
+    /// </summary>
+    public long UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Who or what updated this setting (e.g., 'system', 'user', agent ID).
+    /// Used for audit trails.
+    /// </summary>
+    public string UpdatedBy { get; set; } = "system";
+}
+
+/// <summary>
+/// Represents a change to an application setting.
+/// Maintains an audit trail of all setting changes with version history.
+/// Supports: undo capability, change tracking, and upgrade auditing.
+/// </summary>
+public class SettingsVersionHistory
+{
+    /// <summary>
+    /// Unique identifier for this history record (UUID as string).
+    /// </summary>
+    public string HistoryId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The setting key that was changed.
+    /// Foreign key reference to app_settings.setting_key.
+    /// </summary>
+    public string SettingKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The previous value before this change (nullable for new settings).
+    /// </summary>
+    public string? OldValue { get; set; }
+
+    /// <summary>
+    /// The new value after this change.
+    /// </summary>
+    public string NewValue { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The schema version at the time of this change.
+    /// Helps correlate changes with specific upgrade migrations.
+    /// </summary>
+    public int SchemaVersion { get; set; }
+
+    /// <summary>
+    /// When this change occurred (Unix timestamp).
+    /// Used to build change timeline and audit logs.
+    /// </summary>
+    public long ChangedAt { get; set; }
+
+    /// <summary>
+    /// Who or what made this change (e.g., 'system', 'user', agent ID).
+    /// For audit trail and change attribution.
+    /// </summary>
+    public string ChangedBy { get; set; } = "system";
+
+    /// <summary>
+    /// Optional reason for the change (e.g., 'upgrade', 'user_request', 'auto_migration').
+    /// Helps understand why settings were changed.
+    /// </summary>
+    public string? Reason { get; set; }
+}

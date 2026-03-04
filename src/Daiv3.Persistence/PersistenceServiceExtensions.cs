@@ -73,6 +73,9 @@ public static class PersistenceServiceExtensions
         // WFC-DATA-001: Web fetch repository for web fetch metadata persistence
         services.AddScoped<IWebFetchRepository, WebFetchRepository>();
 
+        // CT-DATA-001: Settings repository for versioned application settings
+        services.AddScoped<SettingsRepository>();
+
         // LM-NFR-002: Learning metrics collector for transparency and auditability
         services.AddSingleton<LearningMetricsCollector>(serviceProvider =>
         {
@@ -109,6 +112,14 @@ public static class PersistenceServiceExtensions
             return new LearningStorageService(
                 repository, logger, metricsCollector, promotionRepository,
                 revertPromotionRepository, promotionMetricRepository);
+        });
+
+        // CT-DATA-001: Settings service for versioned application settings management
+        services.AddScoped<ISettingsService>(serviceProvider =>
+        {
+            var repository = serviceProvider.GetRequiredService<SettingsRepository>();
+            var logger = serviceProvider.GetRequiredService<ILogger<SettingsService>>();
+            return new SettingsService(repository, logger);
         });
 
         return services;

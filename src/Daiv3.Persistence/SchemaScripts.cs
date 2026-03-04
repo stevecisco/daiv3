@@ -355,4 +355,66 @@ CREATE INDEX IF NOT EXISTS idx_web_fetches_status ON web_fetches(status);
 CREATE INDEX IF NOT EXISTS idx_web_fetches_status_fetch_date ON web_fetches(status, fetch_date DESC);
 ";
 
+    /// <summary>
+    /// Migration 009: Application settings with versioning support
+    /// Adds app_settings table for storing versioned user configuration (CT-DATA-001).
+    /// Implements:
+    /// - Settings schema versioning to support upgrades
+    /// - Key-value pairs with JSON values
+    /// - Change tracking for audit trails
+    /// - Version tracking for migration support
+    /// </summary>
+    public const string Migration009_ApplicationSettings = @"
+-- App Settings: Versioned application settings with support for upgrades
+CREATE TABLE IF NOT EXISTS app_settings (
+    setting_id TEXT PRIMARY KEY,
+    setting_key TEXT NOT NULL UNIQUE,
+    setting_value TEXT NOT NULL,
+    value_type TEXT NOT NULL DEFAULT 'json' CHECK(value_type IN ('string', 'json', 'integer', 'boolean', 'real')),
+    category TEXT NOT NULL DEFAULT 'general' CHECK(category IN ('general', 'paths', 'models', 'providers', 'hardware', 'ui', 'knowledge')),
+    schema_version INTEGER NOT NULL DEFAULT 1,
+    description TEXT,
+    is_sensitive BOOLEAN NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    updated_by TEXT DEFAULT 'system'
+);
+
+-- Performance indexes for settings queries
+CREATE INDEX IF NOT EXISTS idx_app_settings_key ON app_settings(setting_key);
+CREATE INDEX IF NOT EXISTS idx_app_settings_category ON app_settings(category);
+CREATE INDEX IF NOT EXISTS idx_app_settings_schema_version ON app_settings(schema_version);
+CREATE INDEX IF NOT EXISTS idx_app_settings_updated_at ON app_settings(updated_at DESC);
+
+-- Composite index for category-based setting queries (most common pattern)
+CREATE INDEX IF NOT EXISTS idx_app_settings_category_key ON app_settings(category, setting_key);
+
+-- Settings Version History: Audit trail for setting changes with version tracking
+CREATE TABLE IF NOT EXISTS settings_version_history (
+    history_id TEXT PRIMARY KEY,
+    setting_key TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT NOT NULL,
+    schema_version INTEGER NOT NULL,
+    changed_at INTEGER NOT NULL,
+    changed_by TEXT DEFAULT 'system',
+    reason TEXT,
+    FOREIGN KEY (setting_key) REFERENCES app_settings(setting_key) ON DELETE CASCADE
+);
+
+-- Performance indexes for version history queries
+CREATE INDEX IF NOT EXISTS idx_settings_version_history_setting_key ON settings_version_history(setting_key);
+CREATE INDEX IF NOT EXISTS idx_settings_version_history_changed_at ON settings_version_history(changed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_settings_version_history_schema_version ON settings_version_history(schema_version);
+
+-- Composite index for setting audit trail (most common pattern)
+CREATE INDEX IF NOT EXISTS idx_settings_version_history_key_changed_at ON settings_version_history(setting_key, changed_at DESC);
+
+-- Settings Metadata: Tracks schema version and migration status
+CREATE TABLE IF NOT EXISTS settings_metadata (
+    metadata_key TEXT PRIMARY KEY,
+    metadata_value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+";
 }
