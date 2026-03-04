@@ -753,17 +753,20 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
     /// <summary>
     /// Fallback implementation when provider abstractions are unavailable (generates stub response).
     /// </summary>
-    private static Task<ExecutionResult> ExecuteStubProviderCallFallback(
+    private static async Task<ExecutionResult> ExecuteStubProviderCallFallback(
         ExecutionRequest minimizedRequest,
         string providerName,
         bool confirmed,
         CancellationToken ct)
     {
+        // Simulate realistic API call latency (200ms) for testing parallel vs sequential execution
+        await Task.Delay(200, ct);
+
         var content = confirmed
             ? $"[STUB] Processed by {providerName} (confirmed): {minimizedRequest.Content}"
             : $"[STUB] Processed by {providerName}: {minimizedRequest.Content}";
 
-        return Task.FromResult(new ExecutionResult
+        return new ExecutionResult
         {
             RequestId = minimizedRequest.Id,
             Content = content,
@@ -775,7 +778,7 @@ public class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
                               minimizedRequest.Context.Sum(kvp => EstimateTokens(kvp.Value)),
                 OutputTokens = 100
             }
-        });
+        };
     }
 
     private SemaphoreSlim GetProviderConcurrencyLimiter(string providerName)

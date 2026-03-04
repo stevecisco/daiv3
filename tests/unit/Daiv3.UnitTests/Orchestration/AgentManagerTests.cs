@@ -321,6 +321,7 @@ public class AgentManagerTests
         {
             AgentId = agent.Id,
             TaskGoal = "Complete a test task",
+                        SuccessCriteria = "output contains 'completion'",  // Require completion step
             Options = new AgentExecutionOptions
             {
                 MaxIterations = 5,
@@ -434,6 +435,7 @@ public class AgentManagerTests
         {
             AgentId = agent.Id,
             TaskGoal = "Task that consumes many tokens",
+                        SuccessCriteria = "output contains 'impossible_string_xyz'",  // Never satisfied
             Options = new AgentExecutionOptions
             {
                 MaxIterations = 20,
@@ -578,6 +580,7 @@ public class AgentManagerTests
         {
             AgentId = agent.Id,
             TaskGoal = "Multi-step task",
+                        SuccessCriteria = "output contains 'completion step'",  // Require completion step
             Options = new AgentExecutionOptions
             {
                 MaxIterations = 5,

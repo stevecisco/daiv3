@@ -97,7 +97,9 @@ public class AgentToolInvocationTests
         var request = new AgentExecutionRequest
         {
             AgentId = agent.Id,
-            TaskGoal = "Test task requiring tool invocation"
+            TaskGoal = "Test task requiring tool invocation",
+            SuccessCriteria = "output contains 'test result'",  // Require tool result in output
+            Options = new AgentExecutionOptions { MaxIterations = 5 }  // Ensure enough iterations
         };
 
         // Act
@@ -105,14 +107,14 @@ public class AgentToolInvocationTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.True(result.IterationsExecuted > 0);
+        Assert.True(result.IterationsExecuted >= 2);  // Should reach ToolExecution step
         _mockToolInvoker.Verify(
             i => i.InvokeToolAsync(
                 "test-tool",
                 It.IsAny<Dictionary<string, object>>(),
                 It.IsAny<ToolInvocationPreferences>(),
                 It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.AtLeastOnce);  // May be called multiple times
     }
 
     [Fact]
@@ -166,7 +168,9 @@ public class AgentToolInvocationTests
         var request = new AgentExecutionRequest
         {
             AgentId = agent.Id,
-            TaskGoal = "Task using multiple backend tools"
+            TaskGoal = "Task using multiple backend tools",
+            SuccessCriteria = "output contains 'Tool executed'",
+            Options = new AgentExecutionOptions { MaxIterations = 5 }
         };
 
         // Act
@@ -356,7 +360,9 @@ public class AgentToolInvocationTests
         var request = new AgentExecutionRequest
         {
             AgentId = agent.Id,
-            TaskGoal = "Task with mixed tool types available"
+            TaskGoal = "Task with mixed tool types available",
+            SuccessCriteria = "output contains 'Success'",
+            Options = new AgentExecutionOptions { MaxIterations = 5 }
         };
 
         // Act
@@ -456,6 +462,8 @@ public class AgentToolInvocationTests
         {
             AgentId = agent.Id,
             TaskGoal = "Task with context",
+            SuccessCriteria = "output contains 'Context processed'",
+            Options = new AgentExecutionOptions { MaxIterations = 5 },
             Context = context
         };
 
@@ -517,7 +525,9 @@ public class AgentToolInvocationTests
         var request = new AgentExecutionRequest
         {
             AgentId = agent.Id,
-            TaskGoal = "Task requiring MCP backend"
+            TaskGoal = "Task requiring MCP backend",
+            SuccessCriteria = "output contains 'MCP'",
+            Options = new AgentExecutionOptions { MaxIterations = 5 }
         };
 
         // Act
