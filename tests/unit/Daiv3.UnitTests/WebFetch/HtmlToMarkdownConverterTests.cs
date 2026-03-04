@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 #pragma warning disable IDISP001 // HtmlToMarkdownConverter implements IDisposable - tests create instances for short-lived use
+#pragma warning disable IDISP005 // Return type should indicate that the value should be disposed (test helpers return disposable instances for temporary use)
 
 namespace Daiv3.UnitTests.WebFetch;
 

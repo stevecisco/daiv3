@@ -5,6 +5,7 @@ using Xunit;
 
 #pragma warning disable IDISP001 // Dispose created
 #pragma warning disable IDISP004 // Don't ignore created IDisposable
+#pragma warning disable IDISP005 // Return type should indicate that the value should be disposed (test helpers return service providers for temporary use)
 #pragma warning disable IDISP025 // Class with no virtual dispose method should be sealed
 
 namespace Daiv3.UnitTests.WebFetch;

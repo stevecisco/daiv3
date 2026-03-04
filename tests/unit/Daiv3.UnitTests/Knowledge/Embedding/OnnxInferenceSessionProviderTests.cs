@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.ML.OnnxRuntime;
 using Xunit;
 
-namespace Daiv3.UnitTests.Knowledge.Embedding;
+#pragma warning disable IDISP005 // Return type should indicate that the value should be disposed (test helpers return disposable instances for temporary use)
 
 public class OnnxInferenceSessionProviderTests
 {

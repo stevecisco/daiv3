@@ -6,6 +6,7 @@ using Xunit;
 
 #pragma warning disable IDISP001 // Dispose created
 #pragma warning disable IDISP003 // Dispose previous before re-assigning
+#pragma warning disable IDISP005 // Return type should indicate that the value should be disposed (test helpers return service providers for temporary use)
 #pragma warning disable IDISP006 // Implement IDisposable
 #pragma warning disable IDISP025 // Class with no virtual dispose method should be sealed
 

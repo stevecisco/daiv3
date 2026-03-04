@@ -95,7 +95,11 @@ public class WebContentIngestionResult
 /// Monitors the markdown content store directory and automatically processes new files
 /// through the knowledge document processor.
 /// </summary>
-public interface IWebContentIngestionService
+/// <remarks>
+/// Implements <see cref="System.IDisposable"/> to manage file system watcher and internal resources.
+/// Callers must dispose instances to properly clean up the directory monitoring infrastructure.
+/// </remarks>
+public interface IWebContentIngestionService : IDisposable
 {
     /// <summary>
     /// Ingest a single markdown file into the knowledge pipeline.
