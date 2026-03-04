@@ -2,6 +2,8 @@ using Microsoft.Data.Sqlite;
 using System.Data;
 using System.Data.Common;
 
+#pragma warning disable IDISP007 // DatabaseTransaction owns and must dispose the connection/transaction pair created by DatabaseContext.BeginTransactionAsync
+
 namespace Daiv3.Persistence;
 
 /// <summary>
