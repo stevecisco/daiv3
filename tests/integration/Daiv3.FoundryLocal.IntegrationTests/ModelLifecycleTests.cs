@@ -44,7 +44,7 @@ public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
         _loggerFactory.Dispose();
     }
 
-    [Fact(Skip = "Requires specific model to be available and can be slow")]
+    [Fact(Skip = "REQUIRES: Foundry Local fully initialized with available models. May hang without proper environment setup.")]
     public async Task DownloadAsync_WithValidModel_ShouldDownloadModel()
     {
         // Arrange
@@ -60,14 +60,15 @@ public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
 
         // Act
         _logger.LogInformation($"Attempting to download model...");
-        // await modelToDownload.DownloadAsync();
+        await modelToDownload.DownloadAsync();
 
         // Assert
         // Verify download completed successfully
         Assert.NotNull(modelToDownload);
+        _logger.LogInformation("Model downloaded successfully");
     }
 
-    [Fact(Skip = "Requires model to be downloaded first")]
+    [Fact(Skip = "REQUIRES: Cached model available. May hang waiting for model operations.")]
     public async Task LoadAsync_WithDownloadedModel_ShouldLoadModel()
     {
         // Arrange
@@ -83,14 +84,15 @@ public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
 
         // Act
         _logger.LogInformation($"Attempting to load model...");
-        // await modelToLoad.LoadAsync();
+        await modelToLoad.LoadAsync();
 
         // Assert
         var loadedModels = await catalog.GetLoadedModelsAsync();
         Assert.Contains(loadedModels, m => m == modelToLoad);
+        _logger.LogInformation("Model loaded successfully");
     }
 
-    [Fact(Skip = "Requires model to be loaded first")]
+    [Fact(Skip = "REQUIRES: Loaded model available. May hang on model operations.")]
     public async Task UnloadAsync_WithLoadedModel_ShouldUnloadModel()
     {
         // Arrange
@@ -106,14 +108,15 @@ public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
 
         // Act
         _logger.LogInformation($"Attempting to unload model...");
-        // await modelToUnload.UnloadAsync();
+        await modelToUnload.UnloadAsync();
 
         // Assert
         var remainingLoadedModels = await catalog.GetLoadedModelsAsync();
         Assert.DoesNotContain(remainingLoadedModels, m => m == modelToUnload);
+        _logger.LogInformation("Model unloaded successfully");
     }
 
-    [Fact(Skip = "Requires specific model setup")]
+    [Fact(Skip = "REQUIRES: Cached model setup. Test validated but skipped to prevent hangs.")]
     public async Task GetPathAsync_WithCachedModel_ShouldReturnModelPath()
     {
         // Arrange
@@ -128,16 +131,15 @@ public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
         }
 
         // Act
-        // var modelPath = await model.GetPathAsync();
+        var modelPath = await model.GetPathAsync();
 
         // Assert
-        // Assert.NotNull(modelPath);
-        // Assert.NotEmpty(modelPath);
-        // _logger!.LogInformation($"Model path: {modelPath}");
-        Assert.NotNull(model);
+        Assert.NotNull(modelPath);
+        Assert.NotEmpty(modelPath);
+        _logger.LogInformation($"Model path: {modelPath}");
     }
 
-    [Fact(Skip = "Requires specific model with variants")]
+    [Fact(Skip = "REQUIRES: Model with variants available. Test validated but skipped to prevent hangs.")]
     public async Task SelectVariant_WithModel_ShouldSelectVariant()
     {
         // Arrange
@@ -152,11 +154,15 @@ public sealed class ModelLifecycleTests : IAsyncLifetime, IDisposable
         }
 
         // Act
-        // var selectedVariant = model.SelectedVariant;
+        var selectedVariant = model.SelectedVariant;
+        _logger.LogInformation($"Current selected variant: {selectedVariant}");
+
+        // Note: SelectVariant requires a valid variant name
+        // Enumerate available variants first (not shown in this snippet)
         // model.SelectVariant("variant-name");
 
         // Assert
         Assert.NotNull(model);
-        // Assert.NotNull(selectedVariant);
+        Assert.NotNull(selectedVariant);
     }
 }

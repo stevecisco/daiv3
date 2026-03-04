@@ -55,12 +55,21 @@ public sealed class WebServerTests : IAsyncLifetime, IDisposable
         _loggerFactory.Dispose();
     }
 
-    [Fact(Skip = "Web server API methods need verification - check FoundryLocalManager API reference")]
+    [Fact(Skip = "SDK API for web server not verified - check FoundryLocalManager/-Catalog API documentation")]
     public async Task StartWebServerAsync_ShouldStartSuccessfully()
     {
+        // Note: The Foundry Local SDK documentation mentions web server functionality,
+        // but the actual API methods (StartWebServerAsync, StopWebServerAsync) may not be
+        // publicly exposed on FoundryLocalManager or Catalog objects.
+        // See API_DISCOVERY.md for method discovery guidance.
+        
         // Act
         _logger.LogInformation("Starting web server...");
+        // Possible API candidates (uncomment if discovered):
         // await _manager!.StartWebServerAsync();
+        // OR
+        // var catalog = await _manager!.GetCatalogAsync();
+        // await catalog.StartWebServerAsync();
 
         // Assert
         _logger.LogInformation("Web server started successfully");
@@ -68,9 +77,13 @@ public sealed class WebServerTests : IAsyncLifetime, IDisposable
         await Task.CompletedTask;
     }
 
-    [Fact(Skip = "Web server API methods need verification - check FoundryLocalManager API reference")]
+    [Fact(Skip = "SDK API for web server not verified - check FoundryLocalManager/Catalog API documentation")]
     public async Task StopWebServerAsync_AfterStart_ShouldStopSuccessfully()
     {
+        // Note: The Foundry Local SDK documentation mentions web server functionality,
+        // but the actual API methods may not be publicly exposed.
+        // See API_DISCOVERY.md for method discovery guidance.
+        
         // Arrange
         // await _manager!.StartWebServerAsync();
         _logger.LogInformation("Web server started");
@@ -85,9 +98,13 @@ public sealed class WebServerTests : IAsyncLifetime, IDisposable
         await Task.CompletedTask;
     }
 
-    [Fact(Skip = "Web server API methods need verification - check FoundryLocalManager API reference")]
+    [Fact(Skip = "SDK API for web server not verified - requires confirmed API discovery")]
     public async Task StartWebServerAsync_WithCustomUrl_ShouldUseCustomUrl()
     {
+        // Note: This test demonstrates the pattern for custom URL configuration
+        // but requires verified API methods for web server management.
+        // See API_DISCOVERY.md for method discovery guidance.
+        
         // Arrange
         var customConfig = new Configuration
         {
@@ -103,13 +120,14 @@ public sealed class WebServerTests : IAsyncLifetime, IDisposable
         var customManager = FoundryLocalManager.Instance;
 
         // Act
-        // await customManager.StartWebServerAsync();
+        // Possible API pattern (uncomment if discovered):
+        // await customManager.StartWebServerAsync(); // May have different method name
 
         // Assert
         _logger.LogInformation($"Web server configuration set with URL: {customConfig.Web.Urls}");
         Assert.Equal("http://127.0.0.1:55600", customConfig.Web.Urls);
 
-        // Cleanup
+        // Cleanup (if StartWebServerAsync is implemented)
         // await customManager.StopWebServerAsync();
     }
 }

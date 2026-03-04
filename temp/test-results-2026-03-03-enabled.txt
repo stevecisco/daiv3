@@ -1,0 +1,74 @@
+  Determining projects to restore...
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Mcp.Integration\Daiv3.Mcp.Integration.csproj : warning NU1510: PackageReference System.Text.Json will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary. [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Orchestration\Daiv3.Orchestration.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge\Daiv3.Knowledge.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge.DocProc\Daiv3.Knowledge.DocProc.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Orchestration\Daiv3.Orchestration.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge\Daiv3.Knowledge.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge.DocProc\Daiv3.Knowledge.DocProc.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.App.Maui\Daiv3.App.Maui.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.App.Maui\Daiv3.App.Maui.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.App.Cli\Daiv3.App.Cli.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.App.Cli\Daiv3.App.Cli.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Api\Daiv3.Api.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Api\Daiv3.Api.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Worker\Daiv3.Worker.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Worker\Daiv3.Worker.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.UnitTests\Daiv3.UnitTests.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.UnitTests\Daiv3.UnitTests.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [C:\_prj\stevecisco\private\daiv3\Daiv3.FoundryLocal.slnx]
+  All projects are up-to-date for restore.
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge\Daiv3.Knowledge.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [TargetFramework=net10.0]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge\Daiv3.Knowledge.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [TargetFramework=net10.0]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Mcp.Integration\Daiv3.Mcp.Integration.csproj : warning NU1510: PackageReference System.Text.Json will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary. [TargetFramework=net10.0]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Mcp.Integration\Daiv3.Mcp.Integration.csproj : warning NU1510: PackageReference System.Text.Json will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary. [TargetFramework=net10.0-windows10.0.26100]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.App.Maui\Daiv3.App.Maui.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [TargetFramework=net10.0-windows10.0.26100]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.App.Maui\Daiv3.App.Maui.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [TargetFramework=net10.0-windows10.0.26100]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge\Daiv3.Knowledge.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [TargetFramework=net10.0-windows10.0.26100]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge\Daiv3.Knowledge.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [TargetFramework=net10.0-windows10.0.26100]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Orchestration\Daiv3.Orchestration.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [TargetFramework=net10.0]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Orchestration\Daiv3.Orchestration.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [TargetFramework=net10.0]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Orchestration\Daiv3.Orchestration.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [TargetFramework=net10.0-windows10.0.26100]
+C:\_prj\stevecisco\private\daiv3\src\Daiv3.Orchestration\Daiv3.Orchestration.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [TargetFramework=net10.0-windows10.0.26100]
+  Daiv3.Core -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Core\bin\Debug\net10.0\Daiv3.Core.dll
+C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.UnitTests\Daiv3.UnitTests.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [TargetFramework=net10.0]
+C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.UnitTests\Daiv3.UnitTests.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [TargetFramework=net10.0]
+  Daiv3.Core -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Core\bin\Debug\net10.0-windows10.0.26100\Daiv3.Core.dll
+  Daiv3.Infrastructure.Shared -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Infrastructure.Shared\bin\Debug\net10.0\Daiv3.Infrastructure.Shared.dll
+C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.UnitTests\Daiv3.UnitTests.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-f32c-w444-8ppv [TargetFramework=net10.0-windows10.0.26100]
+C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.UnitTests\Daiv3.UnitTests.csproj : warning NU1903: Package 'System.IO.Packaging' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-qj66-m88j-hmgj [TargetFramework=net10.0-windows10.0.26100]
+  Daiv3.Infrastructure.Shared -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Infrastructure.Shared\bin\Debug\net10.0-windows10.0.26100\Daiv3.Infrastructure.Shared.dll
+  Daiv3.Mcp.Integration -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Mcp.Integration\bin\Debug\net10.0\Daiv3.Mcp.Integration.dll
+  Daiv3.Mcp.Integration -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Mcp.Integration\bin\Debug\net10.0-windows10.0.26100\Daiv3.Mcp.Integration.dll
+  Daiv3.FoundryLocal.Management -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.FoundryLocal.Management\bin\Debug\net10.0\Daiv3.FoundryLocal.Management.dll
+  Building Daiv3.FoundryLocal.Management for net10.0
+  Daiv3.Knowledge.Embedding -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge.Embedding\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.Embedding.dll
+  Daiv3.Knowledge.Embedding -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge.Embedding\bin\Debug\net10.0\Daiv3.Knowledge.Embedding.dll
+  Daiv3.OnlineProviders.Abstractions -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.OnlineProviders.Abstractions\bin\Debug\net10.0\Daiv3.OnlineProviders.Abstractions.dll
+  Daiv3.Knowledge.Embedding.IntegrationTests -> C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.Knowledge.Embedding.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.Embedding.IntegrationTests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.Knowledge.Embedding.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.Embedding.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+  Daiv3.FoundryLocal.Bridge -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.FoundryLocal.Bridge\bin\Debug\net10.0\Daiv3.FoundryLocal.Bridge.dll
+  Daiv3.FoundryLocal.Management -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.FoundryLocal.Management\bin\Debug\net10.0-windows10.0.26100\Daiv3.FoundryLocal.Management.dll
+  Building Daiv3.FoundryLocal.Management for net10.0-windows10.0.26100
+  Building Daiv3.FoundryLocal.Management for 
+A total of 1 test files matched the specified pattern.
+  Daiv3.FoundryLocal.IntegrationTests -> C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.FoundryLocal.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.FoundryLocal.IntegrationTests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.FoundryLocal.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.FoundryLocal.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.58]     Daiv3.Knowledge.Embedding.IntegrationTests.VectorSimilarityPerformanceBenchmarkTests.BatchCosineSimilarity_ScalingTest_768Dims_LinearPerformance [SKIP]
+  Skipped Daiv3.Knowledge.Embedding.IntegrationTests.VectorSimilarityPerformanceBenchmarkTests.BatchCosineSimilarity_ScalingTest_768Dims_LinearPerformance [1 ms]
+[xUnit.net 00:00:00.74]     Daiv3.Knowledge.Embedding.IntegrationTests.VectorSimilarityPerformanceBenchmarkTests.BatchCosineSimilarity_ScalingTest_384Dims_LinearPerformance [SKIP]
+  Skipped Daiv3.Knowledge.Embedding.IntegrationTests.VectorSimilarityPerformanceBenchmarkTests.BatchCosineSimilarity_ScalingTest_384Dims_LinearPerformance [1 ms]
+
+Passed!  - Failed:     0, Passed:    27, Skipped:     2, Total:    29, Duration: 720 ms - Daiv3.Knowledge.Embedding.IntegrationTests.dll (net10.0)
+[xUnit.net 00:00:00.57]     Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StartWebServerAsync_ShouldStartSuccessfully [SKIP]
+[xUnit.net 00:00:00.58]     Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StopWebServerAsync_AfterStart_ShouldStopSuccessfully [SKIP]
+[xUnit.net 00:00:00.58]     Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StartWebServerAsync_WithCustomUrl_ShouldUseCustomUrl [SKIP]
+[xUnit.net 00:00:00.58]     Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.MM_ACC_002_DownloadModel_CompletesSuccessfullyWithProgress [SKIP]
+[xUnit.net 00:00:00.58]     Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.DownloadModel_Twice_IsIdempotent [SKIP]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StartWebServerAsync_ShouldStartSuccessfully [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StopWebServerAsync_AfterStart_ShouldStopSuccessfully [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StartWebServerAsync_WithCustomUrl_ShouldUseCustomUrl [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.MM_ACC_002_DownloadModel_CompletesSuccessfullyWithProgress [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.DownloadModel_Twice_IsIdempotent [1 ms]
+[xUnit.net 00:00:03.05]     Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.MM_ACC_004_DeleteCachedModel_RemovesModelAndReclaimsDiskSpace [SKIP]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.MM_ACC_004_DeleteCachedModel_RemovesModelAndReclaimsDiskSpace [1 ms]
