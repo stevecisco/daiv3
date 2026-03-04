@@ -33,6 +33,9 @@ public class PromotionTransparencyIntegrationTests : IAsyncLifetime
         });
         services.AddPersistence();
 
+        // Dispose previous service provider if it exists
+        (_serviceProvider as IDisposable)?.Dispose();
+
         _serviceProvider = services.BuildServiceProvider();
         await _serviceProvider.InitializeDatabaseAsync();
     }

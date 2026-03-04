@@ -267,6 +267,10 @@ public class WebContentIngestionService : IWebContentIngestionService, IDisposab
 
         try
         {
+            // Dispose previous instances before reassignment
+            _monitoringCts?.Dispose();
+            _watcher?.Dispose();
+
             _monitoringCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _watcher = new FileSystemWatcher(storageDir, "*.md")
             {

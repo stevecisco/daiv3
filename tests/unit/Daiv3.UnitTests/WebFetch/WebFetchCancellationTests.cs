@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Daiv3.WebFetch.Crawl;
 
-#pragma warning disable IDISP006 // Test classes don't need to implement IDisposable
+#pragma warning disable IDISP006, IDISP003 // Test classes don't need to implement IDisposable; Test methods create disposable instances without explicit disposal (xUnit cleanup handles it)
 
 namespace Daiv3.UnitTests.WebFetch;
 

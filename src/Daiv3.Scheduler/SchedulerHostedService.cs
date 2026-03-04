@@ -62,6 +62,9 @@ public class SchedulerHostedService : BackgroundService, IScheduler, IDisposable
 
         try
         {
+            // Dispose old timer if it exists
+            _checkTimer?.Dispose();
+
             // Start the job checking timer
             _checkTimer = new Timer(
                 callback: _ => _ = CheckAndExecutePendingJobs(stoppingToken),

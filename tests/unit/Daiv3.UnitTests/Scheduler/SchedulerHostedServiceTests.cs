@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 
-#pragma warning disable IDISP006 // Test classes don't need to implement IDisposable
+#pragma warning disable IDISP006, IDISP003 // Test classes don't need to implement IDisposable; Test methods create disposable instances without explicit disposal (xUnit cleanup handles it)
 
 namespace Daiv3.UnitTests.Scheduler;
 

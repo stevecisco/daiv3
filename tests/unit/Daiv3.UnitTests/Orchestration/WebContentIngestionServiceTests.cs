@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
+#pragma warning disable IDISP003 // Test methods create disposable instances without explicit disposal (xUnit cleanup handles it)
 #pragma warning disable IDISP006 // Test classes don't need to implement IDisposable
 
 namespace Daiv3.UnitTests.Orchestration;

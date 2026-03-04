@@ -269,6 +269,8 @@ public sealed class ToolRoutingService : IToolInvoker
                     using var request = BuildHttpRequest(url, config.HttpMethod, config, parameters);
                     requestHeaderSize = request.Headers.ToString().Length;
 
+                    // Dispose previous response before reassigning (in retry loop)
+                    response?.Dispose();
                     response = await httpClient.SendAsync(request, cancellationToken);
                     break; // Success, exit retry loop
                 }
