@@ -1139,6 +1139,220 @@ Expected output here
 
 ---
 
+## 9. Sensitive Configuration & Secrets Management
+
+**All sensitive data (API keys, credentials, tokens, connection strings, passwords) MUST be stored securely using .NET User Secrets in development and environment variables in production. NEVER commit secrets to version control.**
+
+### 9.1 Development Environment: .NET User Secrets
+
+Use `dotnet user-secrets` for local development to store sensitive configuration without committing to Git.
+
+**Setup Instructions (One-time per machine):**
+```bash
+# Initialize user secrets for a project
+cd src/Daiv3.App.Cli
+dotnet user-secrets init
+
+# Verify secrets are initialized (creates user secrets ID in .csproj)
+dotnet user-secrets list
+```
+
+**Storing Secrets:**
+```bash
+# Set individual secrets
+dotnet user-secrets set "OpenAI:ApiKey" "your-api-key-here"
+dotnet user-secrets set "AzureOpenAI:ApiKey" "your-azure-key-here"
+dotnet user-secrets set "Anthropic:ApiKey" "your-anthropic-key-here"
+
+# View all secrets
+dotnet user-secrets list
+
+# Remove a secret
+dotnet user-secrets remove "OpenAI:ApiKey"
+
+# Clear all secrets
+dotnet user-secrets clear
+```
+
+**Reading Secrets in Code:**
+```csharp
+// In Program.cs or dependency injection setup:
+var configuration = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile($"appsettings.{environment}.json", optional: true)
+    .AddUserSecrets<Program>(optional: true) // Add user secrets (development only)
+    .AddEnvironmentVariables()
+    .Build();
+
+// User secrets are automatically merged into IConfiguration
+var apiKey = configuration["OpenAI:ApiKey"];
+```
+
+**Using with Online Provider Configuration:**
+```csharp
+// Program.cs or ServiceCollection extension
+services.Configure<OnlineProviderOptions>(configuration.GetSection("OnlineProviders"));
+
+// appsettings.json (DO NOT include actual keys - placeholder only)
+{
+  "OnlineProviders": {
+    "OpenAI": {
+      "ApiKey": "", // Will be read from user secrets
+      "Model": "gpt-4-turbo"
+    },
+    "AzureOpenAI": {
+      "ApiKey": "", // Will be read from user secrets
+      "Endpoint": "https://your-instance.openai.azure.com/"
+    }
+  }
+}
+```
+
+### 9.2 Production Environment: Environment Variables
+
+In production deployments (Azure, containers, cloud services), use environment variables instead of user secrets.
+
+**Setting Environment Variables:**
+
+**Windows (Command Prompt/PowerShell):**
+```powershell
+$env:OpenAI__ApiKey = "your-production-key"
+$env:AzureOpenAI__ApiKey = "your-production-key"
+$env:ConnectionStrings__DefaultConnection = "Data Source=knowledge.db"
+```
+
+**Docker/Container (Dockerfile or docker-compose.yml):**
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+# ... build stage ...
+ENV OpenAI__ApiKey=$OPENAI_API_KEY
+ENV AzureOpenAI__ApiKey=$AZURE_OPENAI_KEY
+ENV ConnectionStrings__DefaultConnection=$DB_CONNECTION_STRING
+```
+
+**Azure App Service / Key Vault:**
+```csharp
+// Use Azure Key Vault for production secrets
+builder.Configuration.AddAzureKeyVault(
+    new Uri($"https://{keyVaultName}.vault.azure.net/"),
+    new DefaultAzureCredential());
+```
+
+**Environment Variable Naming Convention:**
+- Use double underscores (`__`) to represent nested configuration (replaces colons in JSON)
+- Example: `OpenAI:ApiKey` becomes `OpenAI__ApiKey` as environment variable
+- Example: `OnlineProviders:OpenAI:Model` becomes `OnlineProviders__OpenAI__Model`
+
+### 9.3 Configuration Structure Best Practices
+
+**Create a dedicated options class for secrets:**
+```csharp
+public class OnlineProviderSecrets
+{
+    public string OpenAiApiKey { get; set; }
+    public string AzureOpenAiApiKey { get; set; }
+    public string AnthropicApiKey { get; set; }
+}
+
+public class DatabaseSecrets
+{
+    public string DefaultConnection { get; set; }
+}
+
+public class SecretsConfiguration
+{
+    public OnlineProviderSecrets OnlineProviders { get; set; }
+    public DatabaseSecrets Database { get; set; }
+}
+```
+
+**Register in DI with options pattern:**
+```csharp
+// Program.cs
+services.Configure<SecretsConfiguration>(configuration.GetSection("Secrets"));
+services.AddScoped(sp => sp.GetRequiredService<IOptions<SecretsConfiguration>>().Value);
+```
+
+### 9.4 Security Requirements
+
+**MANDATORY Security Rules:**
+
+1. **NEVER commit secrets to Git:**
+   - ❌ DO NOT commit `.csproj` changes that reveal secret names
+   - ❌ DO NOT include actual keys in `appsettings.json`
+   - ✅ USE placeholders: `"ApiKey": ""` in appsettings files
+   - ✅ USE user secrets for local development only
+
+2. **NEVER log secrets:**
+   - ❌ DO NOT log API keys, tokens, passwords in any log output
+   - ❌ DO NOT include secrets in structured logging properties
+   - ✅ Log only non-sensitive metadata (provider name, tenant ID, etc.)
+
+3. **NEVER expose secrets in error messages:**
+   - ❌ DO NOT include API keys in exception messages shown to users
+   - ❌ DO NOT include connection strings in stack traces
+   - ✅ Log full errors internally (with secrets masked)
+   - ✅ Show generic error messages to end users
+
+4. **ALWAYS use HTTPS for remote APIs:**
+   - Credentials in transit must always be encrypted
+   - Verify SSL certificates in production
+   - Implementation detail: `HttpClientFactory` handles this automatically
+
+5. **ALWAYS validate secrets are loaded:**
+   ```csharp
+   // At startup, verify all required secrets are present
+   var secrets = configuration.GetSection("Secrets").Get<SecretsConfiguration>();
+   if (string.IsNullOrEmpty(secrets?.OnlineProviders?.OpenAiApiKey))
+   {
+       throw new InvalidOperationException("OpenAI API key not configured. "
+           + "Set via: dotnet user-secrets set \"Secrets:OnlineProviders:OpenAiApiKey\" \"<key>\"");
+   }
+   ```
+
+6. **ALWAYS rotate production secrets regularly:**
+   - Document secret rotation procedures
+   - Update CI/CD pipeline secrets when rotated
+   - Track rotation dates in deployment notes
+
+### 9.5 Testing with Secrets
+
+**For unit tests:**
+- Mock or stub online providers using `IOnlineProvider` interface
+- Do NOT use real API keys in test code
+- Use fake/test API keys from documentation examples
+- Test configuration validation, not API authentication
+
+**For integration tests:**
+- Use environment-specific test API keys
+- Optionally skip online provider tests in CI/CD if credentials unavailable
+- Never store test credentials in test code
+- Use test configuration files with placeholders
+
+**Example test setup:**
+```csharp
+[Fact]
+public void ConfigurationLoadsSecretsCorrectly()
+{
+    // Arrange
+    var config = new ConfigurationBuilder()
+        .AddInMemoryCollection(new[] {
+            new KeyValuePair<string, string>("OpenAI:ApiKey", "test-key"),
+            new KeyValuePair<string, string>("OpenAI:Model", "gpt-4"),
+        })
+        .Build();
+
+    // Act
+    var options = config.GetSection("OpenAI").Get<OpenAiOptions>();
+
+    // Assert
+    Assert.Equal("test-key", options.ApiKey);
+    Assert.Equal("gpt-4", options.Model);
+}
+```
+
+---
+
 ## Feature Completion Criteria (Definition of Done)
 
 A feature or requirement is NOT complete unless ALL of the following criteria are met:
