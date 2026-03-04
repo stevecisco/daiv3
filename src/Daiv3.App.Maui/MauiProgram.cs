@@ -7,6 +7,7 @@ using Daiv3.Knowledge;
 using Daiv3.Knowledge.Embedding;
 using Daiv3.Infrastructure.Shared.Logging;
 using Daiv3.ModelExecution;
+using Daiv3.ModelExecution.Interfaces;
 
 namespace Daiv3.App.Maui;
 
@@ -44,6 +45,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IDashboardService>(serviceProvider =>
             new DashboardService(
                 serviceProvider.GetRequiredService<ILogger<DashboardService>>(),
+                serviceProvider.GetService<IModelQueue>(), // Optional - may not be registered
                 dashboardConfig));
 
         // Register ViewModels

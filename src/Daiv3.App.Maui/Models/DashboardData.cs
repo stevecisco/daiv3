@@ -82,6 +82,7 @@ public class HardwareStatus
 
 /// <summary>
 /// Model queue status information (CT-REQ-004 data).
+/// Displays model queue status with top 3 items and per-project filtering.
 /// </summary>
 public class QueueStatus
 {
@@ -101,9 +102,14 @@ public class QueueStatus
     public string? CurrentModel { get; set; }
 
     /// <summary>
+    /// Time when the current model was last switched (UTC).
+    /// </summary>
+    public DateTimeOffset? LastModelSwitchTime { get; set; }
+
+    /// <summary>
     /// Estimated wait time for the oldest pending task (seconds).
     /// </summary>
-    public int? EstimatedWaitSeconds { get; set; }
+    public double? EstimatedWaitSeconds { get; set; }
 
     /// <summary>
     /// Average task processing time (seconds).
@@ -111,24 +117,74 @@ public class QueueStatus
     public double? AverageTaskDurationSeconds { get; set; }
 
     /// <summary>
+    /// Queue throughput: tasks processed per minute.
+    /// </summary>
+    public double? ThroughputPerMinute { get; set; }
+
+    /// <summary>
+    /// Model utilization percentage (0-100).
+    /// </summary>
+    public int? ModelUtilizationPercent { get; set; }
+
+    /// <summary>
+    /// Count of immediate priority (P0) items.
+    /// </summary>
+    public int ImmediateCount { get; set; }
+
+    /// <summary>
+    /// Count of normal priority (P1) items.
+    /// </summary>
+    public int NormalCount { get; set; }
+
+    /// <summary>
+    /// Count of background priority (P2) items.
+    /// </summary>
+    public int BackgroundCount { get; set; }
+
+    /// <summary>
     /// Top priority items in queue (CT-REQ-004 requirement).
     /// Limited to top 3 items.
     /// </summary>
     public List<QueueItemSummary> TopItems { get; set; } = [];
+
+    /// <summary>
+    /// Optional: All pending items for detailed views (not always populated).
+    /// </summary>
+    public List<QueueItemSummary> AllPendingItems { get; set; } = [];
+
+    /// <summary>
+    /// Get items filtered by project ID.
+    /// </summary>
+    /// <param name="projectId">Project ID filter (null for all projects).</param>
+    /// <returns>Filtered queue items.</returns>
+    public List<QueueItemSummary> GetItemsByProject(string? projectId = null)
+    {
+        if (string.IsNullOrEmpty(projectId))
+            return [..AllPendingItems];
+        
+        return AllPendingItems.Where(item => item.ProjectId == projectId).ToList();
+    }
+
+    /// <summary>
+    /// Get count of pending items for a specific project.
+    /// </summary>
+    public int GetPendingCountByProject(string? projectId) =>
+        string.IsNullOrEmpty(projectId) ? PendingCount : GetItemsByProject(projectId).Count;
 }
 
 /// <summary>
 /// Summary of a queue item for dashboard display.
+/// CT-REQ-004: Displays queue items with priority, estimated times, and project info.
 /// </summary>
 public class QueueItemSummary
 {
     /// <summary>
-    /// Queue item ID.
+    /// Queue item ID (Request ID).
     /// </summary>
     public string? Id { get; set; }
 
     /// <summary>
-    /// Item priority (e.g., "High", "Normal", "Low").
+    /// Item priority (e.g., "Immediate", "Normal", "Background").
     /// </summary>
     public string? Priority { get; set; }
 
@@ -136,6 +192,16 @@ public class QueueItemSummary
     /// Item status (e.g., "Queued", "Processing", "Failed").
     /// </summary>
     public string? Status { get; set; }
+
+    /// <summary>
+    /// Task type (e.g., "chat", "code", "summarize").
+    /// </summary>
+    public string? TaskType { get; set; }
+
+    /// <summary>
+    /// Brief description of the request (first 100 chars of content).
+    /// </summary>
+    public string? Description { get; set; }
 
     /// <summary>
     /// Associated project ID if applicable.
@@ -146,6 +212,21 @@ public class QueueItemSummary
     /// When the item was added to queue.
     /// </summary>
     public DateTimeOffset? EnqueuedAt { get; set; }
+
+    /// <summary>
+    /// Estimated start time for this item (based on queue position and processing time).
+    /// </summary>
+    public DateTimeOffset? EstimatedStartTime { get; set; }
+
+    /// <summary>
+    /// Model affinity/preference for this request.
+    /// </summary>
+    public string? PreferredModel { get; set; }
+
+    /// <summary>
+    /// Queue position (0 = first in queue, -1 = processing/unknown).
+    /// </summary>
+    public int QueuePosition { get; set; } = -1;
 }
 
 /// <summary>

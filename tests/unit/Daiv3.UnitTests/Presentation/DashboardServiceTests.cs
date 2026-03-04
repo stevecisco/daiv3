@@ -1,5 +1,6 @@
 using Daiv3.App.Maui.Models;
 using Daiv3.App.Maui.Services;
+using Daiv3.ModelExecution.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -27,7 +28,7 @@ public class DashboardServiceTests
         var config = new DashboardConfiguration();
 
         // Act
-        var service = new DashboardService(_mockLogger.Object, config);
+        var service = new DashboardService(_mockLogger.Object, null, config);
 
         // Assert
         Assert.NotNull(service);
@@ -39,14 +40,14 @@ public class DashboardServiceTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new DashboardService(null!, new DashboardConfiguration()));
+            new DashboardService(null!, null, new DashboardConfiguration()));
     }
 
     [Fact]
     public void Constructor_WithNullConfiguration_ShouldUseDefault()
     {
         // Act
-        var service = new DashboardService(_mockLogger.Object, null);
+        var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Assert
         Assert.NotNull(service.Configuration);
@@ -57,7 +58,7 @@ public class DashboardServiceTests
     public async Task GetDashboardDataAsync_ShouldReturnValidData()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act
         var data = await service.GetDashboardDataAsync();
@@ -76,7 +77,7 @@ public class DashboardServiceTests
     public async Task GetDashboardDataAsync_WithCancellation_ReturnsCancelledData()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -92,7 +93,7 @@ public class DashboardServiceTests
     {
         // Arrange - This test is timing-dependent, so we don't make strict assertions
         var config = new DashboardConfiguration { DataCollectionTimeoutMs = 10 }; // Very short but not unrealistic
-        var service = new DashboardService(_mockLogger.Object, config);
+        var service = new DashboardService(_mockLogger.Object, null, config);
 
         // Act
         var data = await service.GetDashboardDataAsync();
@@ -106,7 +107,7 @@ public class DashboardServiceTests
     public async Task StartMonitoringAsync_ShouldSetMonitoringFlag()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act
         await service.StartMonitoringAsync();
@@ -123,7 +124,7 @@ public class DashboardServiceTests
     public async Task StartMonitoringAsync_WhenAlreadyMonitoring_ShouldNotFail()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
         await service.StartMonitoringAsync();
         await Task.Delay(100);
 
@@ -141,7 +142,7 @@ public class DashboardServiceTests
     public async Task StartMonitoringAsync_WithInvalidInterval_ShouldThrow()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
@@ -152,7 +153,7 @@ public class DashboardServiceTests
     public async Task StopMonitoringAsync_ShouldClearMonitoringFlag()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
         await service.StartMonitoringAsync();
         await Task.Delay(100);
 
@@ -168,7 +169,7 @@ public class DashboardServiceTests
     public async Task StopMonitoringAsync_WhenNotMonitoring_ShouldNotFail()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act
         await service.StopMonitoringAsync(); // Should not throw
@@ -181,7 +182,7 @@ public class DashboardServiceTests
     public async Task DataUpdated_ShouldRaiseEventWhenMonitoring()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
         var eventRaised = false;
         service.DataUpdated += (s, e) => { eventRaised = true; };
 
@@ -201,7 +202,7 @@ public class DashboardServiceTests
     {
         // Arrange
         var config = new DashboardConfiguration { RefreshIntervalMs = 5000 };
-        var service = new DashboardService(_mockLogger.Object, config);
+        var service = new DashboardService(_mockLogger.Object, null, config);
 
         // Act
         var serviceConfig = service.Configuration;
@@ -215,7 +216,7 @@ public class DashboardServiceTests
     public void Dispose_ShouldCleanupResources()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act
         service.Dispose();
@@ -228,7 +229,7 @@ public class DashboardServiceTests
     public async Task Dispose_WhileMonitoring_ShouldStopMonitoring()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
         await service.StartMonitoringAsync();
         await Task.Delay(100);
 
@@ -244,12 +245,157 @@ public class DashboardServiceTests
     public async Task GetDashboardDataAsync_AfterDispose_ShouldThrow()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object);
+        var service = new DashboardService(_mockLogger.Object, null, null);
         service.Dispose();
 
         // Act & Assert
         await Assert.ThrowsAsync<ObjectDisposedException>(
             () => service.GetDashboardDataAsync());
+    }
+
+    /// <summary>
+    /// Tests for CT-REQ-004: Queue status collection.
+    /// </summary>
+    [Fact]
+    public async Task GetDashboardDataAsync_WithModelQueue_ShouldPopulateQueueStatus()
+    {
+        // Arrange
+        var mockQueue = new Mock<IModelQueue>();
+        var queueStatus = new Daiv3.ModelExecution.Models.QueueStatus
+        {
+            ImmediateCount = 2,
+            NormalCount = 3,
+            BackgroundCount = 1,
+            CurrentModelId = "test-model",
+            LastModelSwitch = DateTimeOffset.UtcNow.AddSeconds(-10)
+        };
+        mockQueue.Setup(q => q.GetQueueStatusAsync()).ReturnsAsync(queueStatus);
+        
+        var metrics = new Daiv3.ModelExecution.Models.QueueMetrics
+        {
+            TotalCompleted = 10,
+            AverageExecutionDurationMs = 1500.0,
+            AverageQueueWaitMs = 500.0,
+            InFlightExecutions = 2
+        };
+        mockQueue.Setup(q => q.GetMetricsAsync()).ReturnsAsync(metrics);
+        
+        var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.Queue);
+        Assert.Equal(6, data.Queue.PendingCount); // 2 + 3 + 1
+        Assert.Equal(10, data.Queue.CompletedCount);
+        Assert.Equal("test-model", data.Queue.CurrentModel);
+        Assert.Equal(2, data.Queue.ImmediateCount);
+        Assert.Equal(3, data.Queue.NormalCount);
+        Assert.Equal(1, data.Queue.BackgroundCount);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithModelQueue_ShouldCalculateMetrics()
+    {
+        // Arrange
+        var mockQueue = new Mock<IModelQueue>();
+        var queueStatus = new Daiv3.ModelExecution.Models.QueueStatus
+        {
+            ImmediateCount = 0,
+            NormalCount = 0,
+            BackgroundCount = 0,
+            CurrentModelId = null,
+            LastModelSwitch = DateTimeOffset.UtcNow
+        };
+        mockQueue.Setup(q => q.GetQueueStatusAsync()).ReturnsAsync(queueStatus);
+        
+        var metrics = new Daiv3.ModelExecution.Models.QueueMetrics
+        {
+            TotalCompleted = 60,
+            AverageExecutionDurationMs = 2000.0,  // 2 seconds per request
+            AverageQueueWaitMs = 1000.0,         // 1 second average wait
+            InFlightExecutions = 3                // 3 concurrent
+        };
+        mockQueue.Setup(q => q.GetMetricsAsync()).ReturnsAsync(metrics);
+        
+        var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.Queue);
+        Assert.NotNull(data.Queue.AverageTaskDurationSeconds);
+        Assert.Equal(2.0, data.Queue.AverageTaskDurationSeconds.Value, precision: 1);
+        Assert.NotNull(data.Queue.EstimatedWaitSeconds);
+        Assert.Equal(1.0, data.Queue.EstimatedWaitSeconds.Value, precision: 1);
+        Assert.NotNull(data.Queue.ThroughputPerMinute);
+        Assert.Equal(60.0, data.Queue.ThroughputPerMinute.Value);
+        Assert.True(data.Queue.ModelUtilizationPercent >= 0 && data.Queue.ModelUtilizationPercent <= 100);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithoutModelQueue_ShouldReturnDefaultQueueStatus()
+    {
+        // Arrange - No model queue injected
+        var service = new DashboardService(_mockLogger.Object, null, null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.Queue);
+        Assert.Equal(0, data.Queue.PendingCount);
+        Assert.Equal(0, data.Queue.CompletedCount);
+        Assert.Null(data.Queue.CurrentModel);
+        Assert.Empty(data.Queue.TopItems);
+        Assert.Empty(data.Queue.AllPendingItems);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WhenModelQueueThrows_ShouldReturnDefaults()
+    {
+        // Arrange
+        var mockQueue = new Mock<IModelQueue>();
+        mockQueue.Setup(q => q.GetQueueStatusAsync())
+            .ThrowsAsync(new InvalidOperationException("Queue service error"));
+        
+        var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.Queue);
+        Assert.Equal(0, data.Queue.PendingCount);
+        Assert.Equal(0, data.Queue.CompletedCount);
+    }
+
+    [Fact]
+    public void QueueStatus_GetItemsByProject_ShouldFilterCorrectly()
+    {
+        // Arrange
+        var queueStatus = new Daiv3.App.Maui.Models.QueueStatus
+        {
+            AllPendingItems = new List<Daiv3.App.Maui.Models.QueueItemSummary>
+            {
+                new() { Id = "1", ProjectId = "proj-A" },
+                new() { Id = "2", ProjectId = "proj-B" },
+                new() { Id = "3", ProjectId = "proj-A" },
+                new() { Id = "4", ProjectId = null }
+            }
+        };
+
+        // Act
+        var projAItems = queueStatus.GetItemsByProject("proj-A");
+        var projBItems = queueStatus.GetItemsByProject("proj-B");
+        var allItems = queueStatus.GetItemsByProject(null);
+
+        // Assert
+        Assert.Equal(2, projAItems.Count);
+        Assert.Single(projBItems);
+        Assert.Equal(4, allItems.Count);
     }
 }
 

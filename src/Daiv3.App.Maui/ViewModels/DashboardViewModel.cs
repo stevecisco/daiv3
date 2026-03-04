@@ -23,6 +23,12 @@ public class DashboardViewModel : BaseViewModel, IAsyncDisposable
     private string _currentActivity = "Initializing...";
     private string _lastUpdateTime = "Never";
     private bool _isMonitoring;
+    private string? _currentModel;
+    private List<QueueItemSummary> _topQueueItems = [];
+    private double? _averageWaitTimeSeconds;
+    private double? _throughputPerMinute;
+    private int? _modelUtilizationPercent;
+    private string? _selectedProjectFilter;
 
     public DashboardViewModel(
         ILogger<DashboardViewModel> logger,
@@ -104,6 +110,82 @@ public class DashboardViewModel : BaseViewModel, IAsyncDisposable
     {
         get => _isMonitoring;
         set => SetProperty(ref _isMonitoring, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the currently loaded model name (CT-REQ-004).
+    /// </summary>
+    public string? CurrentModel
+    {
+        get => _currentModel;
+        set => SetProperty(ref _currentModel, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the top queued items (CT-REQ-004: top 3 items).
+    /// </summary>
+    public List<QueueItemSummary> TopQueueItems
+    {
+        get => _topQueueItems;
+        set => SetProperty(ref _topQueueItems, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the average wait time for queue items in seconds (CT-REQ-004).
+    /// </summary>
+    public double? AverageWaitTimeSeconds
+    {
+        get => _averageWaitTimeSeconds;
+        set => SetProperty(ref _averageWaitTimeSeconds, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the queue throughput (requests per minute) (CT-REQ-004).
+    /// </summary>
+    public double? ThroughputPerMinute
+    {
+        get => _throughputPerMinute;
+        set => SetProperty(ref _throughputPerMinute, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the model utilization percentage (CT-REQ-004).
+    /// </summary>
+    public int? ModelUtilizationPercent
+    {
+        get => _modelUtilizationPercent;
+        set => SetProperty(ref _modelUtilizationPercent, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the selected project filter for queue view (CT-REQ-004: per-project filtering).
+    /// Null means show all projects.
+    /// </summary>
+    public string? SelectedProjectFilter
+    {
+        get => _selectedProjectFilter;
+        set => SetProperty(ref _selectedProjectFilter, value);
+    }
+
+    /// <summary>
+    /// Gets filtered queue items for the selected project.
+    /// </summary>
+    public List<QueueItemSummary> FilteredQueueItems
+    {
+        get
+        {
+            // This would normally be a cached property but for simplicity we compute on demand
+            // In production, consider making this a backing field with notifications
+            if (TopQueueItems == null || TopQueueItems.Count == 0)
+                return [];
+            
+            if (string.IsNullOrEmpty(SelectedProjectFilter))
+                return new List<QueueItemSummary>(TopQueueItems);
+            
+            return TopQueueItems
+                .Where(item => item.ProjectId == SelectedProjectFilter)
+                .ToList();
+        }
     }
 
     /// <summary>
@@ -244,9 +326,16 @@ public class DashboardViewModel : BaseViewModel, IAsyncDisposable
         NpuStatus = data.Hardware.NpuStatus;
         GpuStatus = data.Hardware.GpuStatus;
 
-        // Update queue status
+        // Update queue status (CT-REQ-003 and CT-REQ-004)
         QueuedTasks = data.Queue.PendingCount;
         CompletedTasks = data.Queue.CompletedCount;
+        CurrentModel = data.Queue.CurrentModel ?? "Not loaded";
+        AverageWaitTimeSeconds = data.Queue.EstimatedWaitSeconds;
+        ThroughputPerMinute = data.Queue.ThroughputPerMinute;
+        ModelUtilizationPercent = data.Queue.ModelUtilizationPercent;
+        
+        // Update top queue items (CT-REQ-004: top 3 items highlighted)
+        TopQueueItems = new List<QueueItemSummary>(data.Queue.TopItems);
 
         // Update activity and timestamp
         CurrentActivity = data.IsValid ? "Monitoring active" : $"Error: {data.CollectionError}";

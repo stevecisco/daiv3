@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Daiv3.App.Maui.Models;
+using Daiv3.ModelExecution.Interfaces;
+using Daiv3.ModelExecution.Models;
 
 namespace Daiv3.App.Maui.Services;
 
@@ -11,6 +13,7 @@ namespace Daiv3.App.Maui.Services;
 public class DashboardService : IDashboardService, IDisposable
 {
     private readonly ILogger<DashboardService> _logger;
+    private readonly IModelQueue? _modelQueue;
     private readonly DashboardConfiguration _configuration;
     private CancellationTokenSource? _monitoringCts;
     private Task? _monitoringTask;
@@ -23,12 +26,15 @@ public class DashboardService : IDashboardService, IDisposable
     /// Initializes a new instance of the <see cref="DashboardService"/> class.
     /// </summary>
     /// <param name="logger">Logger for diagnostic output.</param>
+    /// <param name="modelQueue">Optional model queue service for queue status. If null, queue data uses defaults.</param>
     /// <param name="configuration">Optional custom configuration.</param>
     public DashboardService(
         ILogger<DashboardService> logger,
+        IModelQueue? modelQueue = null,
         DashboardConfiguration? configuration = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _modelQueue = modelQueue; // Optional - service may not be registered in all contexts
         _configuration = configuration ?? new DashboardConfiguration();
         _configuration.Validate();
         _logger.LogInformation("DashboardService initialized with refresh interval {RefreshMs}ms",
@@ -235,19 +241,98 @@ public class DashboardService : IDashboardService, IDisposable
         };
     }
 
-    private async Task<QueueStatus> CollectQueueStatusAsync(CancellationToken cancellationToken)
+    private async Task<Models.QueueStatus> CollectQueueStatusAsync(CancellationToken cancellationToken)
     {
-        // Placeholder implementation
-        // Will integrate with IModelQueue service when available
-        await Task.CompletedTask;
-        
-        return new QueueStatus
+        if (_modelQueue == null)
         {
-            PendingCount = 0,
-            CompletedCount = 0,
-            CurrentModel = null,
-            TopItems = []
-        };
+            // Service not available
+            return new Models.QueueStatus
+            {
+                PendingCount = 0,
+                CompletedCount = 0,
+                CurrentModel = null,
+                TopItems = [],
+                AllPendingItems = [],
+                ImmediateCount = 0,
+                NormalCount = 0,
+                BackgroundCount = 0
+            };
+        }
+
+        try
+        {
+            // Get queue status snapshot
+            var mxQueueStatus = await _modelQueue.GetQueueStatusAsync().ConfigureAwait(false);
+            var mxMetrics = await _modelQueue.GetMetricsAsync().ConfigureAwait(false);
+
+            // Convert to dashboard models
+            var queueStatus = new Models.QueueStatus
+            {
+                PendingCount = (mxQueueStatus?.ImmediateCount ?? 0) + 
+                               (mxQueueStatus?.NormalCount ?? 0) + 
+                               (mxQueueStatus?.BackgroundCount ?? 0),
+                CompletedCount = (int)(mxMetrics?.TotalCompleted ?? 0),
+                CurrentModel = mxQueueStatus?.CurrentModelId,
+                LastModelSwitchTime = mxQueueStatus?.LastModelSwitch,
+                ImmediateCount = mxQueueStatus?.ImmediateCount ?? 0,
+                NormalCount = mxQueueStatus?.NormalCount ?? 0,
+                BackgroundCount = mxQueueStatus?.BackgroundCount ?? 0
+            };
+
+            // Calculate metrics if available
+            if (mxMetrics != null)
+            {
+                // Average processing/execution duration
+                if (mxMetrics.AverageExecutionDurationMs > 0)
+                {
+                    queueStatus.AverageTaskDurationSeconds = mxMetrics.AverageExecutionDurationMs / 1000.0;
+                }
+
+                // Estimated wait time from average queue wait
+                if (mxMetrics.AverageQueueWaitMs > 0)
+                {
+                    queueStatus.EstimatedWaitSeconds = mxMetrics.AverageQueueWaitMs / 1000.0;
+                }
+
+                // Calculate throughput (requests completed per minute)
+                // Using a monitoring window assumption of 1 minute
+                // In practice, this would track a rolling window
+                queueStatus.ThroughputPerMinute = mxMetrics.TotalCompleted; // Requests per the entire monitoring period
+                // For true throughput, we'd need a timestamp of when monitoring started
+
+                // Model utilization (approximation: in-flight executions as a percentage of potential capacity)
+                // Assuming max capacity of about 4 concurrent requests as typical
+                if (mxMetrics.InFlightExecutions > 0)
+                {
+                    queueStatus.ModelUtilizationPercent = (int)Math.Min(100, 
+                        (mxMetrics.InFlightExecutions / 4.0) * 100.0);
+                }
+                else
+                {
+                    queueStatus.ModelUtilizationPercent = 0;
+                }
+            }
+
+            // TODO: Populate TopItems and AllPendingItems from IModelQueue
+            // This requires additional methods on IModelQueue to fetch request details
+            // For now, populate placeholder data
+            queueStatus.TopItems = [];
+            queueStatus.AllPendingItems = [];
+
+            return queueStatus;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error collecting queue status, returning defaults");
+            return new Models.QueueStatus
+            {
+                PendingCount = 0,
+                CompletedCount = 0,
+                CurrentModel = null,
+                TopItems = [],
+                AllPendingItems = []
+            };
+        }
     }
 
     private async Task<IndexingStatus> CollectIndexingStatusAsync(CancellationToken cancellationToken)
