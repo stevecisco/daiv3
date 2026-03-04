@@ -18,6 +18,7 @@ public class SkillSourceTrackingTests
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddLogging();
         services.TryAddScoped<ISkillRegistry, SkillRegistry>();
         var serviceProvider = services.BuildServiceProvider();
         var registry = serviceProvider.GetRequiredService<ISkillRegistry>();
@@ -113,9 +114,9 @@ public class SkillSourceTrackingTests
         // Assert
         var metadata = registry.ListSkills();
         Assert.Equal(3, metadata.Count);
-        Assert.Equal(SkillSource.BuiltIn, metadata[0].Source);
-        Assert.Equal(SkillSource.UserDefined, metadata[1].Source);
-        Assert.Equal(SkillSource.Imported, metadata[2].Source);
+        Assert.Equal(SkillSource.BuiltIn, metadata.Single(m => m.Name == "BuiltIn").Source);
+        Assert.Equal(SkillSource.UserDefined, metadata.Single(m => m.Name == "UserDefined").Source);
+        Assert.Equal(SkillSource.Imported, metadata.Single(m => m.Name == "Imported").Source);
     }
 
     [Fact]

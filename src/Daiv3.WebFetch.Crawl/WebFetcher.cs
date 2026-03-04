@@ -189,7 +189,7 @@ public class WebFetcher : IWebFetcher
             _stopwatch.Stop();
             _cancellationMetrics.RecordCancellation("Fetch", url, "UserRequested", _stopwatch.ElapsedMilliseconds);
             _logger.LogInformation("Fetch operation cancelled by user for {Url} after {ElapsedMs}ms", url, _stopwatch.ElapsedMilliseconds);
-            throw;
+            throw new OperationCanceledException("Fetch operation cancelled by user.", cancellationToken);
         }
         catch (HttpRequestException ex)
         {

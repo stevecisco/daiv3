@@ -1,6 +1,7 @@
 using Daiv3.WebFetch.Crawl;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Daiv3.UnitTests.WebFetch;
@@ -589,7 +590,7 @@ public class WebFetchServiceExtensionsTests
         var provider = services.BuildServiceProvider();
 
         // Assert
-        var options = provider.GetService<MarkdownContentStoreOptions>();
+        var options = provider.GetRequiredService<IOptions<MarkdownContentStoreOptions>>().Value;
         Assert.NotNull(options);
         Assert.False(string.IsNullOrEmpty(options.StorageDirectory));
         Assert.Equal(10 * 1024 * 1024, options.MaxContentSizeBytes);
@@ -614,7 +615,7 @@ public class WebFetchServiceExtensionsTests
         var provider = services.BuildServiceProvider();
 
         // Assert
-        var options = provider.GetService<MarkdownContentStoreOptions>();
+        var options = provider.GetRequiredService<IOptions<MarkdownContentStoreOptions>>().Value;
         Assert.NotNull(options);
         Assert.Equal(customDir, options.StorageDirectory);
         Assert.Equal(5_000_000, options.MaxContentSizeBytes);

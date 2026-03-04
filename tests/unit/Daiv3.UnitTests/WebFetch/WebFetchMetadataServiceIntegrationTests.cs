@@ -187,6 +187,7 @@ public class WebFetchMetadataServiceIntegrationTests : IAsyncLifetime
         // Create document
         var doc = new Document
         {SourcePath = sourceUrl,
+            DocId = docId,
             FileHash = "hash-initial",
             Format = "web",
             SizeBytes = contentV1.Length,

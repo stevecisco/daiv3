@@ -64,7 +64,7 @@ internal class MarkdownContentStore : IMarkdownContentStore
             throw new ArgumentNullException(nameof(markdownContent), "Markdown content cannot be null or empty.");
         }
 
-        if (markdownContent.Length * _options.ContentEncoding.GetByteCount(markdownContent) > _options.MaxContentSizeBytes)
+        if (_options.ContentEncoding.GetByteCount(markdownContent) > _options.MaxContentSizeBytes)
         {
             throw new InvalidOperationException(
                 $"Content size exceeds maximum allowed ({_options.MaxContentSizeBytes} bytes).");
@@ -423,7 +423,7 @@ internal class MarkdownContentStore : IMarkdownContentStore
     /// Escapes a string for use in YAML.
     /// </summary>
     private static string EscapeYamlString(string value) =>
-        value.Contains('"') || value.Contains(':') || value.Contains('\n')
+        value.Contains('"') || value.Contains('\n')
             ? $"\"{value.Replace("\"", "\\\"")}\"" 
             : value;
 

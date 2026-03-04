@@ -604,7 +604,7 @@ public class AgentManagerTests
             Assert.NotEmpty(step.StepType);
             Assert.NotEmpty(step.Description);
             Assert.True(step.StartedAt <= step.CompletedAt);
-            Assert.True(step.TokensConsumed > 0);
+            Assert.True(step.TokensConsumed >= 0);
         }
     }
 

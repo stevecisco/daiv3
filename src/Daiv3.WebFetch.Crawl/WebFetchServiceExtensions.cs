@@ -261,14 +261,10 @@ public static class WebFetchServiceExtensions
         if (services == null)
             throw new ArgumentNullException(nameof(services));
 
-        // Create default options
-        var options = new MarkdownContentStoreOptions();
-
-        // Apply custom configuration if provided
-        configureOptions?.Invoke(options);
-
-        // Register options as singleton
-        services.AddSingleton(options);
+        if (configureOptions is not null)
+        {
+            services.Configure(configureOptions);
+        }
 
         // Register the content store
         services.AddScoped<IMarkdownContentStore, MarkdownContentStore>();
