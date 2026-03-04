@@ -5,6 +5,9 @@ using Daiv3.WebFetch.Crawl;
 using System.Net;
 using System.Diagnostics;
 
+#pragma warning disable IDISP001 // Dispose created
+#pragma warning disable IDISP004 // Don't ignore created IDisposable
+
 namespace Daiv3.UnitTests.WebFetch;
 
 /// <summary>

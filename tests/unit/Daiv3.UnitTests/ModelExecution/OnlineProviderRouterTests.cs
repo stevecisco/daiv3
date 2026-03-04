@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
+#pragma warning disable IDISP001 // Dispose created
+
 namespace Daiv3.UnitTests.ModelExecution;
 
 public class OnlineProviderRouterTests

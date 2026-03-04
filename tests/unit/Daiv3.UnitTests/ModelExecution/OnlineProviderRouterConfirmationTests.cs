@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
+#pragma warning disable IDISP003 // Dispose previous before re-assigning
+
 namespace Daiv3.UnitTests.ModelExecution;
 
 /// <summary>

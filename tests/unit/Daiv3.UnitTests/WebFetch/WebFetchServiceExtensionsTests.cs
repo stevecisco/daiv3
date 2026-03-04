@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 
+#pragma warning disable IDISP001 // Dispose created
+
 namespace Daiv3.UnitTests.WebFetch;
 
 /// <summary>

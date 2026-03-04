@@ -5,6 +5,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
+#pragma warning disable IDISP001 // Dispose created
+#pragma warning disable IDISP004 // Don't ignore created IDisposable
+
 namespace Daiv3.UnitTests.Knowledge.Embedding;
 
 /// <summary>
