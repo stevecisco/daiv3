@@ -122,6 +122,14 @@ public static class PersistenceServiceExtensions
             return new SettingsService(repository, logger);
         });
 
+        // CT-REQ-001: Settings initializer for populating default settings
+        services.AddScoped<Services.ISettingsInitializer>(serviceProvider =>
+        {
+            var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
+            var logger = serviceProvider.GetRequiredService<ILogger<Services.SettingsInitializer>>();
+            return new Services.SettingsInitializer(settingsService, logger);
+        });
+
         return services;
     }
 

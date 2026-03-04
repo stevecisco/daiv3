@@ -14,6 +14,7 @@ using Daiv3.Orchestration.Configuration;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Models;
 using Daiv3.ModelExecution;
+using Daiv3.Core.Settings;
 
 namespace Daiv3.App.Cli;
 
@@ -367,6 +368,104 @@ public class Program
         scheduleCommand.AddCommand(scheduleResumeCommand);
         scheduleCommand.AddCommand(scheduleModifyCommand);
         rootCommand.AddCommand(scheduleCommand);
+
+        // Settings commands (CT-REQ-001: Local settings storage)
+        var settingsCommand = new Command("settings", "Application settings management commands");
+
+        var settingsInitCommand = new Command("init", "Initialize settings with default values");
+        settingsInitCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SettingsInitCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        var settingsListCommand = new Command("list", "List all settings or settings in a category");
+        var settingsCategoryOption = new Option<string?>(
+            aliases: new[] { "--category", "-c" },
+            description: "Filter by category (general, paths, models, providers, hardware, ui, knowledge)");
+        var settingsShowSensitiveOption = new Option<bool>(
+            aliases: new[] { "--show-sensitive" },
+            description: "Show sensitive values (default: false)",
+            getDefaultValue: () => false);
+        settingsListCommand.AddOption(settingsCategoryOption);
+        settingsListCommand.AddOption(settingsShowSensitiveOption);
+        settingsListCommand.SetHandler(async (string? category, bool showSensitive) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SettingsListCommand(host, category, showSensitive);
+            Environment.Exit(exitCode);
+        }, settingsCategoryOption, settingsShowSensitiveOption);
+
+        var settingsGetCommand = new Command("get", "Get a specific setting value");
+        var settingsKeyOption = new Option<string>(
+            aliases: new[] { "--key", "-k" },
+            description: "Setting key")
+        { IsRequired = true };
+        settingsGetCommand.AddOption(settingsKeyOption);
+        settingsGetCommand.SetHandler(async (string key) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SettingsGetCommand(host, key);
+            Environment.Exit(exitCode);
+        }, settingsKeyOption);
+
+        var settingsSetCommand = new Command("set", "Set a setting value");
+        var settingsSetKeyOption = new Option<string>(
+            aliases: new[] { "--key", "-k" },
+            description: "Setting key")
+        { IsRequired = true };
+        var settingsSetValueOption = new Option<string>(
+            aliases: new[] { "--value", "-v" },
+            description: "Setting value")
+        { IsRequired = true };
+        var settingsSetReasonOption = new Option<string>(
+            aliases: new[] { "--reason", "-r" },
+            description: "Reason for change (optional)",
+            getDefaultValue: () => "user_cli");
+        settingsSetCommand.AddOption(settingsSetKeyOption);
+        settingsSetCommand.AddOption(settingsSetValueOption);
+        settingsSetCommand.AddOption(settingsSetReasonOption);
+        settingsSetCommand.SetHandler(async (string key, string value, string reason) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SettingsSetCommand(host, key, value, reason);
+            Environment.Exit(exitCode);
+        }, settingsSetKeyOption, settingsSetValueOption, settingsSetReasonOption);
+
+        var settingsResetCommand = new Command("reset", "Reset all settings to defaults");
+        var settingsConfirmOption = new Option<bool>(
+            aliases: new[] { "--confirm", "-y" },
+            description: "Confirm reset without prompting",
+            getDefaultValue: () => false);
+        settingsResetCommand.AddOption(settingsConfirmOption);
+        settingsResetCommand.SetHandler(async (bool confirm) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SettingsResetCommand(host, confirm);
+            Environment.Exit(exitCode);
+        }, settingsConfirmOption);
+
+        var settingsHistoryCommand = new Command("history", "Show change history for a setting");
+        var settingsHistoryKeyOption = new Option<string>(
+            aliases: new[] { "--key", "-k" },
+            description: "Setting key")
+        { IsRequired = true };
+        settingsHistoryCommand.AddOption(settingsHistoryKeyOption);
+        settingsHistoryCommand.SetHandler(async (string key) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SettingsHistoryCommand(host, key);
+            Environment.Exit(exitCode);
+        }, settingsHistoryKeyOption);
+
+        settingsCommand.AddCommand(settingsInitCommand);
+        settingsCommand.AddCommand(settingsListCommand);
+        settingsCommand.AddCommand(settingsGetCommand);
+        settingsCommand.AddCommand(settingsSetCommand);
+        settingsCommand.AddCommand(settingsResetCommand);
+        settingsCommand.AddCommand(settingsHistoryCommand);
+        rootCommand.AddCommand(settingsCommand);
 
         // Agent commands
         var agentCommand = new Command("agent", "Agent management and execution commands");
@@ -769,20 +868,6 @@ public class Program
         agentProposalCommand.AddCommand(agentProposalRejectCommand);
         agentProposalCommand.AddCommand(agentProposalStatsCommand);
         rootCommand.AddCommand(agentProposalCommand);
-
-        // Settings command
-        var settingsCommand = new Command("settings", "Configuration management");
-
-        var settingsShowCommand = new Command("show", "Show current settings");
-        settingsShowCommand.SetHandler(async () =>
-        {
-            using var host = CreateHost();
-            var exitCode = await Task.FromResult(SettingsShowCommand(host));
-            Environment.Exit(exitCode);
-        });
-
-        settingsCommand.AddCommand(settingsShowCommand);
-        rootCommand.AddCommand(settingsCommand);
 
         // Knowledge commands
         var knowledgeCommand = new Command("knowledge", "Knowledge layer management (indexing and search)");
@@ -1320,45 +1405,6 @@ public class Program
 
     private static DateTimeOffset FromUnixSeconds(long unixSeconds) =>
         DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
-
-    private static int SettingsShowCommand(IHost host)
-    {
-        try
-        {
-            var logger = host.Services.GetRequiredService<ILogger<Program>>();
-            logger.LogInformation("Displaying settings");
-
-            var dataDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Daiv3", "Data");
-            var modelsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Daiv3", "Models");
-
-            Console.WriteLine("CURRENT SETTINGS:");
-            Console.WriteLine();
-            Console.WriteLine("Directories:");
-            Console.WriteLine($"  Data Directory: {dataDir}");
-            Console.WriteLine($"  Models Directory: {modelsDir}");
-            Console.WriteLine();
-            Console.WriteLine("Hardware Preferences:");
-            Console.WriteLine("  Use NPU: True (default)");
-            Console.WriteLine("  Use GPU: True (default)");
-            Console.WriteLine();
-            Console.WriteLine("Model Execution:");
-            Console.WriteLine("  Allow Online Providers: False (default)");
-            Console.WriteLine("  Token Budget: 8192 (default)");
-            Console.WriteLine();
-            Console.WriteLine("NOTE: Settings persistence integration pending.");
-
-            return 0;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"✗ Failed to show settings: {ex.Message}");
-            return 1;
-        }
-    }
 
     private static async Task<int> TasksListCommand(
         IHost host,
@@ -3951,6 +3997,237 @@ public class Program
         var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var variant = useFullPrecision ? "full-precision" : "quantized";
         return Path.Combine(baseDir, "Daiv3", "models", "multimodal", "clip-vit-base-patch32", variant, "vision_model.onnx");
+    }
+
+    // ===== Settings Command Handlers (CT-REQ-001: Local settings storage) =====
+
+    private static async Task<int> SettingsInitCommand(IHost host)
+    {
+        try
+        {
+            Console.WriteLine("Initializing application settings...");
+
+            var settingsInitializer = host.Services.GetRequiredService<Daiv3.Persistence.Services.ISettingsInitializer>();
+            var count = await settingsInitializer.InitializeDefaultSettingsAsync();
+
+            Console.WriteLine($"✓ Settings initialized successfully");
+            Console.WriteLine($"  Initialized {count} settings with default values");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to initialize settings: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SettingsListCommand(IHost host, string? category, bool showSensitive)
+    {
+        try
+        {
+            var settingsService = host.Services.GetRequiredService<ISettingsService>();
+
+            IReadOnlyList<Daiv3.Persistence.Entities.AppSetting> settings;
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                settings = await settingsService.GetSettingsByCategoryAsync(category);
+                Console.WriteLine($"SETTINGS (Category: {category}):");
+            }
+            else
+            {
+                settings = await settingsService.GetAllSettingsAsync();
+                Console.WriteLine("ALL SETTINGS:");
+            }
+
+            if (settings.Count == 0)
+            {
+                Console.WriteLine("  (No settings found)");
+                return 0;
+            }
+
+            foreach (var setting in settings.OrderBy(s => s.Category).ThenBy(s => s.SettingKey))
+            {
+                Console.WriteLine($"\n  Key: {setting.SettingKey}");
+                Console.WriteLine($"  Category: {setting.Category}");
+                
+                if (setting.IsSensitive && !showSensitive)
+                {
+                    Console.WriteLine($"  Value: *** (sensitive, use --show-sensitive to display)");
+                }
+                else
+                {
+                    Console.WriteLine($"  Value: {setting.SettingValue}");
+                }
+                
+                Console.WriteLine($"  Type: {setting.ValueType}");
+                Console.WriteLine($"  Description: {setting.Description}");
+                Console.WriteLine($"  Updated: {DateTimeOffset.FromUnixTimeSeconds(setting.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"  Updated By: {setting.UpdatedBy}");
+            }
+
+            Console.WriteLine();
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list settings: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SettingsGetCommand(IHost host, string key)
+    {
+        try
+        {
+            var settingsService = host.Services.GetRequiredService<ISettingsService>();
+            var setting = await settingsService.GetSettingAsync(key);
+
+            if (setting == null)
+            {
+                Console.WriteLine($"✗ Setting '{key}' not found");
+                return 1;
+            }
+
+            Console.WriteLine($"Key: {setting.SettingKey}");
+            Console.WriteLine($"Category: {setting.Category}");
+            
+            if (setting.IsSensitive)
+            {
+                Console.WriteLine($"Value: *** (sensitive - use settings list --show-sensitive to display all)");
+            }
+            else
+            {
+                Console.WriteLine($"Value: {setting.SettingValue}");
+            }
+            
+            Console.WriteLine($"Type: {setting.ValueType}");
+            Console.WriteLine($"Description: {setting.Description}");
+            Console.WriteLine($"Schema Version: {setting.SchemaVersion}");
+            Console.WriteLine($"Created: {DateTimeOffset.FromUnixTimeSeconds(setting.CreatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+            Console.WriteLine($"Updated: {DateTimeOffset.FromUnixTimeSeconds(setting.UpdatedAt):yyyy-MM-dd HH:mm:ss} UTC");
+            Console.WriteLine($"Updated By: {setting.UpdatedBy}");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to get setting: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SettingsSetCommand(IHost host, string key, string value, string reason)
+    {
+        try
+        {
+            var settingsService = host.Services.GetRequiredService<ISettingsService>();
+            
+            // Get the existing setting to determine its category and check if it exists
+            var existing = await settingsService.GetSettingAsync(key);
+            string category;
+            string description;
+            bool isSensitive;
+
+            if (existing != null)
+            {
+                category = existing.Category;
+                description = existing.Description;
+                isSensitive = existing.IsSensitive;
+                Console.WriteLine($"Updating existing setting '{key}'...");
+            }
+            else
+            {
+                // Use ApplicationSettings helper to get metadata
+                category = Daiv3.Core.Settings.ApplicationSettings.GetCategory(key);
+                description = Daiv3.Core.Settings.ApplicationSettings.GetDescription(key);
+                isSensitive = Daiv3.Core.Settings.ApplicationSettings.IsSensitive(key);
+                Console.WriteLine($"Creating new setting '{key}'...");
+            }
+
+            await settingsService.SaveSettingAsync(
+                key: key,
+                value: value,
+                category: category,
+                description: description,
+                isSensitive: isSensitive,
+                reason: reason
+            );
+
+            Console.WriteLine($"✓ Setting '{key}' updated successfully");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to set setting: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SettingsResetCommand(IHost host, bool confirm)
+    {
+        try
+        {
+            if (!confirm)
+            {
+                Console.Write("⚠ This will reset ALL settings to their default values. Continue? (y/N): ");
+                var response = Console.ReadLine()?.Trim().ToLowerInvariant();
+                if (response != "y" && response != "yes")
+                {
+                    Console.WriteLine("Reset cancelled");
+                    return 0;
+                }
+            }
+
+            Console.WriteLine("Resetting all settings to defaults...");
+
+            var settingsInitializer = host.Services.GetRequiredService<Daiv3.Persistence.Services.ISettingsInitializer>();
+            var count = await settingsInitializer.ResetToDefaultsAsync();
+
+            Console.WriteLine($"✓ Settings reset successfully");
+            Console.WriteLine($"  Reset {count} settings to default values");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to reset settings: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SettingsHistoryCommand(IHost host, string key)
+    {
+        try
+        {
+            var settingsService = host.Services.GetRequiredService<ISettingsService>();
+            var history = await settingsService.GetSettingHistoryAsync(key);
+
+            if (history.Count == 0)
+            {
+                Console.WriteLine($"No history found for setting '{key}'");
+                return 0;
+            }
+
+            Console.WriteLine($"CHANGE HISTORY for '{key}':");
+            Console.WriteLine();
+
+            foreach (var entry in history.OrderByDescending(h => h.ChangedAt))
+            {
+                Console.WriteLine($"  Time: {DateTimeOffset.FromUnixTimeSeconds(entry.ChangedAt):yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"  Changed By: {entry.ChangedBy}");
+                Console.WriteLine($"  Reason: {entry.Reason}");
+                Console.WriteLine($"  Old Value: {entry.OldValue ?? "(null)"}");
+                Console.WriteLine($"  New Value: {entry.NewValue}");
+                Console.WriteLine($"  Schema Version: {entry.SchemaVersion}");
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to get settings history: {ex.Message}");
+            return 1;
+        }
     }
 
     private static async Task EnsureAllModelsAsync()

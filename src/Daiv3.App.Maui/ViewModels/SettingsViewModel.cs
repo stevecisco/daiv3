@@ -1,15 +1,22 @@
 using System.Windows.Input;
 using Microsoft.Extensions.Logging;
+using Daiv3.Persistence;
+using Daiv3.Persistence.Services;
+using Daiv3.Core.Settings;
 
 namespace Daiv3.App.Maui.ViewModels;
 
 /// <summary>
 /// ViewModel for the Settings interface.
 /// Manages user preferences, directories, model settings, and system configuration.
+/// Implements CT-REQ-001: The system SHALL store all settings locally.
 /// </summary>
 public class SettingsViewModel : BaseViewModel
 {
     private readonly ILogger<SettingsViewModel> _logger;
+    private readonly ISettingsService _settingsService;
+    private readonly ISettingsInitializer _settingsInitializer;
+    
     private string _dataDirectory = string.Empty;
     private string _modelsDirectory = string.Empty;
     private bool _useNpu = true;
@@ -18,9 +25,15 @@ public class SettingsViewModel : BaseViewModel
     private int _tokenBudget = 8192;
     private string _selectedTheme = "System";
 
-    public SettingsViewModel(ILogger<SettingsViewModel> logger)
+    public SettingsViewModel(
+        ILogger<SettingsViewModel> logger,
+        ISettingsService settingsService,
+        ISettingsInitializer settingsInitializer)
     {
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        _settingsInitializer = settingsInitializer ?? throw new ArgumentNullException(nameof(settingsInitializer));
+        
         Title = "Settings";
         SaveSettingsCommand = new Command(OnSaveSettings);
         ResetSettingsCommand = new Command(OnResetSettings);
@@ -107,25 +120,57 @@ public class SettingsViewModel : BaseViewModel
     {
         IsBusy = true;
 
-        // TODO: Load settings from configuration service
         Task.Run(async () =>
         {
-            await Task.Delay(200); // Simulate loading
-
-            MainThread.BeginInvokeOnMainThread(() =>
+            try
             {
-                // Set default values (TODO: Load from config)
-                DataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Daiv3", "Data");
-                ModelsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Daiv3", "Models");
-                UseNpu = true;
-                UseGpu = true;
-                AllowOnlineProviders = false;
-                TokenBudget = 8192;
-                SelectedTheme = "System";
+                // Check if settings are initialized, if not, initialize them
+                var areInitialized = await _settingsInitializer.AreSettingsInitializedAsync();
+                if (!areInitialized)
+                {
+                    _logger.LogInformation("Initializing settings for first run");
+                    await _settingsInitializer.InitializeDefaultSettingsAsync();
+                }
 
-                IsBusy = false;
-                _logger.LogInformation("Settings loaded");
-            });
+                // Load settings from persistence layer
+                var dataDir = await _settingsService.GetSettingValueAsync<string>(ApplicationSettings.Paths.DataDirectory);
+                var useNpu = await _settingsService.GetSettingValueAsync<bool>(ApplicationSettings.Hardware.DisableNpu);
+                var useGpu = await _settingsService.GetSettingValueAsync<bool>(ApplicationSettings.Hardware.DisableGpu);
+                var theme = await _settingsService.GetSettingValueAsync<string>(ApplicationSettings.UI.Theme);
+                var dailyBudget = await _settingsService.GetSettingValueAsync<int>(ApplicationSettings.Providers.DailyTokenBudget);
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    DataDirectory = dataDir ?? ApplicationSettings.Defaults.DataDirectory;
+                    ModelsDirectory = Path.Combine(DataDirectory, "..", "Models");
+                    UseNpu = !useNpu; // Inverted: setting stores "Disable" flag
+                    UseGpu = !useGpu; // Inverted: setting stores "Disable" flag
+                    AllowOnlineProviders = false; // TODO: Load from online access mode setting
+                    TokenBudget = dailyBudget;
+                    SelectedTheme = theme ?? ApplicationSettings.Defaults.Theme;
+
+                    IsBusy = false;
+                    _logger.LogInformation("Settings loaded successfully");
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load settings");
+                
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    // Fall back to defaults
+                    DataDirectory = ApplicationSettings.Defaults.DataDirectory;
+                    ModelsDirectory = Path.Combine(DataDirectory, "..", "Models");
+                    UseNpu = !ApplicationSettings.Defaults.DisableNpu;
+                    UseGpu = !ApplicationSettings.Defaults.DisableGpu;
+                    AllowOnlineProviders = false;
+                    TokenBudget = ApplicationSettings.Defaults.DailyTokenBudget;
+                    SelectedTheme = ApplicationSettings.Defaults.Theme;
+
+                    IsBusy = false;
+                });
+            }
         });
     }
 
@@ -134,19 +179,78 @@ public class SettingsViewModel : BaseViewModel
         IsBusy = true;
         _logger.LogInformation("Saving settings...");
 
-        // TODO: Persist settings to configuration service
-        await Task.Delay(300); // Simulate save
+        try
+        {
+            // Persist settings to database
+            await _settingsService.SaveSettingAsync(
+                ApplicationSettings.Paths.DataDirectory,
+                DataDirectory,
+                ApplicationSettings.Categories.Paths,
+                ApplicationSettings.Descriptions.DataDirectory,
+                reason: "user_ui_change");
 
-        IsBusy = false;
-        _logger.LogInformation("Settings saved successfully");
+            await _settingsService.SaveSettingAsync(
+                ApplicationSettings.Hardware.DisableNpu,
+                !UseNpu, // Inverted: UI shows "Use", setting stores "Disable"
+                ApplicationSettings.Categories.Hardware,
+                ApplicationSettings.Descriptions.DisableNpu,
+                reason: "user_ui_change");
 
-        // TODO: Show confirmation to user
+            await _settingsService.SaveSettingAsync(
+                ApplicationSettings.Hardware.DisableGpu,
+                !UseGpu, // Inverted: UI shows "Use", setting stores "Disable"
+                ApplicationSettings.Categories.Hardware,
+                ApplicationSettings.Descriptions.DisableGpu,
+                reason: "user_ui_change");
+
+            await _settingsService.SaveSettingAsync(
+                ApplicationSettings.UI.Theme,
+                SelectedTheme,
+                ApplicationSettings.Categories.UI,
+                ApplicationSettings.Descriptions.Theme,
+                reason: "user_ui_change");
+
+            await _settingsService.SaveSettingAsync(
+                ApplicationSettings.Providers.DailyTokenBudget,
+                TokenBudget,
+                ApplicationSettings.Categories.Providers,
+                ApplicationSettings.Descriptions.DailyTokenBudget,
+                reason: "user_ui_change");
+
+            IsBusy = false;
+            _logger.LogInformation("Settings saved successfully");
+
+            // TODO: Show confirmation to user (Toast/Snackbar)
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save settings");
+            IsBusy = false;
+            // TODO: Show error to user
+        }
     }
 
-    private void OnResetSettings()
+    private async void OnResetSettings()
     {
-        _logger.LogInformation("Resetting settings to defaults");
-        LoadSettings();
+        try
+        {
+            _logger.LogInformation("Resetting settings to defaults");
+            IsBusy = true;
+
+            await _settingsInitializer.ResetToDefaultsAsync();
+            
+            // Reload settings from database
+            LoadSettings();
+            
+            _logger.LogInformation("Settings reset successfully");
+            // TODO: Show confirmation to user
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reset settings");
+            IsBusy = false;
+            // TODO: Show error to user
+        }
     }
 
     private async void OnBrowseDataDirectory()
