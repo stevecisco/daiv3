@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 
+#pragma warning disable IDISP006 // Test classes don't need to implement IDisposable
+
 namespace Daiv3.UnitTests.Scheduler;
 
 /// <summary>

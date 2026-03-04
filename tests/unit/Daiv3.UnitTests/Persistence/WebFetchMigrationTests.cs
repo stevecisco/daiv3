@@ -6,6 +6,8 @@ using Microsoft.Extensions.Logging;
 using Xunit;
 using WebFetchEntity = Daiv3.Persistence.Entities.WebFetch;
 
+#pragma warning disable IDISP006 // Test classes don't need to implement IDisposable
+
 namespace Daiv3.UnitTests.Persistence;
 
 /// <summary>

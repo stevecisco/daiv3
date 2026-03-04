@@ -14,7 +14,7 @@ namespace Daiv3.Orchestration;
 /// Integrates web-fetched markdown content into the knowledge ingestion pipeline.
 /// Monitors the markdown content store directory and automatically processes new files.
 /// </summary>
-public class WebContentIngestionService : IWebContentIngestionService
+public class WebContentIngestionService : IWebContentIngestionService, IDisposable
 {
     private readonly ILogger<WebContentIngestionService> _logger;
     private readonly IMarkdownContentStore _contentStore;
@@ -32,6 +32,7 @@ public class WebContentIngestionService : IWebContentIngestionService
     private long _totalTokensProcessed;
     private long _totalIngestionTimeMs;
     private bool _isMonitoring;
+    private bool _disposed;
     private readonly SemaphoreSlim _concurrencyLimiter;
     private readonly Dictionary<string, Task<WebContentIngestionResult>> _pendingIngestions = new();
     private readonly object _pendingLock = new();
@@ -353,6 +354,39 @@ public class WebContentIngestionService : IWebContentIngestionService
             TotalIngestionTimeMs = _totalIngestionTimeMs,
             IsMonitoring = _isMonitoring
         };
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing)
+        {
+            if (_isMonitoring)
+            {
+                try
+                {
+                    StopMonitoringAsync().GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error during disposal while stopping monitoring");
+                }
+            }
+
+            _watcher?.Dispose();
+            _monitoringCts?.Dispose();
+            _concurrencyLimiter?.Dispose();
+        }
+
+        _disposed = true;
     }
 
     private void OnFileCreated(object sender, FileSystemEventArgs e)

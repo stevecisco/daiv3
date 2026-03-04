@@ -2,6 +2,8 @@ using Daiv3.Knowledge.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
+#pragma warning disable IDISP006 // Test classes don't need to implement IDisposable
+
 namespace Daiv3.Knowledge.Tests.Metrics;
 
 /// <summary>

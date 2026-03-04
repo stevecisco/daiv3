@@ -22,7 +22,7 @@ namespace Daiv3.Scheduler;
 /// - Comprehensive logging for observability
 /// - Support for job recovery on startup (optional)
 /// </summary>
-public class SchedulerHostedService : BackgroundService, IScheduler
+public class SchedulerHostedService : BackgroundService, IScheduler, IDisposable
 {
     private readonly ILogger<SchedulerHostedService> _logger;
     private readonly SchedulerOptions _options;
@@ -30,6 +30,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
     private readonly ConcurrentDictionary<string, List<string>> _eventTriggeredJobs; // eventType -> list of jobIds
     private readonly SemaphoreSlim _concurrencySemaphore;
     private Timer? _checkTimer;
+    private bool _disposed;
 
     // For job ID generation
     private volatile int _jobIdCounter = 0;
@@ -90,6 +91,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
 
         // Dispose the timer
         _checkTimer?.Dispose();
+        _checkTimer = null;
 
         // Cancel all running jobs
         var runningJobs = _jobs.Values.Where(j => j.Status == ScheduledJobStatus.Running).ToList();
@@ -111,6 +113,7 @@ public class SchedulerHostedService : BackgroundService, IScheduler
         }
 
         await base.StopAsync(cancellationToken);
+        Dispose();
         _logger.LogInformation("SchedulerHostedService stopped");
     }
 
@@ -203,6 +206,25 @@ public class SchedulerHostedService : BackgroundService, IScheduler
             LogPerformanceMetrics(nameof(ScheduleAtTimeAsync), stopwatch.ElapsedMilliseconds,
                 _options.ScheduleOperationWarningThresholdMs);
         }
+    }
+
+    public override void Dispose()
+    {
+        if (!_disposed)
+        {
+            _checkTimer?.Dispose();
+            _concurrencySemaphore?.Dispose();
+            
+            // Dispose all pending CancellationTokenSources
+            foreach (var job in _jobs.Values)
+            {
+                job.CancellationTokenSource?.Dispose();
+            }
+            
+            _disposed = true;
+        }
+
+        base.Dispose();
     }
 
     public Task<string> ScheduleRecurringAsync(

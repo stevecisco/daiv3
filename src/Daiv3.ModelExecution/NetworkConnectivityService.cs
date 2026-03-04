@@ -11,17 +11,27 @@ namespace Daiv3.ModelExecution;
 /// Implements MQ-REQ-013: Detects offline status for queueing online tasks.
 /// Uses NetworkInterface to check connectivity and DNS resolution for endpoint checks.
 /// </remarks>
-public class NetworkConnectivityService : INetworkConnectivityService
+public class NetworkConnectivityService : INetworkConnectivityService, IDisposable
 {
     private readonly ILogger<NetworkConnectivityService> _logger;
     private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
 
     public NetworkConnectivityService(
         ILogger<NetworkConnectivityService> logger,
         IHttpClientFactory? httpClientFactory = null)
     {
         _logger = logger;
-        _httpClient = httpClientFactory?.CreateClient("ConnectivityCheck") ?? new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        if (httpClientFactory != null)
+        {
+            _httpClient = httpClientFactory.CreateClient("ConnectivityCheck");
+            _ownsHttpClient = false;
+        }
+        else
+        {
+            _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            _ownsHttpClient = true;
+        }
     }
 
     public Task<bool> IsOnlineAsync(CancellationToken ct = default)
@@ -87,6 +97,20 @@ public class NetworkConnectivityService : INetworkConnectivityService
         {
             _logger.LogWarning(ex, "Error checking endpoint reachability for {Endpoint}, assuming unreachable", endpoint);
             return false;
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing && _ownsHttpClient)
+        {
+            _httpClient?.Dispose();
         }
     }
 }

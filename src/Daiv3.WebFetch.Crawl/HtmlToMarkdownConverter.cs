@@ -9,12 +9,13 @@ namespace Daiv3.WebFetch.Crawl;
 /// <summary>
 /// Converts HTML content to Markdown while stripping styling, navigation, and ads.
 /// </summary>
-public class HtmlToMarkdownConverter : IHtmlToMarkdownConverter
+public class HtmlToMarkdownConverter : IHtmlToMarkdownConverter, IDisposable
 {
     private readonly ILogger<HtmlToMarkdownConverter> _logger;
     private readonly HtmlToMarkdownOptions _options;
     private readonly IBrowsingContext _browsingContext;
     private readonly Converter _reverseMarkdownConverter;
+    private bool _disposed;
 
     public HtmlToMarkdownConverter(
         ILogger<HtmlToMarkdownConverter> logger,
@@ -284,5 +285,24 @@ public class HtmlToMarkdownConverter : IHtmlToMarkdownConverter
         stats.ElementsStripped = Math.Max(0, trimmedHtmlTags - (markdownTags / 4)); // Rough estimate
 
         return stats;
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing)
+        {
+            _browsingContext?.Dispose();
+        }
+
+        _disposed = true;
     }
 }
