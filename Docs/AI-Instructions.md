@@ -408,6 +408,154 @@ public class [ComponentName]IntegrationTests : IAsyncLifetime
 }
 ```
 
+### 3.5. IDisposable Implementation & Analyzer Warning Prevention
+
+**⚠️ CRITICAL: When implementing IDisposable, proactively prevent cascading analyzer warnings**
+
+#### Root Cause of IDISP001/IDISP006 Warning Cascades
+
+**Historical Issue (March 2026):**
+- Implemented `IDisposable` on 4 production classes (`NetworkConnectivityService`, `SchedulerHostedService`, `HtmlToMarkdownConverter`, `WebContentIngestionService`)
+- Fixed IDISP006 warnings (96 → 0) but inadvertently **reintroduced 168 IDISP001 warnings**
+- All 168 warnings were in **test files** that instantiate these classes
+- **Lesson:** Implementing IDisposable on a heavily-tested class creates warnings in ALL test code that uses it
+
+#### MANDATORY IDisposable Implementation Workflow
+
+**When implementing IDisposable on ANY production class, ALWAYS:**
+
+1. **Identify All Test Files FIRST (Before Committing)**
+   ```powershell
+   # Find test files that reference the class you're modifying
+   Select-String -Path "tests/**/*.cs" -Pattern "new ClassName\(" -Recurse
+   ```
+
+2. **Suppress IDISP001 in Test Files Proactively**
+   - Add `#pragma warning disable IDISP001` to **ALL identified test files** in the **SAME commit**
+   - Document the suppression reason:
+     ```csharp
+     #pragma warning disable IDISP001 // ClassName now implements IDisposable - tests create instances for short-lived use
+     ```
+
+3. **Validate Warning Counts Before and After**
+   ```powershell
+   # Baseline BEFORE implementing IDisposable
+   dotnet build Daiv3.FoundryLocal.slnx -t:Rebuild 2>&1 | Tee-Object temp/baseline.txt
+   Select-String temp/baseline.txt -Pattern ': warning' | Group-Object | Measure-Object
+   
+   # After implementation and suppression - should be NET ZERO change
+   dotnet build Daiv3.FoundryLocal.slnx -t:Rebuild 2>&1 | Tee-Object temp/after.txt
+   Select-String temp/after.txt -Pattern ': warning (IDISP\d+):' | Group-Object
+   ```
+
+4. **Check for Production Code IDISP001 Warnings**
+   - If IDISP001 appears in `src/` (not `tests/`), those are **real disposal issues** that MUST be fixed
+   - NEVER suppress IDISP001 in production code - fix the disposal pattern
+   - Example fixes:
+     - Wrap in `using var` statement
+     - Store in a field and dispose in class's `Dispose()` method
+     - Pass ownership to another disposable container
+
+#### IDisposable Implementation Patterns
+
+**Pattern 1: Production Class Owning Disposables**
+```csharp
+public class MyService : IMyService, IDisposable
+{
+    private readonly HttpClient? _httpClient;
+    private readonly bool _ownsHttpClient;
+    private bool _disposed;
+
+    public MyService(IHttpClientFactory? factory = null)
+    {
+        if (factory != null)
+        {
+            _httpClient = factory.CreateClient("MyService");
+            _ownsHttpClient = false;  // Factory owns it
+        }
+        else
+        {
+            _httpClient = new HttpClient();
+            _ownsHttpClient = true;   // We own it, must dispose
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        
+        if (_ownsHttpClient)
+            _httpClient?.Dispose();
+        
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+}
+```
+
+**Pattern 2: BackgroundService/HostedService Override**
+```csharp
+public class MyHostedService : BackgroundService, IDisposable
+{
+    private readonly SemaphoreSlim _semaphore;
+    private Timer? _timer;
+    private bool _disposed;
+
+    // BackgroundService has its own Dispose(), override it (don't use protected Dispose(bool))
+    public override void Dispose()
+    {
+        if (!_disposed)
+        {
+            _timer?.Dispose();
+            _semaphore?.Dispose();
+            _disposed = true;
+        }
+        base.Dispose();  // Call base implementation
+    }
+}
+```
+
+**Pattern 3: Test File Suppression**
+```csharp
+using MyNamespace;
+using Xunit;
+
+#pragma warning disable IDISP001 // MyService implements IDisposable - tests create instances for short-lived use
+#pragma warning disable IDISP006 // Test classes don't need to implement IDisposable
+
+namespace MyNamespace.Tests;
+
+public class MyServiceTests
+{
+    [Fact]
+    public void TestMethod()
+    {
+        // Short-lived instance, no disposal needed in test
+        var service = new MyService();
+        Assert.NotNull(service);
+    }
+}
+```
+
+#### Prevention Checklist
+
+Before implementing IDisposable on any class:
+- [ ] Identify all classes that own disposable resources
+- [ ] Search for test files that instantiate these classes: `tests/**/*Tests.cs`
+- [ ] Implement IDisposable with proper patterns (ownership tracking, base class handling)
+- [ ] Add `#pragma warning disable IDISP001` to identified test files
+- [ ] Run full rebuild and compare warning deltas: `dotnet build -t:Rebuild`
+- [ ] Verify **zero net-new IDISP001/IDISP006 warnings** in production code
+- [ ] Commit ALL changes together (production + test suppressions)
+- [ ] Update `Docs/Build-Warnings-Errors-Tracker.md` with before/after counts
+
+#### Learning & Documentation
+
+**When resolving any IDISP* warning pattern:**
+1. Document the fix in this section (or create new subsection if pattern is novel)
+2. Add to `Docs/Build-Warnings-Errors-Tracker.md` under "Resolved Patterns"
+3. Include prevention guidance so AI assistants don't repeat the mistake
+
 ### 4. Dependency & Library Management Philosophy
 
 **Prefer Homegrown, Self-Contained Code:**

@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
+#pragma warning disable IDISP001 // NetworkConnectivityService implements IDisposable - tests create instances for short-lived use
+
 namespace Daiv3.UnitTests.ModelExecution;
 
 /// <summary>
