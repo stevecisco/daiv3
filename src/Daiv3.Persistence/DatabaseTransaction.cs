@@ -81,8 +81,5 @@ public sealed class DatabaseTransaction : DbTransaction
         await _connection.DisposeAsync().ConfigureAwait(false);
 
         _disposed = true;
-
-        // Suppress finalization
-        GC.SuppressFinalize(this);
     }
 }

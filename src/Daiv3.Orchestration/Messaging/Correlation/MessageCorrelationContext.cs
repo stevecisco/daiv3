@@ -123,7 +123,6 @@ public sealed class MessageCorrelationContext : IDisposable
     {
         _cleanupTimer?.Dispose();
         _pendingReplies.Clear();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>

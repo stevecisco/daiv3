@@ -120,7 +120,6 @@ public sealed class PollingMessageWatcher : IMessageWatcher
         _lastProcessedTimestamp.Clear();
 
         await Task.CompletedTask.ConfigureAwait(false);
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
