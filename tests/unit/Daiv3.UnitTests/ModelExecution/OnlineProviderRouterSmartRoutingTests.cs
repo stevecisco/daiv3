@@ -8,6 +8,7 @@ using Moq;
 using Xunit;
 
 #pragma warning disable IDISP025 // Class with no virtual dispose method should be sealed
+#pragma warning disable IDISP017 // Prefer using (test intentionally calls Dispose explicitly to verify behavior)
 
 namespace Daiv3.UnitTests.ModelExecution;
 

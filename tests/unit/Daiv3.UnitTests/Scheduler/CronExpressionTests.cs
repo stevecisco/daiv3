@@ -40,7 +40,7 @@ public class CronExpressionTests
     public void Constructor_WithInvalidExpression_ThrowsArgumentException(string? expression)
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new CronExpression(expression));
+        Assert.Throws<ArgumentException>(() => new CronExpression(expression!));
     }
 
     [Fact]
