@@ -235,24 +235,69 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 **Purpose:** Implement MAUI UI, real-time transparency dashboard, configuration management, and product-level acceptance criteria. This is the final layer that brings all components together for the user.
 
+**Implementation Approach:** Phase 6 is organized into three priority tiers reflecting recommended implementation sequence. P1 is the foundation (MAUI framework + dashboard infrastructure); P2 builds enhanced dashboards; P3 defers advanced features to v0.2+.
+
+---
+
+### Phase 6.1: Priority P1 - Core MVP (Foundation & Critical Dashboards)
+
+**Objective:** Deliver MAUI UI framework, local settings, and core transparency dashboards (queue, indexing, agent metrics, system admin, project orchestration). These are blocking dependencies for all subsequent Phase 6 work.
+
 | Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
 |-----|-------------|---------------|-------------|--------------|--------|------------|-------|
 | 166 | [KLC-REQ-011](Reqs/KLC-REQ-011.md) | [12. Key .NET Libraries & Components](Specs/12-Key-Libraries-Components.md) | The UI SHALL be implemented with WinUI 3, Windows App SDK, or MAUI. | None | Complete | 100% | **✅ COMPLETE** - MAUI framework selected with 4 pages (Chat, Dashboard, Projects, Settings), MVVM ViewModels (43 unit tests passing), source-generated XAML compilation, DI integration with knowledge layer. Critical fix: resolved DLL file locking in test project via PrivateAssets=All on MAUI reference; test builds now execute cleanly without file access contention. Full solution builds with 0 errors. |
-| 167 | [CT-DATA-001](Reqs/CT-DATA-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Settings SHALL be versioned to support upgrades. | KLC-REQ-004 | Not Started | 0% | Settings schema versioning |
-| 168 | [CT-REQ-001](Reqs/CT-REQ-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL store all settings locally. | CT-DATA-001 | Not Started | 0% | Local settings storage |
-| 169 | [CT-REQ-002](Reqs/CT-REQ-002.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Settings UI SHALL configure directories, model prefs, token budgets, online rules. | CT-REQ-001, KLC-REQ-011 | Not Started | 0% | Settings UI implementation |
-| 170 | [CT-REQ-003](Reqs/CT-REQ-003.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL provide a real-time transparency dashboard. | KLC-REQ-011 | Not Started | 0% | **CRITICAL** - Dashboard foundation |
-| 171 | [CT-REQ-004](Reqs/CT-REQ-004.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display model queue status, current model, pending requests. | CT-REQ-003, MQ-REQ-001 | Not Started | 0% | Queue transparency |
-| 172 | [CT-REQ-005](Reqs/CT-REQ-005.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display indexing progress, last scan time, errors. | CT-REQ-003, KM-REQ-001 | Not Started | 0% | Indexing transparency |
-| 173 | [CT-REQ-006](Reqs/CT-REQ-006.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display agent activity, iterations, token usage. | CT-REQ-003, AST-REQ-001 | Not Started | 0% | Agent transparency |
-| 174 | [CT-REQ-007](Reqs/CT-REQ-007.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display online token usage and budget status. | CT-REQ-003, MQ-REQ-012 | Not Started | 0% | Budget transparency |
-| 175 | [CT-REQ-008](Reqs/CT-REQ-008.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display scheduled jobs and results. | CT-REQ-003, PTS-REQ-007 | Not Started | 0% | Schedule transparency |
-| 176 | [CT-REQ-009](Reqs/CT-REQ-009.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display pending knowledge promotions. | CT-REQ-003, KBP-REQ-002 | Not Started | 0% | Promotion transparency |
-| 177 | [CT-ACC-001](Reqs/CT-ACC-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can configure online access rules and see them applied. | CT-REQ-002, MQ-REQ-012 | Not Started | 0% | Acceptance: Online config |
-| 178 | [CT-ACC-002](Reqs/CT-ACC-002.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can observe active model queue state in dashboard. | CT-REQ-004 | Not Started | 0% | Acceptance: Queue visibility |
-| 179 | [CT-ACC-003](Reqs/CT-ACC-003.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can see token usage vs budget per provider. | CT-REQ-007 | Not Started | 0% | Acceptance: Budget display |
-| 180 | [CT-NFR-001](Reqs/CT-NFR-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHOULD update in near real-time without blocking UI. | CT-REQ-003 | Not Started | 0% | Real-time performance |
-| 181 | [CT-NFR-002](Reqs/CT-NFR-002.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Settings changes SHOULD be validated and applied safely. | CT-REQ-002 | Not Started | 0% | Settings validation |
+| 167 | [CT-DATA-001](Reqs/CT-DATA-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Settings SHALL be versioned to support upgrades. | KLC-REQ-004 | Not Started | 0% | **P1.0** Settings schema versioning; blocks CT-REQ-001 |
+| 168 | [CT-REQ-001](Reqs/CT-REQ-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL store all settings locally. | CT-DATA-001 | Not Started | 0% | **P1.0** Local settings storage; blocks CT-REQ-002 |
+| 170 | [CT-REQ-003](Reqs/CT-REQ-003.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL provide a real-time transparency dashboard. | KLC-REQ-011 | Not Started | 0% | **P1.1 - CRITICAL BLOCKER** Dashboard foundation; blocks all downstream dashboards |
+| 180 | [CT-NFR-001](Reqs/CT-NFR-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHOULD update in near real-time without blocking UI using async/await, thread marshaling, and debouncing. | CT-REQ-003 | Not Started | 0% | **P1.1 - TECHNICAL FOUNDATION** Async/dispatch patterns; blocks all dashboard UI responsiveness |
+| 171 | [CT-REQ-004](Reqs/CT-REQ-004.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display model queue status with top 3 items and per-project filtering. | CT-REQ-003, MQ-REQ-001 | Not Started | 0% | **P1.2** Queue transparency; depends on MQ-REQ-001 (✅ complete) |
+| 172 | [CT-REQ-005](Reqs/CT-REQ-005.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display indexing progress, file browser, per-file status. | CT-REQ-003, KM-REQ-001 | Not Started | 0% | **P1.2** Indexing transparency + file explorer; depends on KM-REQ-001 (✅ complete) |
+| 173 | [CT-REQ-006](Reqs/CT-REQ-006.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display agent activity, iterations, token usage, CPU/GPU/NPU metrics. | CT-REQ-003, AST-REQ-001 | Not Started | 0% | **P1.2** Agent + system metrics; depends on AST-REQ-001 (✅ complete) |
+| 176.1 | [CT-REQ-010](Reqs/CT-REQ-010.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL provide a System Admin Dashboard displaying real-time CPU/GPU/NPU, queue, storage, and agent workload. | CT-REQ-003, HW-NFR-002, MQ-REQ-001, AST-REQ-001 | Not Started | 0% | **P1.3** System infrastructure dashboard; aggregates queue + metrics from P1.2 |
+| 176.2 | [CT-REQ-011](Reqs/CT-REQ-011.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL provide a Project Master Dashboard with nested hierarchies, 6 pivot views, and progress tracking. | CT-REQ-003, PTS-REQ-001, PTS-REQ-007 | Not Started | 0% | **P1.4** Project orchestration dashboard; depends on PTS-REQ-001 (✅ exists) |
+
+**Estimated Effort:** 8-12 weeks | **Completion Criteria:** KLC-REQ-011 ✅, CT-DATA-001 + CT-REQ-001 + CT-REQ-003 + CT-NFR-001 + CT-REQ-004 through CT-REQ-011 all working end-to-end with live data
+
+---
+
+### Phase 6.2: Priority P2 - Secondary MVP (Enhanced Visibility)
+
+**Objective:** Deliver enhanced dashboards (background service inspector, time tracking, calendar/reminders) and settings configuration UI. Build after P1 foundation is solid.
+
+| Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
+|-----|-------------|---------------|-------------|--------------|--------|------------|-------|
+| 169 | [CT-REQ-002](Reqs/CT-REQ-002.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Settings UI SHALL configure directories, model prefs, token budgets, online rules. | CT-REQ-001, KLC-REQ-011 | Not Started | 0% | **P2.0** Settings configuration UI; depends on P1 settings storage completion |
+| 174 | [CT-REQ-007](Reqs/CT-REQ-007.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display online token usage and budget status. | CT-REQ-003, MQ-REQ-012 | Not Started | 0% | **P2.1** Budget transparency; depends on P1 dashboard foundation |
+| 175 | [CT-REQ-008](Reqs/CT-REQ-008.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display scheduled jobs and results. | CT-REQ-003, PTS-REQ-007 | Not Started | 0% | **P2.2** Schedule transparency; depends on P1 foundation |
+| 176.3 | [CT-REQ-012](Reqs/CT-REQ-012.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL provide a Background Service Inspector for task lifecycle, resource usage, and cancellation. | CT-REQ-003, ARCH-REQ-003, AST-REQ-001 | Not Started | 0% | **P2.3** Service/task inspector; process-level visibility |
+| 176.4 | [CT-REQ-013](Reqs/CT-REQ-013.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL provide a Time Tracking Dashboard (Phase 6 MVP) with per-agent, per-project, per-task hierarchies. Cost attribution deferred to Phase 7+. | CT-REQ-003, ARCH-REQ-003, PTS-REQ-001 | Not Started | 0% | **P2.4** Time visibility; foundation for cost tracking (Phase 7+) |
+| 176.5 | [CT-REQ-014](Reqs/CT-REQ-014.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL provide a Calendar & Reminders Dashboard (Phase 6 MVP) with deadlines, scheduling, reminders, and task dependencies. Advanced scheduling deferred to Phase 7+. | CT-REQ-003, PTS-REQ-001, PTS-REQ-007 | Not Started | 0% | **P2.5** Calendar + reminders; deadline-driven prioritization |
+
+**Estimated Effort:** 4-6 weeks (after P1 complete) | **Completion Criteria:** All P2 dashboards working with live data, Settings UI fully functional
+
+---
+
+### Phase 6.3: Priority P3 - Deferred to Phase 7+
+
+**Objective:** Advanced features requiring mature Tier 2 search and Phase 2 knowledge consolidation.
+
+| Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
+|-----|-------------|---------------|-------------|--------------|--------|------------|-------|
+| 176 | [CT-REQ-009](Reqs/CT-REQ-009.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Dashboard SHALL display pending knowledge promotions. | CT-REQ-003, KBP-REQ-002 | Not Started | 0% | **P3.1** Deferred (currently covered by CLI in KBP-ACC-002) |
+| 176.6 | [CT-REQ-015](Reqs/CT-REQ-015.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | The system SHALL provide Knowledge Graph Visualization (Phase 7+); static mind map MVP optional Phase 6 if approved. | CT-REQ-003, KM-REQ-012, KM-NFR-002 | Not Started | 0% | **P3.2** Deferred Phase 7+ (requires mature Tier 2 search). Static MVP available if approved. |
+| 181 | [CT-NFR-002](Reqs/CT-NFR-002.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Settings changes SHOULD be validated and applied safely. | CT-REQ-002 | Not Started | 0% | **P3.3** Deferred; addressed in P2.0 (Settings UI validation) |
+
+**Best Effort Date:** 6-8 weeks (Phase 7+) | **Note:** CT-REQ-015 requires knowledge graph algorithms; can defer to v0.2
+
+---
+
+### Phase 6: Acceptance & Executive Summary Requirements
+
+| Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
+|-----|-------------|---------------|-------------|--------------|--------|------------|-------|
+| 177 | [CT-ACC-001](Reqs/CT-ACC-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can configure online access rules and see them applied. | CT-REQ-002, MQ-REQ-012 | Not Started | 0% | Acceptance: Online config (validates P2.0) |
+| 178 | [CT-ACC-002](Reqs/CT-ACC-002.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can observe active model queue state in dashboard. | CT-REQ-004 | Not Started | 0% | Acceptance: Queue visibility (validates P1.2) |
+| 179 | [CT-ACC-003](Reqs/CT-ACC-003.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can see token usage vs budget per provider. | CT-REQ-007 | Not Started | 0% | Acceptance: Budget display (validates P2.1) |
 | 182 | [ES-CON-001](Reqs/ES-CON-001.md) | [1. Executive Summary](Specs/01-Executive-Summary.md) | The application MUST be locally installable and self-contained. | ARCH-REQ-001 | Not Started | 0% | Deployment constraint |
 | 183 | [ES-CON-002](Reqs/ES-CON-002.md) | [1. Executive Summary](Specs/01-Executive-Summary.md) | The initial implementation targets .NET 10. | HW-CON-002 | Not Started | 0% | Framework constraint |
 | 184 | [ES-REQ-001](Reqs/ES-REQ-001.md) | [1. Executive Summary](Specs/01-Executive-Summary.md) | The system SHALL process user requests using local models by default. | ARCH-REQ-001, KLC-REQ-001, MQ-REQ-001 | Not Started | 0% | Local-first principle |
@@ -314,11 +359,11 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 ---
 
-**Last Updated:** March 3, 2026  
-**Total Requirements:** 213  
-**Completed:** 139 (65%)  
+**Last Updated:** March 4, 2026  
+**Total Requirements:** 219 (+6 new Phase 6 UI dashboards)  
+**Completed:** 139 (63%)  
 **In Progress:** 4 (2%)  
-**Not Started:** 70 (33%)
+**Not Started:** 76 (35%)
 
 **Phase Progress Summary:**
 - **Phase 1 (Foundation):** 32/32 Complete (100%)
@@ -326,7 +371,7 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 - **Phase 3 (Model Execution):** 33/33 Complete (100%) ✨
 - **Phase 4 (Orchestration):** 15/15 Complete (100%)
 - **Phase 5 (Advanced Features):** 35/41 Complete (85%)
-- **Phase 6 (User Experience):** 0/16 Complete (0%)
+- **Phase 6 (User Experience):** 1/22 Complete (5%) - **UPDATED** - Added CT-REQ-010 through CT-REQ-015 (System Admin Dashboard, Project Master Dashboard, Service Inspector, Time Tracking, Calendar & Reminders, Knowledge Graph Visualization)
 - **Executive Summary & Product Goals:** 0/15 Complete (0%)
 - **Glossary & Future:** 0/13 Complete (0%)
 - **Backlog (v0.2+):** 2/6 Complete (33%)
