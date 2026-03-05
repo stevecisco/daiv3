@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Daiv3.UnitTests.Infrastructure.Shared.Hardware;
+namespace Daiv3.Infrastructure.Shared.Tests.Shared.Hardware;
 
 /// <summary>
 /// Unit tests for hardware detection provider.

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
-namespace Daiv3.UnitTests.Mcp;
+namespace Daiv3.Mcp.Integration.Tests;
 
 /// <summary>
 /// Unit tests for <see cref="McpToolDescriptor"/> and related data contracts.

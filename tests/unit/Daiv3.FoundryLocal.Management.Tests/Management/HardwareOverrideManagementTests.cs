@@ -2,7 +2,7 @@ using Daiv3.FoundryLocal.Management;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Daiv3.UnitTests.FoundryLocal.Management;
+namespace Daiv3.FoundryLocal.Management.Tests.Management;
 
 public class HardwareOverrideManagementTests
 {

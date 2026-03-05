@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
-namespace Daiv3.Tests.Unit.OnlineProviders;
+namespace Daiv3.OnlineProviders.Tests;
 
 /// <summary>
 /// Unit tests for IOnlineProvider and related abstractions.

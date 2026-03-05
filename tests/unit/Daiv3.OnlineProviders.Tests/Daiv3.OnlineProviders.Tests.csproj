@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100</TargetFramework>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Daiv3.OnlineProviders.Abstractions\Daiv3.OnlineProviders.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\src\Daiv3.OnlineProviders.OpenAI\Daiv3.OnlineProviders.OpenAI.csproj" />
+    <ProjectReference Include="..\..\..\src\Daiv3.OnlineProviders.AzureOpenAI\Daiv3.OnlineProviders.AzureOpenAI.csproj" />
+    <ProjectReference Include="..\..\..\src\Daiv3.OnlineProviders.Anthropic\Daiv3.OnlineProviders.Anthropic.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="8.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+    <PackageReference Include="Moq" Version="4.20.72" />
+  </ItemGroup>
+
+</Project>
