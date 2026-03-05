@@ -340,7 +340,7 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
 
         // Update activity and timestamp
         CurrentActivity = data.IsValid ? "Monitoring active" : $"Error: {data.CollectionError}";
-        LastUpdateTime = data.CollectedAt.ToString("HH:mm:ss");
+        LastUpdateTime = data.CollectedAt.ToString("h:mm:ss tt");
 
         _logger.LogDebug("Dashboard UI updated from gathered telemetry");
     }
