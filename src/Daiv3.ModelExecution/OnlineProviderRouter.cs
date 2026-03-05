@@ -604,7 +604,10 @@ public sealed class OnlineProviderRouter : IOnlineProviderRouter, IDisposable
         await WaitForProviderRateLimitSlotAsync(providerName, ct);
 
         var minimizedRequest = MinimizeContextForOnlineProvider(request);
-        using var providerLimiter = GetProviderConcurrencyLimiter(providerName);
+        // IDISP001: Semaphore is shared across requests and disposed in Dispose() method, not per-request
+#pragma warning disable IDISP001
+        var providerLimiter = GetProviderConcurrencyLimiter(providerName);
+#pragma warning restore IDISP001
 
         await providerLimiter.WaitAsync(ct);
         try

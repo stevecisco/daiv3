@@ -19,14 +19,14 @@ public class SettingsViewModelTests
     private readonly Mock<ILogger<SettingsViewModel>> _mockLogger;
     private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly Mock<ISettingsInitializer> _mockSettingsInitializer;
-    private readonly Mock<FoundryLocalManagementService> _mockFoundryService;
+    private readonly Mock<IFoundryLocalManagementService> _mockFoundryService;
 
     public SettingsViewModelTests()
     {
         _mockLogger = new Mock<ILogger<SettingsViewModel>>();
         _mockSettingsService = new Mock<ISettingsService>();
         _mockSettingsInitializer = new Mock<ISettingsInitializer>();
-        _mockFoundryService = new Mock<FoundryLocalManagementService>();
+        _mockFoundryService = new Mock<IFoundryLocalManagementService>();
 
         // Setup default behavior for settings service
         _mockSettingsInitializer.Setup(x => x.AreSettingsInitializedAsync(It.IsAny<CancellationToken>()))
@@ -51,6 +51,9 @@ public class SettingsViewModelTests
         _mockSettingsService.Setup(x => x.GetSettingValueAsync<int>(
                 ApplicationSettings.Providers.DailyTokenBudget, It.IsAny<CancellationToken>()))
             .ReturnsAsync(ApplicationSettings.Defaults.DailyTokenBudget);
+
+        _mockFoundryService.Setup(x => x.GetModelsDirectoryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync("(Not configured)");
     }
 
     [Fact]

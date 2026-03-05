@@ -60,7 +60,7 @@ public static class MauiProgram
                 serviceProvider.GetRequiredService<ILogger<SettingsViewModel>>(),
                 serviceProvider.GetRequiredService<ISettingsService>(),
                 serviceProvider.GetRequiredService<ISettingsInitializer>(),
-                serviceProvider.GetRequiredService<FoundryLocalManagementService>()));
+                serviceProvider.GetRequiredService<IFoundryLocalManagementService>()));
         builder.Services.AddSingleton<IndexingViewModel>();
 
         // Register Pages

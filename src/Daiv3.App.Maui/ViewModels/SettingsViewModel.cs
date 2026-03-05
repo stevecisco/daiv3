@@ -18,7 +18,7 @@ public class SettingsViewModel : BaseViewModel
     private readonly ILogger<SettingsViewModel> _logger;
     private readonly ISettingsService _settingsService;
     private readonly ISettingsInitializer _settingsInitializer;
-    private readonly FoundryLocalManagementService _foundryService;
+    private readonly IFoundryLocalManagementService _foundryService;
     
     private string _dataDirectory = string.Empty;
     private string _modelsDirectory = string.Empty;
@@ -33,7 +33,7 @@ public class SettingsViewModel : BaseViewModel
         ILogger<SettingsViewModel> logger,
         ISettingsService settingsService,
         ISettingsInitializer settingsInitializer,
-        FoundryLocalManagementService foundryService)
+        IFoundryLocalManagementService foundryService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));

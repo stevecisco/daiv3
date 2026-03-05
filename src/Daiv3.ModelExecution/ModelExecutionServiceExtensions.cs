@@ -53,6 +53,8 @@ public static class ModelExecutionServiceExtensions
             var logger = serviceProvider.GetRequiredService<ILogger<FoundryLocalManagementService>>();
             return new FoundryLocalManagementService(logger);
         });
+        services.AddSingleton<IFoundryLocalManagementService>(serviceProvider =>
+            serviceProvider.GetRequiredService<FoundryLocalManagementService>());
 
         // Register core services
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
@@ -135,6 +137,8 @@ public static class ModelExecutionServiceExtensions
             var logger = serviceProvider.GetRequiredService<ILogger<FoundryLocalManagementService>>();
             return new FoundryLocalManagementService(logger);
         });
+        services.AddSingleton<IFoundryLocalManagementService>(serviceProvider =>
+            serviceProvider.GetRequiredService<FoundryLocalManagementService>());
 
         // Register core services
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();

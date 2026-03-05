@@ -53,7 +53,8 @@ public class HtmlParser : IHtmlParser
             _logger.LogDebug("Parsing HTML content ({ContentSize} bytes)", contentSize);
 
             // Create AngleSharp context with default configuration
-            using var context = BrowsingContext.New(Configuration.Default);
+            // Note: Context is not disposed here because the returned document needs it to remain valid
+            var context = BrowsingContext.New(Configuration.Default);
 
             // Parse HTML with timeout
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -65,7 +66,7 @@ public class HtmlParser : IHtmlParser
 
             _logger.LogDebug("Successfully parsed HTML document (Title: '{Title}')", document.Title ?? "(no title)");
 
-            return new AngleSharpHtmlDocument(document, _options);
+            return new AngleSharpHtmlDocument(document, context, _options);
         }
         catch (OperationCanceledException ex)
         {
@@ -152,21 +153,30 @@ public class HtmlParser : IHtmlParser
 internal class AngleSharpHtmlDocument : IHtmlDocument, IDisposable
 {
     private readonly AngleSharp.Dom.IDocument _document;
+    private readonly IBrowsingContext _context;
     private readonly HtmlParsingOptions _options;
+    private readonly string _cachedTitle;
+    private readonly string _cachedHtml;
+    private bool _disposed;
 
     /// <summary>
     /// Gets the internal AngleSharp document.
     /// </summary>
     public AngleSharp.Dom.IDocument InternalDocument => _document;
 
-    public string? Title => _document.Title;
+    public string? Title => _cachedTitle;
 
-    public string Html => _document.DocumentElement?.OuterHtml ?? string.Empty;
+    public string Html => _cachedHtml;
 
-    public AngleSharpHtmlDocument(AngleSharp.Dom.IDocument document, HtmlParsingOptions options)
+    public AngleSharpHtmlDocument(AngleSharp.Dom.IDocument document, IBrowsingContext context, HtmlParsingOptions options)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
+        _context = context ?? throw new ArgumentNullException(nameof(context));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        
+        // Eagerly cache properties that may be accessed after document operations
+        _cachedTitle = document.Title ?? string.Empty;
+        _cachedHtml = document.DocumentElement?.OuterHtml ?? string.Empty;
     }
 
     public IEnumerable<IHtmlElement> QuerySelectorAll(string selector)
@@ -191,7 +201,12 @@ internal class AngleSharpHtmlDocument : IHtmlDocument, IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
         (_document as IDisposable)?.Dispose();
+        _context?.Dispose();
+        _disposed = true;
     }
 }
 

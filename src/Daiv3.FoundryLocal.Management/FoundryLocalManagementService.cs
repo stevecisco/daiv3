@@ -4,7 +4,7 @@ using Daiv3.Infrastructure.Shared.Hardware;
 using Microsoft.AI.Foundry.Local;
 using Microsoft.Extensions.Logging;
 
-public sealed class FoundryLocalManagementService : IAsyncDisposable
+public sealed class FoundryLocalManagementService : IFoundryLocalManagementService, IAsyncDisposable
 {
     private readonly ILogger _logger;
     private readonly ServiceCatalogClient _serviceCatalogClient = new();

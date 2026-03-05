@@ -241,17 +241,14 @@ public class WebFetcherIntegrationTests
 /// </summary>
 internal class RecordingHttpMessageHandler : HttpMessageHandler
 {
-    private HttpResponseMessage? _response;
+    private string _responseContent = "<html></html>";
+    private HttpStatusCode _statusCode = HttpStatusCode.OK;
     public int RequestCount { get; private set; }
 
     public void SetupSuccessResponse(string content)
     {
-        _response = new HttpResponseMessage
-        {
-            StatusCode = HttpStatusCode.OK,
-            Content = new StringContent(content)
-        };
-        _response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
+        _responseContent = content;
+        _statusCode = HttpStatusCode.OK;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(
@@ -260,17 +257,15 @@ internal class RecordingHttpMessageHandler : HttpMessageHandler
     {
         RequestCount++;
 
-        if (_response == null)
+        // Create a new response for each request to avoid disposal issues
+        var response = new HttpResponseMessage
         {
-            _response = new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent("<html></html>")
-            };
-            _response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
-        }
+            StatusCode = _statusCode,
+            Content = new StringContent(_responseContent)
+        };
+        response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
 
-        return Task.FromResult(_response);
+        return Task.FromResult(response);
     }
 }
 
