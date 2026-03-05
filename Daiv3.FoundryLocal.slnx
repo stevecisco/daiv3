@@ -41,8 +41,7 @@
     <Project Path="tests/unit/Daiv3.FoundryLocal.Management.Tests/Daiv3.FoundryLocal.Management.Tests.csproj" />
     <Project Path="tests/unit/Daiv3.Infrastructure.Shared.Tests/Daiv3.Infrastructure.Shared.Tests.csproj" />
     <Project Path="tests/unit/Daiv3.Mcp.Integration.Tests/Daiv3.Mcp.Integration.Tests.csproj" />
-    <Project Path="tests/unit/Daiv3.OnlineProviders.Tests/Daiv3.OnlineProviders.Tests.csproj" />
-  <Project Path="tests/integration/Daiv3.Knowledge.Embedding.IntegrationTests/Daiv3.Knowledge.Embedding.IntegrationTests.csproj" />
+    <Project Path="tests/unit/Daiv3.OnlineProviders.Tests/Daiv3.OnlineProviders.Tests.csproj" />  <Project Path="tests/unit/Daiv3.Scheduler.Tests/Daiv3.Scheduler.Tests.csproj" />  <Project Path="tests/integration/Daiv3.Knowledge.Embedding.IntegrationTests/Daiv3.Knowledge.Embedding.IntegrationTests.csproj" />
   <Project Path="tests/integration/Daiv3.FoundryLocal.IntegrationTests/Daiv3.FoundryLocal.IntegrationTests.csproj" />
   <Project Path="tests/integration/Daiv3.Persistence.IntegrationTests/Daiv3.Persistence.IntegrationTests.csproj" />
 </Solution>

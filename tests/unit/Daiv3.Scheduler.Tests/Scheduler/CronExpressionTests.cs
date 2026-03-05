@@ -1,7 +1,7 @@
 using Daiv3.Scheduler;
 using Xunit;
 
-namespace Daiv3.UnitTests.Scheduler;
+namespace Daiv3.Scheduler.Tests;
 
 /// <summary>
 /// Unit tests for CronExpression class, which parses and evaluates cron expressions.

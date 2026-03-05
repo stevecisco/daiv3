@@ -2,7 +2,7 @@ using Daiv3.Scheduler;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Daiv3.UnitTests.Scheduler;
+namespace Daiv3.Scheduler.Tests;
 
 /// <summary>
 /// Unit tests for SchedulerServiceExtensions, testing DI registration and configuration.

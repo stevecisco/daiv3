@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Daiv3.UnitTests.Scheduler;
+namespace Daiv3.Scheduler.Tests;
 
 /// <summary>
 /// Performance tests for the scheduler to verify PTS-NFR-002: 
