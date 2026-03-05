@@ -214,7 +214,7 @@
                         <Picker x:Name="ProjectFilterPicker"
                                 SelectedItem="{Binding SelectedProjectFilter}"
                                 ItemDisplayBinding="{Binding}"
-                                HorizontalOptions="FillAndExpand"
+                                HorizontalOptions="Fill"
                                 TextColor="{AppThemeBinding Light=#000000, Dark=#FFFFFF}"
                                 BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#334155}"
                                 TitleColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}">
@@ -247,7 +247,7 @@
                                                VerticalOptions="Center" />
                                         
                                         <!-- Item Details -->
-                                        <VerticalStackLayout Spacing="2" HorizontalOptions="FillAndExpand">
+                                        <VerticalStackLayout Spacing="2" HorizontalOptions="Fill">
                                             <Label Text="{Binding Description}"
                                                    FontSize="12"
                                                    LineBreakMode="TailTruncation"
