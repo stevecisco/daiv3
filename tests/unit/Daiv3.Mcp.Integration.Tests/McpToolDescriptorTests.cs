@@ -1,6 +1,4 @@
 using Daiv3.Mcp.Integration;
-using Microsoft.Extensions.Logging;
-using Moq;
 using Xunit;
 
 namespace Daiv3.Mcp.Integration.Tests;
