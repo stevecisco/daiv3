@@ -65,6 +65,15 @@
 - Best practices and naming conventions for specific domains
 - Domain expertise through knowledge extraction and summarization
 
+**Trusted Executable Skill Files (.NET 10):**
+- Use .NET 10 file-based apps as an optional skill runtime mode so a skill can be shipped as a single `*.cs` entry file plus manifest instead of a full project
+- Execute skill files through a controlled host that enforces AST-NFR-002 sandbox policies (permissions, resource limits, optional isolation)
+- Store per-skill integrity metadata (manifest hash/signature, version, source, policy) in the skill registry for AST-REQ-007 imported/user-defined skill tracking
+- Support patching by allowing versioned deltas that re-validate integrity before activation and keep rollback history for failed or suspicious updates
+- Treat CRC as fast corruption detection only; use SHA-256 + signature verification for tamper resistance and trust enforcement
+- Add trust levels for skill execution (`local-trusted`, `signed-import`, `quarantined`) with explicit user approval for elevation
+- Reuse this trust model as a building block for FUT-REQ-003 (marketplace versioning/review/trust model) and ES-REQ-005/ES-ACC-003 extensibility goals
+
 ## 5. Knowledge Management & Learning
 
 **Core Concept:** Ingest, organize, summarize, and retrieve knowledge with embedding-based search.
