@@ -249,6 +249,22 @@
 - Lessons learned capture from completed projects
 - Transparency for human oversight of agent activities
 
+## 15. Autonomous Requirements & Work Management
+
+**Core Concept:** Daiv3 acts as its own project requirements tracker and execution coordinator, turning requirements into managed work that can be planned, queued, built, tested, and verified.
+
+- **Requirements Registry as First-Class Data:** Store requirements, epics, tasks, subtasks, acceptance criteria, constraints, dependencies, and traceability links in a unified datastore (SQLite-first, exportable to markdown/json)
+- **Requirements File Organizer:** Automatically create and maintain requirement-related artifacts (spec pages, design notes, implementation notes, test evidence, status summaries) with consistent naming and folder structure
+- **Lifecycle State Machine:** Track requirement/task status through states like Draft -> Approved -> Planned -> In Progress -> Build Verified -> Test Verified -> Accepted -> Archived
+- **Command Surface for Requirements:** Support commands such as requirement `add/list/search/show/update/split/link/archive` and task `add/list/search/assign/update/block/unblock/complete`
+- **Agent Collaboration Protocol:** Allow agents to request requirement context, propose updates, attach implementation evidence, and submit status changes through controlled APIs instead of ad-hoc file edits
+- **Execution Queue Integration:** Convert approved tasks into queued execution work items (code, docs, analysis, migration, test) with priority, dependency, and resource constraints
+- **Build/Test Gate Automation:** For code tasks, automatically run build/test checks and attach results to the originating requirement/task record before status can advance
+- **Learning-Aware Planning:** Feed lessons learned, prior failures, and successful patterns back into estimation, risk scoring, and recommended subtasks for future requirements
+- **Human-in-the-Loop Governance:** Require configurable approval checkpoints for requirement acceptance, destructive changes, large refactors, budget-impacting actions, and external publishing
+- **Sync Between Structured Data and Docs:** Keep a live two-way sync between tracker data and human-readable documents (master tracker, requirement docs, implementation logs) to avoid drift
+- **Project Memory for Repeatability:** Persist reusable implementation recipes and checklists per requirement type (new API, UI feature, schema change, integration) so future work can be scaffolded automatically
+
 ---
 
 ## Cross-Cutting Themes
