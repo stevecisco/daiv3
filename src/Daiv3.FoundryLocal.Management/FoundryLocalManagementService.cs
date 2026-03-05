@@ -292,6 +292,11 @@ public sealed class FoundryLocalManagementService : IAsyncDisposable
         return Task.FromResult(_loadedModelId);
     }
 
+    public async Task<string?> GetModelsDirectoryAsync(CancellationToken ct = default)
+    {
+        return await _serviceCatalogClient.GetCacheDirectoryAsync(ct).ConfigureAwait(false);
+    }
+
     public async ValueTask DisposeAsync()
     {
         _loadedModelManager?.Dispose();

@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Services;
 using Daiv3.Core.Settings;
+using Daiv3.ModelExecution;
+using Daiv3.FoundryLocal.Management;
 
 namespace Daiv3.App.Maui.ViewModels;
 
@@ -16,9 +18,11 @@ public class SettingsViewModel : BaseViewModel
     private readonly ILogger<SettingsViewModel> _logger;
     private readonly ISettingsService _settingsService;
     private readonly ISettingsInitializer _settingsInitializer;
+    private readonly FoundryLocalManagementService _foundryService;
     
     private string _dataDirectory = string.Empty;
     private string _modelsDirectory = string.Empty;
+    private string _foundryModelsDirectory = string.Empty;
     private bool _useNpu = true;
     private bool _useGpu = true;
     private bool _allowOnlineProviders = false;
@@ -28,11 +32,13 @@ public class SettingsViewModel : BaseViewModel
     public SettingsViewModel(
         ILogger<SettingsViewModel> logger,
         ISettingsService settingsService,
-        ISettingsInitializer settingsInitializer)
+        ISettingsInitializer settingsInitializer,
+        FoundryLocalManagementService foundryService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _settingsInitializer = settingsInitializer ?? throw new ArgumentNullException(nameof(settingsInitializer));
+        _foundryService = foundryService ?? throw new ArgumentNullException(nameof(foundryService));
         
         Title = "Settings";
         SaveSettingsCommand = new Command(OnSaveSettings);
@@ -56,12 +62,21 @@ public class SettingsViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Gets or sets the models directory path.
+    /// Gets or sets the embedding models directory path.
     /// </summary>
     public string ModelsDirectory
     {
         get => _modelsDirectory;
         set => SetProperty(ref _modelsDirectory, value);
+    }
+
+    /// <summary>
+    /// Gets the Foundry models directory path (read-only).
+    /// </summary>
+    public string FoundryModelsDirectory
+    {
+        get => _foundryModelsDirectory;
+        private set => SetProperty(ref _foundryModelsDirectory, value);
     }
 
     /// <summary>
@@ -139,10 +154,14 @@ public class SettingsViewModel : BaseViewModel
                 var theme = await _settingsService.GetSettingValueAsync<string>(ApplicationSettings.UI.Theme);
                 var dailyBudget = await _settingsService.GetSettingValueAsync<int>(ApplicationSettings.Providers.DailyTokenBudget);
 
+                // Load Foundry models directory
+                var foundryModelsDir = await _foundryService.GetModelsDirectoryAsync(CancellationToken.None).ConfigureAwait(false) ?? "(Not configured)";
+
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     DataDirectory = dataDir ?? ApplicationSettings.Defaults.DataDirectory;
-                    ModelsDirectory = Path.Combine(DataDirectory, "..", "Models");
+                    ModelsDirectory = Path.Combine(DataDirectory, "models");
+                    FoundryModelsDirectory = foundryModelsDir;
                     UseNpu = !useNpu; // Inverted: setting stores "Disable" flag
                     UseGpu = !useGpu; // Inverted: setting stores "Disable" flag
                     AllowOnlineProviders = false; // TODO: Load from online access mode setting
@@ -161,7 +180,8 @@ public class SettingsViewModel : BaseViewModel
                 {
                     // Fall back to defaults
                     DataDirectory = ApplicationSettings.Defaults.DataDirectory;
-                    ModelsDirectory = Path.Combine(DataDirectory, "..", "Models");
+                    ModelsDirectory = Path.Combine(DataDirectory, "models");
+                    FoundryModelsDirectory = "(Not configured)";
                     UseNpu = !ApplicationSettings.Defaults.DisableNpu;
                     UseGpu = !ApplicationSettings.Defaults.DisableGpu;
                     AllowOnlineProviders = false;

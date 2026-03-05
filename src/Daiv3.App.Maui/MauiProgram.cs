@@ -8,6 +8,9 @@ using Daiv3.Knowledge.Embedding;
 using Daiv3.Infrastructure.Shared.Logging;
 using Daiv3.ModelExecution;
 using Daiv3.ModelExecution.Interfaces;
+using Daiv3.Persistence;
+using Daiv3.Persistence.Services;
+using Daiv3.FoundryLocal.Management;
 
 namespace Daiv3.App.Maui;
 
@@ -52,7 +55,12 @@ public static class MauiProgram
         builder.Services.AddSingleton<ChatViewModel>();
         builder.Services.AddSingleton<DashboardViewModel>();
         builder.Services.AddSingleton<ProjectsViewModel>();
-        builder.Services.AddSingleton<SettingsViewModel>();
+        builder.Services.AddSingleton<SettingsViewModel>(serviceProvider =>
+            new SettingsViewModel(
+                serviceProvider.GetRequiredService<ILogger<SettingsViewModel>>(),
+                serviceProvider.GetRequiredService<ISettingsService>(),
+                serviceProvider.GetRequiredService<ISettingsInitializer>(),
+                serviceProvider.GetRequiredService<FoundryLocalManagementService>()));
 
         // Register Pages
         builder.Services.AddSingleton<ChatPage>();
@@ -62,6 +70,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<MainPage>();
 
         var modelPath = GetDefaultEmbeddingModelPath();
+        // Add persistence layer (database, repositories, settings management)
+        builder.Services.AddPersistence();
+
         builder.Services.AddEmbeddingServices(options =>
         {
             options.ModelPath = modelPath;

@@ -31,7 +31,7 @@
             </Grid>
 
             <!-- Update Status Section -->
-            <Border BackgroundColor="{StaticResource Gray100}"
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="10"
                     StrokeShape="RoundRectangle 8"
                     StrokeThickness="0">
@@ -42,7 +42,7 @@
             </Border>
 
             <!-- Hardware Status Section -->
-                <Border BackgroundColor="{StaticResource Gray100}"
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="15"
                     StrokeShape="RoundRectangle 10"
                     StrokeThickness="0">
@@ -65,7 +65,7 @@
             </Border>
 
             <!-- Task Queue Section -->
-                <Border BackgroundColor="{StaticResource Gray100}"
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="15"
                     StrokeShape="RoundRectangle 10"
                     StrokeThickness="0">
@@ -85,7 +85,7 @@
             </Border>
 
             <!-- Current Activity Section -->
-                <Border BackgroundColor="{StaticResource Gray100}"
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="15"
                     StrokeShape="RoundRectangle 10"
                     StrokeThickness="0">
@@ -109,7 +109,7 @@
             <!-- Refresh Note -->
             <Label Text="Dashboard auto-refreshes every 3 seconds. Integration with hardware detection and model queue pending."
                    FontSize="12"
-                   Opacity="0.6"
+                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                    HorizontalOptions="Center"
                    HorizontalTextAlignment="Center"
                    Margin="0,10,0,0" />

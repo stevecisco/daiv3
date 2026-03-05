@@ -12,7 +12,7 @@
         <HorizontalStackLayout Grid.Row="0"
                               Padding="15"
                               Spacing="10"
-                              BackgroundColor="{StaticResource Gray100}">
+                              BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}">
             <Button Text="New Project"
                     Command="{Binding CreateProjectCommand}" />
         </HorizontalStackLayout>
@@ -29,11 +29,11 @@
                                     Spacing="10">
                     <Label Text="No projects yet"
                            FontSize="18"
-                           Opacity="0.6"
+                           TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}"
                            HorizontalOptions="Center" />
                     <Label Text="Click 'New Project' to create one"
                            FontSize="14"
-                           Opacity="0.4"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
@@ -42,7 +42,7 @@
                 <DataTemplate x:DataType="vm:ProjectItem">
                         <Border Padding="15"
                             Margin="5"
-                            BackgroundColor="{StaticResource Gray100}"
+                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                             StrokeShape="RoundRectangle 8"
                             StrokeThickness="0">
                         <Grid ColumnDefinitions="*,Auto"
@@ -57,7 +57,8 @@
                             <!-- Delete Button -->
                             <Button Grid.Row="0" Grid.Column="1"
                                     Text="Delete"
-                                    BackgroundColor="{StaticResource Gray300}"
+                                    BackgroundColor="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                                    TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ProjectsViewModel}}, Path=DeleteProjectCommand}"
                                     CommandParameter="{Binding .}" />
 
@@ -65,7 +66,7 @@
                             <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                    Text="{Binding Description}"
                                    FontSize="14"
-                                   Opacity="0.7"
+                                   TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}"
                                    Margin="0,5,0,0" />
 
                             <!-- Metadata -->
@@ -74,10 +75,10 @@
                                                   Margin="0,10,0,0">
                                 <Label Text="{Binding CreatedDate, StringFormat='Created: {0:MMM dd, yyyy}'}"
                                        FontSize="12"
-                                       Opacity="0.6" />
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
                                 <Label Text="{Binding TaskCount, StringFormat='Tasks: {0}'}"
                                        FontSize="12"
-                                       Opacity="0.6" />
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
                             </HorizontalStackLayout>
                         </Grid>
                     </Border>
