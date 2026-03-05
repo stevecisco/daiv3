@@ -758,6 +758,88 @@ public void MyTest()
 - ✅ Consider if the test design needs refactoring if parameters seem unnecessary
 
 ### 4. Dependency & Library Management Philosophy
+- ✅ Consider if the test design needs refactoring if parameters seem unnecessary
+
+### 3.8. SQLite NULL Safety & File Locking in Tests
+
+**Pattern: SQL Aggregation Functions Return NULL When No Rows Exist**
+
+When reading results from SQL aggregation functions (SUM, COUNT, MAX, etc.), ALWAYS check for NULL using `IsDBNull()` before calling typed getters:
+
+**INCORRECT:**
+```csharp
+var totalItems = reader.GetInt32(0);  // ❌ Throws InvalidOperationException if NULL
+var totalSize = reader.GetInt64(1);   // ❌ Throws InvalidOperationException if NULL
+```
+
+**CORRECT:**
+```csharp
+var totalItems = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);  // ✅ Safe with default
+var totalSize = reader.IsDBNull(1) ? 0 : reader.GetInt64(1);   // ✅ Safe with default
+var lastTime = reader.IsDBNull(2) ? (long?)null : reader.GetInt64(2);  // ✅ Safe with nullable
+```
+
+**Pattern: SQLite File Locking in Test Cleanup**
+
+When using SQLite databases in xUnit tests with `IAsyncLifetime`, implement retry logic for file deletion to avoid "file is being used by another process" errors:
+
+**INCORRECT:**
+```csharp
+public async Task DisposeAsync()
+{
+   await _databaseContext.DisposeAsync();
+   File.Delete(_testDbPath);  // ❌ May throw IOException if handle not yet released
+}
+```
+
+**CORRECT:**
+```csharp
+public async Task DisposeAsync()
+{
+   // Dispose database context first to release all handles
+   await _databaseContext.DisposeAsync();
+    
+   // Retry file deletion with backoff (SQLite handle release can be async on Windows)
+   await DeleteFileWithRetryAsync(_testDbPath, maxAttempts: 3, delayMs: 50);
+   await DeleteFileWithRetryAsync(_testDbPath + "-wal", maxAttempts: 3, delayMs: 50);
+   await DeleteFileWithRetryAsync(_testDbPath + "-shm", maxAttempts: 3, delayMs: 50);
+}
+
+private static async Task DeleteFileWithRetryAsync(string filePath, int maxAttempts, int delayMs)
+{
+   if (!File.Exists(filePath))
+      return;
+
+   for (int attempt = 1; attempt <= maxAttempts; attempt++)
+   {
+      try
+      {
+         File.Delete(filePath);
+         return; // Success
+      }
+      catch (IOException) when (attempt < maxAttempts)
+      {
+         await Task.Delay(delayMs * attempt); // Exponential backoff
+      }
+      catch (IOException)
+      {
+         // Final attempt failed - ignore to avoid failing test cleanup
+         return;
+      }
+   }
+}
+```
+
+**Key Prevention Points:**
+- ✅ **ALWAYS use `IsDBNull()` before calling `GetInt32()/GetInt64()/GetString()`** on SQL aggregation results
+- ✅ Provide **appropriate defaults** (0 for counts, null for optional timestamps)
+- ✅ **ALWAYS implement retry logic** for SQLite file deletion in test cleanup
+- ✅ **ALWAYS clean up WAL and SHM files** (Write-Ahead Log and Shared Memory) in addition to .db file
+- ✅ Use **exponential backoff** (e.g., 50ms, 100ms, 150ms) to allow async handle release
+- ✅ **Ignore final IOException** to prevent test cleanup from failing entire test run
+- ✅ **Dispose DatabaseContext before file operations** to ensure handle release is initiated
+
+### 4. Dependency & Library Management Philosophy
 
 **Prefer Homegrown, Self-Contained Code:**
 - **MINIMIZE external dependencies** to reduce attack surface and enable rapid bug fixes

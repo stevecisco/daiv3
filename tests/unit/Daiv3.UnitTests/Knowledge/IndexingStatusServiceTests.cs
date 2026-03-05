@@ -64,26 +64,35 @@ public sealed class IndexingStatusServiceTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        // Dispose database context first to release all handles
         await _databaseContext.DisposeAsync();
+        
+        // Retry file deletion with backoff (SQLite handle release can be async on Windows)
+        await DeleteFileWithRetryAsync(_testDbPath, maxAttempts: 3, delayMs: 50);
+        await DeleteFileWithRetryAsync(_testDbPath + "-wal", maxAttempts: 3, delayMs: 50);
+        await DeleteFileWithRetryAsync(_testDbPath + "-shm", maxAttempts: 3, delayMs: 50);
+    }
 
-        // Ensure all connections/finalizers release file handles before delete.
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
+    private static async Task DeleteFileWithRetryAsync(string filePath, int maxAttempts, int delayMs)
+    {
+        if (!File.Exists(filePath))
+            return;
 
-        if (File.Exists(_testDbPath))
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            var retries = 3;
-            while (true)
+            try
             {
-                try
-                {
-                    File.Delete(_testDbPath);
-                    break;
-                }
-                catch (IOException) when (retries-- > 0)
-                {
-                    await Task.Delay(100);
-                }
+                File.Delete(filePath);
+                return; // Success
+            }
+            catch (IOException) when (attempt < maxAttempts)
+            {
+                await Task.Delay(delayMs * attempt); // Exponential backoff
+            }
+            catch (IOException)
+            {
+                // Final attempt failed - ignore to avoid failing test cleanup
+                return;
             }
         }
     }

@@ -68,11 +68,11 @@ public sealed class IndexingStatusService : IIndexingStatusService
             };
         }
 
-        var totalIndexed = reader.GetInt32(0);
-        var totalErrors = reader.GetInt32(1);
-        var totalPending = reader.GetInt32(2);
+        var totalIndexed = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);
+        var totalErrors = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+        var totalPending = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
         var lastScanTime = reader.IsDBNull(3) ? (long?)null : reader.GetInt64(3);
-        var totalStorage = reader.GetInt64(4);
+        var totalStorage = reader.IsDBNull(4) ? 0 : reader.GetInt64(4);
 
         var stats = new IndexingStatistics
         {
@@ -307,12 +307,12 @@ public sealed class IndexingStatusService : IIndexingStatusService
     private static FileIndexInfo MapFileIndexInfo(SqliteDataReader reader)
     {
         var docId = reader.IsDBNull(0) ? null : reader.GetString(0);
-        var sourcePath = reader.GetString(1);
-        var status = reader.GetString(2);
-        var createdAt = reader.GetInt64(3);
-        var lastModified = reader.GetInt64(4);
-        var sizeBytes = reader.GetInt64(5);
-        var format = reader.GetString(6);
+        var sourcePath = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+        var status = reader.IsDBNull(2) ? "pending" : reader.GetString(2);
+        var createdAt = reader.IsDBNull(3) ? 0 : reader.GetInt64(3);
+        var lastModified = reader.IsDBNull(4) ? 0 : reader.GetInt64(4);
+        var sizeBytes = reader.IsDBNull(5) ? 0 : reader.GetInt64(5);
+        var format = reader.IsDBNull(6) ? "unknown" : reader.GetString(6);
         var metadataJson = reader.IsDBNull(7) ? null : reader.GetString(7);
         var summaryText = reader.IsDBNull(8) ? null : reader.GetString(8);
         var embeddingDimensions = reader.IsDBNull(9) ? (int?)null : reader.GetInt32(9);
