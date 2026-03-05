@@ -262,7 +262,7 @@ public class KnowledgeDocumentProcessorIntegrationTests
     {
         // Arrange
         var processor = CreateDocumentProcessor();
-        var invalidPath = "/nonexistent/path/document.txt";
+        var invalidPath = Path.Combine(_tempTestDir, $"missing-{Guid.NewGuid():N}.txt");
 
         // Act
         var result = await processor.ProcessDocumentAsync(invalidPath);
@@ -270,6 +270,26 @@ public class KnowledgeDocumentProcessorIntegrationTests
         // Assert
         Assert.False(result.Success);
         Assert.NotNull(result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ProcessDocumentAsync_InvalidPath_PersistsErrorStatusForTransparency()
+    {
+        // Arrange
+        var processor = CreateDocumentProcessor();
+        var documentRepo = _fixture.ServiceProvider.GetRequiredService<DocumentRepository>();
+        var invalidPath = Path.Combine(_tempTestDir, $"missing-status-{Guid.NewGuid():N}.txt");
+
+        // Act
+        var result = await processor.ProcessDocumentAsync(invalidPath);
+
+        // Assert
+        Assert.False(result.Success);
+
+        var persisted = await documentRepo.GetBySourcePathAsync(invalidPath);
+        Assert.NotNull(persisted);
+        Assert.Equal("error", persisted.Status);
+        Assert.Contains("errorMessage", persisted.MetadataJson ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

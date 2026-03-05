@@ -1,4 +1,5 @@
 using Daiv3.Knowledge;
+using Daiv3.Knowledge.DocProc;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Data.Sqlite;
@@ -20,6 +21,7 @@ public sealed class IndexingStatusServiceTests : IAsyncLifetime
     private IDatabaseContext _databaseContext = null!;
     private DocumentRepository _documentRepository = null!;
     private Mock<IKnowledgeFileOrchestrationService> _mockOrchestrationService = null!;
+    private Mock<IFileSystemWatcher> _mockFileSystemWatcher = null!;
     private Mock<ILogger<IndexingStatusService>> _mockLogger = null!;
     private IndexingStatusService _service = null!;
 
@@ -50,8 +52,14 @@ public sealed class IndexingStatusServiceTests : IAsyncLifetime
                 FilesProcessed = 10,
                 FilesDeleted = 2,
                 ProcessingErrors = 1,
-                DeletionErrors = 0
+                DeletionErrors = 0,
+                ActiveFilePaths = Array.Empty<string>(),
+                RecentFileErrors = new Dictionary<string, string>()
             });
+
+        _mockFileSystemWatcher = new Mock<IFileSystemWatcher>();
+        _mockFileSystemWatcher.Setup(x => x.IsRunning).Returns(true);
+        _mockFileSystemWatcher.Setup(x => x.GetWatchedPaths()).Returns(Array.Empty<string>());
 
         _mockLogger = new Mock<ILogger<IndexingStatusService>>();
 
@@ -59,7 +67,8 @@ public sealed class IndexingStatusServiceTests : IAsyncLifetime
             _databaseContext,
             _documentRepository,
             _mockLogger.Object,
-            _mockOrchestrationService.Object);
+            _mockOrchestrationService.Object,
+            _mockFileSystemWatcher.Object);
     }
 
     public async Task DisposeAsync()
@@ -159,9 +168,10 @@ public sealed class IndexingStatusServiceTests : IAsyncLifetime
 
         // Assert
         Assert.NotNull(stats);
-        Assert.Equal(4, stats.TotalIndexed); // Total count includes all documents
+        Assert.Equal(2, stats.TotalIndexed);
         Assert.Equal(1, stats.TotalErrors);
-        Assert.Equal(1, stats.TotalNotIndexed); // Pending count
+        Assert.Equal(1, stats.TotalNotIndexed);
+        Assert.Equal(4, stats.TotalDiscovered);
     }
 
     [Fact]
@@ -276,8 +286,89 @@ public sealed class IndexingStatusServiceTests : IAsyncLifetime
         // Assert
         Assert.NotNull(file);
         Assert.Equal(filePath, file.FilePath);
+        Assert.Equal("file1.txt", file.FileName);
         Assert.Equal("doc1", file.DocId);
         Assert.Equal(FileIndexingStatus.Indexed, file.Status);
+    }
+
+    [Fact]
+    public async Task GetAllFilesAsync_MapsMetadataFields()
+    {
+        // Arrange
+        var metadata = "{\"warningCount\":2,\"errorMessage\":\"partial failure\",\"isSensitive\":true,\"isShareable\":false,\"machineLocation\":\"node-a\"}";
+        await AddTestDocument("doc-metadata", "indexed", "/path/to/with-metadata.txt", metadataJson: metadata);
+
+        // Act
+        var files = await _service.GetAllFilesAsync();
+
+        // Assert
+        var file = Assert.Single(files);
+        Assert.Equal(FileIndexingStatus.Warning, file.Status);
+        Assert.True(file.IsSensitive);
+        Assert.False(file.IsShareable);
+        Assert.Equal("node-a", file.MachineLocation);
+        Assert.Equal("partial failure", file.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task GetAllFilesAsync_UsesLiveInProgressFromOrchestration()
+    {
+        // Arrange
+        var inProgressPath = "/path/to/in-progress.txt";
+        await AddTestDocument("doc-live", "pending", inProgressPath);
+
+        _mockOrchestrationService.Setup(x => x.GetStatistics()).Returns(
+            new KnowledgeFileOrchestrationStatistics
+            {
+                ActiveFilePaths = [inProgressPath],
+                RecentFileErrors = new Dictionary<string, string>(),
+                FilesProcessed = 0,
+                FilesDeleted = 0,
+                ProcessingErrors = 0,
+                DeletionErrors = 0
+            });
+
+        // Act
+        var files = await _service.GetAllFilesAsync();
+
+        // Assert
+        var file = Assert.Single(files);
+        Assert.Equal(FileIndexingStatus.InProgress, file.Status);
+    }
+
+    [Fact]
+    public async Task GetAllFilesAsync_IncludesDiscoveredUnindexedFilesFromWatcherPaths()
+    {
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), $"indexing-discovery-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var discoveredPath = Path.Combine(tempDir, "new-file.md");
+        await File.WriteAllTextAsync(discoveredPath, "content");
+
+        _mockFileSystemWatcher.Setup(x => x.GetWatchedPaths()).Returns([tempDir]);
+
+        try
+        {
+            // Act
+            var files = await _service.GetAllFilesAsync();
+
+            // Assert
+            var discovered = Assert.Single(files, f =>
+                string.Equals(f.FilePath, discoveredPath, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(FileIndexingStatus.NotIndexed, discovered.Status);
+            Assert.Equal("new-file.md", discovered.FileName);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+            catch
+            {
+                // Ignore cleanup failures in temp path.
+            }
+        }
     }
 
     [Fact]
@@ -335,13 +426,14 @@ public sealed class IndexingStatusServiceTests : IAsyncLifetime
         string docId,
         string status,
         string sourcePath,
-        string format = "txt")
+        string format = "txt",
+        string? metadataJson = null)
     {
         using var connection = await _databaseContext.GetConnectionAsync();
         using var command = connection.CreateCommand();
         command.CommandText = @"
-            INSERT INTO documents (doc_id, source_path, file_hash, format, size_bytes, last_modified, status, created_at)
-            VALUES ($docId, $sourcePath, $fileHash, $format, $sizeBytes, $lastModified, $status, $createdAt)";
+            INSERT INTO documents (doc_id, source_path, file_hash, format, size_bytes, last_modified, status, created_at, metadata_json)
+            VALUES ($docId, $sourcePath, $fileHash, $format, $sizeBytes, $lastModified, $status, $createdAt, $metadataJson)";
         
         command.Parameters.Add(new SqliteParameter("$docId", docId));
         command.Parameters.Add(new SqliteParameter("$sourcePath", sourcePath));
@@ -351,6 +443,7 @@ public sealed class IndexingStatusServiceTests : IAsyncLifetime
         command.Parameters.Add(new SqliteParameter("$lastModified", DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
         command.Parameters.Add(new SqliteParameter("$status", status));
         command.Parameters.Add(new SqliteParameter("$createdAt", DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+        command.Parameters.Add(new SqliteParameter("$metadataJson", (object?)metadataJson ?? DBNull.Value));
         
         await command.ExecuteNonQueryAsync();
     }

@@ -293,6 +293,32 @@ public sealed class KnowledgeFileOrchestrationServiceTests
     }
 
     [Fact]
+    public async Task ProcessingError_TracksRecentFileError()
+    {
+        // Arrange
+        var filePath = @"C:\test\document.txt";
+        _mockDocumentProcessor
+            .Setup(x => x.ProcessDocumentAsync(filePath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DocumentProcessingResult
+            {
+                Success = false,
+                DocumentId = "doc4",
+                ErrorMessage = "read failed"
+            });
+
+        await _service.StartAsync();
+
+        // Act
+        RaiseFileChangedEvent(filePath, FileChangeType.Created);
+        await Task.Delay(100);
+
+        // Assert
+        var stats = _service.GetStatistics();
+        Assert.True(stats.RecentFileErrors.ContainsKey(filePath));
+        Assert.Equal("read failed", stats.RecentFileErrors[filePath]);
+    }
+
+    [Fact]
     public async Task ProcessingException_IncrementsErrorCounter()
     {
         // Arrange
@@ -393,6 +419,10 @@ public sealed class KnowledgeFileOrchestrationServiceTests
         Assert.Equal(1, stats.FilesDeleted);
         Assert.Equal(0, stats.ProcessingErrors);
         Assert.Equal(0, stats.DeletionErrors);
+        Assert.True(stats.LastScanStartedAt.HasValue);
+        Assert.True(stats.LastScanCompletedAt.HasValue);
+        Assert.True(stats.LastScanDurationMs.HasValue);
+        Assert.NotNull(stats.LastProcessedFilePath);
     }
 
     [Fact]

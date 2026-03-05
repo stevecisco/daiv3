@@ -1,5 +1,6 @@
 using Daiv3.Knowledge.DocProc;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 
 namespace Daiv3.Knowledge;
 
@@ -19,6 +20,12 @@ public sealed class KnowledgeFileOrchestrationService : IKnowledgeFileOrchestrat
     private int _filesDeleted;
     private int _processingErrors;
     private int _deletionErrors;
+    private long? _lastScanStartedAt;
+    private long? _lastScanCompletedAt;
+    private long? _lastScanDurationMs;
+    private string? _lastProcessedFilePath;
+    private readonly ConcurrentDictionary<string, byte> _activeFilePaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _recentFileErrors = new(StringComparer.OrdinalIgnoreCase);
     private bool _isRunning;
     private bool _disposed;
 
@@ -100,7 +107,13 @@ public sealed class KnowledgeFileOrchestrationService : IKnowledgeFileOrchestrat
             FilesProcessed = _filesProcessed,
             FilesDeleted = _filesDeleted,
             ProcessingErrors = _processingErrors,
-            DeletionErrors = _deletionErrors
+            DeletionErrors = _deletionErrors,
+            LastScanStartedAt = _lastScanStartedAt,
+            LastScanCompletedAt = _lastScanCompletedAt,
+            LastScanDurationMs = _lastScanDurationMs,
+            LastProcessedFilePath = _lastProcessedFilePath,
+            ActiveFilePaths = _activeFilePaths.Keys.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray(),
+            RecentFileErrors = new Dictionary<string, string>(_recentFileErrors, StringComparer.OrdinalIgnoreCase)
         };
     }
 
@@ -154,6 +167,10 @@ public sealed class KnowledgeFileOrchestrationService : IKnowledgeFileOrchestrat
 
     private async Task ProcessOrUpdateDocumentAsync(string filePath)
     {
+        var startedAt = DateTimeOffset.UtcNow;
+        _lastScanStartedAt = startedAt.ToUnixTimeSeconds();
+        _activeFilePaths[filePath] = 0;
+
         try
         {
             _logger.LogInformation("Processing document: {FilePath}", filePath);
@@ -165,6 +182,7 @@ public sealed class KnowledgeFileOrchestrationService : IKnowledgeFileOrchestrat
             if (result.Success)
             {
                 Interlocked.Increment(ref _filesProcessed);
+                _recentFileErrors.TryRemove(filePath, out _);
                 _logger.LogInformation(
                     "Successfully processed document: {FilePath} ({ChunkCount} chunks)",
                     filePath, result.ChunkCount);
@@ -172,6 +190,7 @@ public sealed class KnowledgeFileOrchestrationService : IKnowledgeFileOrchestrat
             else
             {
                 Interlocked.Increment(ref _processingErrors);
+                _recentFileErrors[filePath] = result.ErrorMessage ?? "Indexing failed";
                 _logger.LogWarning(
                     "Failed to process document: {FilePath}. Error: {Error}",
                     filePath, result.ErrorMessage);
@@ -180,7 +199,16 @@ public sealed class KnowledgeFileOrchestrationService : IKnowledgeFileOrchestrat
         catch (Exception ex)
         {
             Interlocked.Increment(ref _processingErrors);
+            _recentFileErrors[filePath] = ex.Message;
             _logger.LogError(ex, "Error processing document: {FilePath}", filePath);
+        }
+        finally
+        {
+            _activeFilePaths.TryRemove(filePath, out _);
+            var completedAt = DateTimeOffset.UtcNow;
+            _lastScanCompletedAt = completedAt.ToUnixTimeSeconds();
+            _lastScanDurationMs = (long)(completedAt - startedAt).TotalMilliseconds;
+            _lastProcessedFilePath = filePath;
         }
     }
 

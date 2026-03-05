@@ -6,6 +6,7 @@ using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace Daiv3.Knowledge;
 
@@ -65,6 +66,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
             {
                 result.Success = false;
                 result.ErrorMessage = "File not found";
+                await UpsertDocumentWithStatusAsync(documentPath, "error", result.ErrorMessage, cancellationToken).ConfigureAwait(false);
                 stopwatch.Stop();
                 result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
                 _logger.LogWarning("Document file not found: {Path}", documentPath);
@@ -75,8 +77,8 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
             var fileHash = await ComputeFileHashAsync(documentPath, cancellationToken).ConfigureAwait(false);
 
             // Check if document already exists and hasn't changed
-            var existingDoc = await _documentRepository.GetAllAsync(cancellationToken).ConfigureAwait(false);
-            var existingEntry = existingDoc.FirstOrDefault(d => d.SourcePath == documentPath);
+            var existingDocs = await _documentRepository.GetAllAsync(cancellationToken).ConfigureAwait(false) ?? [];
+            var existingEntry = existingDocs.FirstOrDefault(d => d.SourcePath == documentPath);
 
             if (existingEntry != null && _options.SkipUnchangedDocuments && existingEntry.FileHash == fileHash)
             {
@@ -94,6 +96,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
             {
                 result.Success = false;
                 result.ErrorMessage = "No text content extracted";
+                await UpsertDocumentWithStatusAsync(documentPath, "error", result.ErrorMessage, cancellationToken).ConfigureAwait(false);
                 stopwatch.Stop();
                 result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
                 _logger.LogWarning("No text extracted from document: {Path}", documentPath);
@@ -128,6 +131,7 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
             {
                 result.Success = false;
                 result.ErrorMessage = "Document could not be chunked";
+                await UpsertDocumentWithStatusAsync(documentPath, "error", result.ErrorMessage, cancellationToken).ConfigureAwait(false);
                 stopwatch.Stop();
                 result.ProcessingTimeMs = stopwatch.ElapsedMilliseconds;
                 return result;
@@ -140,12 +144,18 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
                 DocId = docId,
                 SourcePath = documentPath,
                 FileHash = fileHash,
-                Format = Path.GetExtension(documentPath),
+                Format = Path.GetExtension(documentPath).TrimStart('.').ToLowerInvariant(),
                 SizeBytes = fileInfo.Length,
                 LastModified = fileInfo.LastWriteTimeUtc.ToFileTimeUtc(),
                 Status = "indexed",
                 CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                MetadataJson = null
+                MetadataJson = BuildMetadataJson(
+                    warningCount: 0,
+                    errorMessage: null,
+                    isSensitive: false,
+                    isShareable: true,
+                    machineLocation: Environment.MachineName,
+                    lastIndexedAtUnix: DateTimeOffset.UtcNow.ToUnixTimeSeconds())
             };
 
             // Check if we need to update existing document
@@ -205,6 +215,14 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
         {
             result.Success = false;
             result.ErrorMessage = ex.Message;
+            try
+            {
+                await UpsertDocumentWithStatusAsync(documentPath, "error", ex.Message, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception statusEx)
+            {
+                _logger.LogDebug(statusEx, "Failed to persist error status for document: {Path}", documentPath);
+            }
             _logger.LogError(ex, "Error processing document: {Path}", documentPath);
         }
         finally
@@ -323,5 +341,78 @@ public class KnowledgeDocumentProcessor : IKnowledgeDocumentProcessor
     {
         // Placeholder: approximate word count
         return text.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    private async Task UpsertDocumentWithStatusAsync(
+        string documentPath,
+        string status,
+        string? errorMessage,
+        CancellationToken cancellationToken)
+    {
+        var fileInfo = new FileInfo(documentPath);
+        var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        string fileHash;
+        if (fileInfo.Exists)
+        {
+            fileHash = await ComputeFileHashAsync(documentPath, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            fileHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(documentPath)));
+        }
+
+        var existingDocs = await _documentRepository.GetAllAsync(cancellationToken).ConfigureAwait(false) ?? [];
+        var existing = existingDocs.FirstOrDefault(doc => string.Equals(doc.SourcePath, documentPath, StringComparison.OrdinalIgnoreCase));
+        var docId = existing?.DocId ?? GenerateDocumentId(documentPath);
+
+        var entity = new Document
+        {
+            DocId = docId,
+            SourcePath = documentPath,
+            FileHash = fileHash,
+            Format = Path.GetExtension(documentPath).TrimStart('.').ToLowerInvariant(),
+            SizeBytes = fileInfo.Exists ? fileInfo.Length : 0,
+            LastModified = fileInfo.Exists ? fileInfo.LastWriteTimeUtc.ToFileTimeUtc() : DateTime.UtcNow.ToFileTimeUtc(),
+            Status = status,
+            CreatedAt = existing?.CreatedAt ?? nowUnix,
+            MetadataJson = BuildMetadataJson(
+                warningCount: 0,
+                errorMessage: errorMessage,
+                isSensitive: false,
+                isShareable: true,
+                machineLocation: Environment.MachineName,
+                lastIndexedAtUnix: status == "indexed" ? nowUnix : (long?)null)
+        };
+
+        if (existing == null)
+        {
+            await _documentRepository.AddAsync(entity, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await _documentRepository.UpdateAsync(entity, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static string BuildMetadataJson(
+        int warningCount,
+        string? errorMessage,
+        bool isSensitive,
+        bool isShareable,
+        string machineLocation,
+        long? lastIndexedAtUnix)
+    {
+        var metadata = new Dictionary<string, object?>
+        {
+            ["warningCount"] = warningCount,
+            ["errorMessage"] = errorMessage,
+            ["isSensitive"] = isSensitive,
+            ["isShareable"] = isShareable,
+            ["machineLocation"] = machineLocation,
+            ["lastIndexedAt"] = lastIndexedAtUnix
+        };
+
+        return JsonSerializer.Serialize(metadata);
     }
 }

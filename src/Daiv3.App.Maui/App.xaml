@@ -14,6 +14,10 @@
             <!-- Value Converters -->
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
+            <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:BytesToStringConverter x:Key="BytesToStringConverter" />
+            <converters:StatusIconConverter x:Key="StatusIconConverter" />
             <converters:PriorityColorConverter x:Key="PriorityColorConverter" />
         </ResourceDictionary>
     </Application.Resources>

@@ -1,29 +1,32 @@
+using Daiv3.Knowledge;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
-using Daiv3.Knowledge;
+using System.Windows.Input;
 
 namespace Daiv3.App.Maui.ViewModels;
 
 /// <summary>
 /// ViewModel for the Indexing Status page.
 /// Implements CT-REQ-005: Dashboard SHALL display indexing progress, file browser, per-file status.
-/// Displays indexing progress, file browser with per-file status indicators, and statistics.
 /// </summary>
 public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
 {
     private readonly ILogger<IndexingViewModel> _logger;
     private readonly IIndexingStatusService _indexingStatusService;
+    private readonly HashSet<string> _expandedDirectories = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _viewLifetimeCts;
 
     // Overall statistics
     private int _totalIndexed;
     private int _totalNotIndexed;
+    private int _totalDiscovered;
     private int _totalErrors;
     private int _totalInProgress;
     private int _totalWarnings;
     private long _totalStorageBytes;
     private bool _isWatcherActive;
     private string _lastScanTime = "Never";
+    private string _lastScanDuration = "N/A";
 
     // Orchestration statistics
     private int _filesProcessed;
@@ -34,6 +37,8 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
     private FileIndexInfo? _selectedFile;
     private ObservableCollection<FileIndexInfo> _files = [];
     private ObservableCollection<FileIndexInfo> _filteredFiles = [];
+    private ObservableCollection<string> _availableFormats = [];
+    private ObservableCollection<DirectoryBrowserGroup> _directoryGroups = [];
     private string _searchText = string.Empty;
     private FileIndexingStatus? _statusFilter;
     private string? _formatFilter;
@@ -45,161 +50,241 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _indexingStatusService = indexingStatusService ?? throw new ArgumentNullException(nameof(indexingStatusService));
         Title = "Indexing Status";
+
+        RefreshCommand = new Command(async () => await RefreshAsync().ConfigureAwait(false));
+        ClearFiltersCommand = new Command(async () => await ClearFiltersAsync().ConfigureAwait(false));
+        SetStatusFilterCommand = new Command<FileIndexingStatus>(async status =>
+        {
+            StatusFilter = status;
+            await ApplyFiltersAsync().ConfigureAwait(false);
+        });
+        ToggleDirectoryCommand = new Command<string>(async directoryPath =>
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                return;
+            }
+
+            if (_expandedDirectories.Contains(directoryPath))
+            {
+                _expandedDirectories.Remove(directoryPath);
+            }
+            else
+            {
+                _expandedDirectories.Add(directoryPath);
+            }
+
+            await RebuildDirectoryGroupsAsync().ConfigureAwait(false);
+        });
+        SelectFileCommand = new Command<FileIndexInfo>(file => SelectedFile = file);
+
         _logger.LogInformation("IndexingViewModel initialized");
     }
 
+    #region Commands
+
+    public ICommand RefreshCommand { get; }
+
+    public ICommand ClearFiltersCommand { get; }
+
+    public ICommand SetStatusFilterCommand { get; }
+
+    public ICommand ToggleDirectoryCommand { get; }
+
+    public ICommand SelectFileCommand { get; }
+
+    #endregion
+
     #region Properties
 
-    /// <summary>
-    /// Gets or sets the total number of indexed documents.
-    /// </summary>
     public int TotalIndexed
     {
         get => _totalIndexed;
-        set => SetProperty(ref _totalIndexed, value);
+        set
+        {
+            if (SetProperty(ref _totalIndexed, value))
+            {
+                OnPropertyChanged(nameof(IndexingProgress));
+            }
+        }
     }
 
-    /// <summary>
-    /// Gets or sets the total number of documents not yet indexed.
-    /// </summary>
     public int TotalNotIndexed
     {
         get => _totalNotIndexed;
-        set => SetProperty(ref _totalNotIndexed, value);
+        set
+        {
+            if (SetProperty(ref _totalNotIndexed, value))
+            {
+                OnPropertyChanged(nameof(IndexingProgress));
+            }
+        }
     }
 
-    /// <summary>
-    /// Gets or sets the total number of documents with errors.
-    /// </summary>
+    public int TotalDiscovered
+    {
+        get => _totalDiscovered;
+        set
+        {
+            if (SetProperty(ref _totalDiscovered, value))
+            {
+                OnPropertyChanged(nameof(IndexingProgress));
+            }
+        }
+    }
+
     public int TotalErrors
     {
         get => _totalErrors;
-        set => SetProperty(ref _totalErrors, value);
+        set
+        {
+            if (SetProperty(ref _totalErrors, value))
+            {
+                OnPropertyChanged(nameof(HasErrorIndicator));
+                OnPropertyChanged(nameof(ScanStatus));
+            }
+        }
     }
 
-    /// <summary>
-    /// Gets or sets the total number of documents currently being processed.
-    /// </summary>
     public int TotalInProgress
     {
         get => _totalInProgress;
-        set => SetProperty(ref _totalInProgress, value);
+        set
+        {
+            if (SetProperty(ref _totalInProgress, value))
+            {
+                OnPropertyChanged(nameof(ScanStatus));
+            }
+        }
     }
 
-    /// <summary>
-    /// Gets or sets the total number of documents with warnings.
-    /// </summary>
     public int TotalWarnings
     {
         get => _totalWarnings;
-        set => SetProperty(ref _totalWarnings, value);
+        set
+        {
+            if (SetProperty(ref _totalWarnings, value))
+            {
+                OnPropertyChanged(nameof(HasErrorIndicator));
+                OnPropertyChanged(nameof(ScanStatus));
+            }
+        }
     }
 
-    /// <summary>
-    /// Gets or sets the total storage used by embeddings (bytes).
-    /// </summary>
     public long TotalStorageBytes
     {
         get => _totalStorageBytes;
         set => SetProperty(ref _totalStorageBytes, value);
     }
 
-    /// <summary>
-    /// Gets formatted storage size string (KB, MB, GB).
-    /// </summary>
     public string TotalStorageFormatted
     {
         get
         {
-            const long KB = 1024;
-            const long MB = KB * 1024;
-            const long GB = MB * 1024;
+            const long kb = 1024;
+            const long mb = kb * 1024;
+            const long gb = mb * 1024;
 
-            if (TotalStorageBytes >= GB)
-                return $"{TotalStorageBytes / (double)GB:F2} GB";
-            if (TotalStorageBytes >= MB)
-                return $"{TotalStorageBytes / (double)MB:F2} MB";
-            if (TotalStorageBytes >= KB)
-                return $"{TotalStorageBytes / (double)KB:F2} KB";
+            if (TotalStorageBytes >= gb)
+            {
+                return $"{TotalStorageBytes / (double)gb:F2} GB";
+            }
+
+            if (TotalStorageBytes >= mb)
+            {
+                return $"{TotalStorageBytes / (double)mb:F2} MB";
+            }
+
+            if (TotalStorageBytes >= kb)
+            {
+                return $"{TotalStorageBytes / (double)kb:F2} KB";
+            }
+
             return $"{TotalStorageBytes} bytes";
         }
     }
 
-    /// <summary>
-    /// Gets or sets whether the file system watcher is active.
-    /// </summary>
     public bool IsWatcherActive
     {
         get => _isWatcherActive;
-        set => SetProperty(ref _isWatcherActive, value);
+        set
+        {
+            if (SetProperty(ref _isWatcherActive, value))
+            {
+                OnPropertyChanged(nameof(ScanStatus));
+                OnPropertyChanged(nameof(WatcherStatusText));
+            }
+        }
     }
 
-    /// <summary>
-    /// Gets or sets the last scan time.
-    /// </summary>
     public string LastScanTime
     {
         get => _lastScanTime;
         set => SetProperty(ref _lastScanTime, value);
     }
 
-    /// <summary>
-    /// Gets or sets the number of files processed (from orchestration stats).
-    /// </summary>
+    public string LastScanDuration
+    {
+        get => _lastScanDuration;
+        set => SetProperty(ref _lastScanDuration, value);
+    }
+
     public int FilesProcessed
     {
         get => _filesProcessed;
         set => SetProperty(ref _filesProcessed, value);
     }
 
-    /// <summary>
-    /// Gets or sets the number of files deleted (from orchestration stats).
-    /// </summary>
     public int FilesDeleted
     {
         get => _filesDeleted;
         set => SetProperty(ref _filesDeleted, value);
     }
 
-    /// <summary>
-    /// Gets or sets the number of processing errors (from orchestration stats).
-    /// </summary>
     public int ProcessingErrors
     {
         get => _processingErrors;
         set => SetProperty(ref _processingErrors, value);
     }
 
-    /// <summary>
-    /// Gets the observable collection of all files.
-    /// </summary>
     public ObservableCollection<FileIndexInfo> Files
     {
         get => _files;
         set => SetProperty(ref _files, value);
     }
 
-    /// <summary>
-    /// Gets the observable collection of filtered files.
-    /// </summary>
     public ObservableCollection<FileIndexInfo> FilteredFiles
     {
         get => _filteredFiles;
         set => SetProperty(ref _filteredFiles, value);
     }
 
-    /// <summary>
-    /// Gets or sets the selected file for detail view.
-    /// </summary>
+    public ObservableCollection<string> AvailableFormats
+    {
+        get => _availableFormats;
+        set => SetProperty(ref _availableFormats, value);
+    }
+
+    public ObservableCollection<DirectoryBrowserGroup> DirectoryGroups
+    {
+        get => _directoryGroups;
+        set => SetProperty(ref _directoryGroups, value);
+    }
+
     public FileIndexInfo? SelectedFile
     {
         get => _selectedFile;
-        set => SetProperty(ref _selectedFile, value);
+        set
+        {
+            if (SetProperty(ref _selectedFile, value))
+            {
+                OnPropertyChanged(nameof(SelectedFileIndexedAtDisplay));
+                OnPropertyChanged(nameof(SelectedFileLastModifiedDisplay));
+                OnPropertyChanged(nameof(SelectedFileEmbeddingStatus));
+            }
+        }
     }
 
-    /// <summary>
-    /// Gets or sets the search text for filtering files.
-    /// </summary>
     public string SearchText
     {
         get => _searchText;
@@ -207,14 +292,11 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
         {
             if (SetProperty(ref _searchText, value))
             {
-                _ = Task.Run(() => ApplyFiltersAsync());
+                _ = ApplyFiltersAsync();
             }
         }
     }
 
-    /// <summary>
-    /// Gets or sets the status filter.
-    /// </summary>
     public FileIndexingStatus? StatusFilter
     {
         get => _statusFilter;
@@ -222,14 +304,11 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
         {
             if (SetProperty(ref _statusFilter, value))
             {
-                _ = Task.Run(() => ApplyFiltersAsync());
+                _ = ApplyFiltersAsync();
             }
         }
     }
 
-    /// <summary>
-    /// Gets or sets the format filter.
-    /// </summary>
     public string? FormatFilter
     {
         get => _formatFilter;
@@ -237,32 +316,95 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
         {
             if (SetProperty(ref _formatFilter, value))
             {
-                _ = Task.Run(() => ApplyFiltersAsync());
+                _ = ApplyFiltersAsync();
             }
+        }
+    }
+
+    public double IndexingProgress
+    {
+        get
+        {
+            if (TotalDiscovered <= 0)
+            {
+                return 0;
+            }
+
+            return Math.Clamp(TotalIndexed / (double)TotalDiscovered, 0, 1);
+        }
+    }
+
+    public bool HasErrorIndicator => TotalErrors > 0 || TotalWarnings > 0 || ProcessingErrors > 0;
+
+    public string ScanStatus
+    {
+        get
+        {
+            if (TotalInProgress > 0)
+            {
+                return "Active";
+            }
+
+            if (HasErrorIndicator)
+            {
+                return "Warning";
+            }
+
+            return IsWatcherActive ? "Idle" : "Paused";
+        }
+    }
+
+    public string WatcherStatusText => IsWatcherActive ? "Watcher: Active" : "Watcher: Inactive";
+
+    public string SelectedFileIndexedAtDisplay => FormatUnixTimestamp(SelectedFile?.IndexedAt);
+
+    public string SelectedFileLastModifiedDisplay => FormatUnixTimestamp(SelectedFile?.LastModified);
+
+    public string SelectedFileEmbeddingStatus
+    {
+        get
+        {
+            if (SelectedFile == null)
+            {
+                return "N/A";
+            }
+
+            if (SelectedFile.HasTier1Embedding && SelectedFile.HasTier2Embedding)
+            {
+                return "Tier 1 + Tier 2";
+            }
+
+            if (SelectedFile.HasTier1Embedding)
+            {
+                return "Tier 1 only";
+            }
+
+            if (SelectedFile.HasTier2Embedding)
+            {
+                return "Tier 2 only";
+            }
+
+            return "Not embedded";
         }
     }
 
     #endregion
 
-    /// <summary>
-    /// Initializes the view and loads indexing data.
-    /// Called when the view becomes visible.
-    /// </summary>
     public async Task InitializeAsync()
     {
         if (IsBusy)
+        {
             return;
+        }
 
         _logger.LogInformation("Initializing indexing view");
         IsBusy = true;
 
         try
         {
-            // Create cancellation token for this view's lifetime
             _viewLifetimeCts?.Dispose();
             _viewLifetimeCts = new CancellationTokenSource();
 
-            // Load initial data
             await LoadDataAsync(_viewLifetimeCts.Token).ConfigureAwait(false);
 
             _logger.LogInformation("Indexing view initialized successfully");
@@ -277,106 +419,95 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// Loads indexing statistics and file list.
-    /// </summary>
     private async Task LoadDataAsync(CancellationToken ct)
     {
-        try
+        _logger.LogDebug("Loading indexing data");
+
+        var stats = await _indexingStatusService.GetIndexingStatisticsAsync(ct).ConfigureAwait(false);
+        var files = await _indexingStatusService.GetAllFilesAsync(ct).ConfigureAwait(false);
+
+        await MainThread.InvokeOnMainThreadAsync(async () =>
         {
-            _logger.LogDebug("Loading indexing data");
+            TotalIndexed = stats.TotalIndexed;
+            TotalNotIndexed = stats.TotalNotIndexed;
+            TotalDiscovered = stats.TotalDiscovered;
+            TotalErrors = stats.TotalErrors;
+            TotalInProgress = stats.TotalInProgress;
+            TotalWarnings = stats.TotalWarnings;
+            TotalStorageBytes = stats.TotalEmbeddingStorageBytes;
+            IsWatcherActive = stats.IsWatcherActive;
+            LastScanTime = FormatUnixTimestamp(stats.LastScanTime);
+            LastScanDuration = stats.LastScanDurationMs.HasValue
+                ? $"{stats.LastScanDurationMs.Value} ms"
+                : "N/A";
 
-            // Load statistics
-            var stats = await _indexingStatusService.GetIndexingStatisticsAsync(ct).ConfigureAwait(false);
-            
-            // Update properties on UI thread
-            await MainThread.InvokeOnMainThreadAsync(() =>
+            FilesProcessed = stats.OrchestrationStats.FilesProcessed;
+            FilesDeleted = stats.OrchestrationStats.FilesDeleted;
+            ProcessingErrors = stats.OrchestrationStats.ProcessingErrors;
+
+            OnPropertyChanged(nameof(TotalStorageFormatted));
+            OnPropertyChanged(nameof(IndexingProgress));
+            OnPropertyChanged(nameof(HasErrorIndicator));
+            OnPropertyChanged(nameof(ScanStatus));
+
+            Files.Clear();
+            foreach (var file in files)
             {
-                TotalIndexed = stats.TotalIndexed;
-                TotalNotIndexed = stats.TotalNotIndexed;
-                TotalErrors = stats.TotalErrors;
-                TotalInProgress = stats.TotalInProgress;
-                TotalWarnings = stats.TotalWarnings;
-                TotalStorageBytes = stats.TotalEmbeddingStorageBytes;
-                IsWatcherActive = stats.IsWatcherActive;
-                
-                if (stats.LastScanTime.HasValue)
-                {
-                    var lastScan = DateTimeOffset.FromUnixTimeSeconds(stats.LastScanTime.Value);
-                    LastScanTime = lastScan.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
-                }
-                else
-                {
-                    LastScanTime = "Never";
-                }
+                Files.Add(file);
+            }
 
-                FilesProcessed = stats.OrchestrationStats.FilesProcessed;
-                FilesDeleted = stats.OrchestrationStats.FilesDeleted;
-                ProcessingErrors = stats.OrchestrationStats.ProcessingErrors;
-
-                OnPropertyChanged(nameof(TotalStorageFormatted));
-
-                _logger.LogDebug(
-                    "Statistics updated: {Indexed} indexed, {Errors} errors, {Pending} pending",
-                    TotalIndexed, TotalErrors, TotalNotIndexed);
-            }).ConfigureAwait(false);
-
-            // Load all files
-            var files = await _indexingStatusService.GetAllFilesAsync(ct).ConfigureAwait(false);
-            
-            await MainThread.InvokeOnMainThreadAsync(() =>
-            {
-                Files.Clear();
-                foreach (var file in files)
-                {
-                    Files.Add(file);
-                }
-
-                _logger.LogDebug("Loaded {Count} files", Files.Count);
-            }).ConfigureAwait(false);
-
-            // Apply filters
+            RebuildAvailableFormats();
             await ApplyFiltersAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
+        }).ConfigureAwait(false);
+    }
+
+    private void RebuildAvailableFormats()
+    {
+        var formats = Files
+            .Select(file => file.Format)
+            .Where(format => !string.IsNullOrWhiteSpace(format))
+            .Select(format => format!.ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(format => format, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        AvailableFormats.Clear();
+        foreach (var format in formats)
         {
-            _logger.LogError(ex, "Error loading indexing data");
-            throw;
+            AvailableFormats.Add(format);
         }
     }
 
-    /// <summary>
-    /// Applies current filters to the file list.
-    /// </summary>
     private async Task ApplyFiltersAsync()
     {
         try
         {
             var filtered = Files.AsEnumerable();
 
-            // Apply search filter
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
-                filtered = filtered.Where(f => f.FilePath.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+                filtered = filtered.Where(file =>
+                    file.FilePath.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    file.FileName.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
             }
 
-            // Apply status filter
             if (StatusFilter.HasValue)
             {
-                filtered = filtered.Where(f => f.Status == StatusFilter.Value);
+                filtered = filtered.Where(file => file.Status == StatusFilter.Value);
             }
 
-            // Apply format filter
             if (!string.IsNullOrWhiteSpace(FormatFilter))
             {
-                filtered = filtered.Where(f => 
-                    f.Format != null && 
-                    f.Format.Equals(FormatFilter, StringComparison.OrdinalIgnoreCase));
+                filtered = filtered.Where(file =>
+                    file.Format != null && file.Format.Equals(FormatFilter, StringComparison.OrdinalIgnoreCase));
             }
 
-            var filteredList = filtered.ToList();
+            var filteredList = filtered
+                .OrderBy(file => file.DirectoryPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(file => file.FileName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-            await MainThread.InvokeOnMainThreadAsync(() =>
+            await MainThread.InvokeOnMainThreadAsync(async () =>
             {
                 FilteredFiles.Clear();
                 foreach (var file in filteredList)
@@ -384,7 +515,7 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
                     FilteredFiles.Add(file);
                 }
 
-                _logger.LogDebug("Filtered to {Count} files", FilteredFiles.Count);
+                await RebuildDirectoryGroupsAsync().ConfigureAwait(false);
             }).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -393,20 +524,61 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// Refreshes the indexing data.
-    /// </summary>
+    private async Task RebuildDirectoryGroupsAsync()
+    {
+        var groupedFiles = FilteredFiles
+            .GroupBy(file => file.DirectoryPath)
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var groups = new List<DirectoryBrowserGroup>();
+
+        foreach (var group in groupedFiles)
+        {
+            var directoryPath = group.Key;
+            var expanded = _expandedDirectories.Contains(directoryPath);
+            var displayName = string.IsNullOrWhiteSpace(directoryPath)
+                ? "(Root)"
+                : new DirectoryInfo(directoryPath).Name;
+
+            var fileList = group
+                .OrderBy(file => file.FileName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            groups.Add(new DirectoryBrowserGroup
+            {
+                DirectoryPath = directoryPath,
+                DisplayName = string.IsNullOrWhiteSpace(displayName) ? directoryPath : displayName,
+                FileCount = fileList.Count,
+                IsExpanded = expanded,
+                Files = fileList
+            });
+
+            if (!_expandedDirectories.Any() && groupedFiles.Count <= 3)
+            {
+                _expandedDirectories.Add(directoryPath);
+            }
+        }
+
+        DirectoryGroups.Clear();
+        foreach (var group in groups)
+        {
+            DirectoryGroups.Add(group);
+        }
+
+        await Task.CompletedTask;
+    }
+
     public async Task RefreshAsync()
     {
         if (_viewLifetimeCts == null || _viewLifetimeCts.IsCancellationRequested)
+        {
             return;
+        }
 
         await LoadDataAsync(_viewLifetimeCts.Token).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Clears all filters.
-    /// </summary>
     public async Task ClearFiltersAsync()
     {
         SearchText = string.Empty;
@@ -415,9 +587,6 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
         await ApplyFiltersAsync().ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Cleans up resources when the view is disposed.
-    /// </summary>
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing IndexingViewModel");
@@ -428,4 +597,38 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
 
         await Task.CompletedTask;
     }
+
+    private static string FormatUnixTimestamp(long? unixSeconds)
+    {
+        if (!unixSeconds.HasValue || unixSeconds.Value <= 0)
+        {
+            return "Never";
+        }
+
+        try
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(unixSeconds.Value)
+                .ToLocalTime()
+                .ToString("yyyy-MM-dd HH:mm:ss");
+        }
+        catch
+        {
+            return "Unknown";
+        }
+    }
+}
+
+public sealed class DirectoryBrowserGroup
+{
+    public required string DirectoryPath { get; init; }
+
+    public required string DisplayName { get; init; }
+
+    public int FileCount { get; init; }
+
+    public bool IsExpanded { get; init; }
+
+    public string ExpansionGlyph => IsExpanded ? "▼" : "▶";
+
+    public required IReadOnlyList<FileIndexInfo> Files { get; init; }
 }

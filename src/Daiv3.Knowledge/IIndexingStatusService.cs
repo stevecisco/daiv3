@@ -47,6 +47,16 @@ public sealed class FileIndexInfo
     public required string FilePath { get; init; }
 
     /// <summary>
+    /// File name component from the full path.
+    /// </summary>
+    public required string FileName { get; init; }
+
+    /// <summary>
+    /// Directory path component from the full path.
+    /// </summary>
+    public required string DirectoryPath { get; init; }
+
+    /// <summary>
     /// Current indexing status.
     /// </summary>
     public FileIndexingStatus Status { get; init; }
@@ -95,6 +105,26 @@ public sealed class FileIndexInfo
     /// Whether the file is marked as sensitive/not shareable.
     /// </summary>
     public bool IsSensitive { get; init; }
+
+    /// <summary>
+    /// Whether file metadata indicates it is shareable.
+    /// </summary>
+    public bool IsShareable { get; init; } = true;
+
+    /// <summary>
+    /// Machine location where indexing occurred (if known).
+    /// </summary>
+    public string? MachineLocation { get; init; }
+
+    /// <summary>
+    /// Whether Tier 1 (topic) embedding exists.
+    /// </summary>
+    public bool HasTier1Embedding { get; init; }
+
+    /// <summary>
+    /// Whether Tier 2 (chunk) embeddings exist.
+    /// </summary>
+    public bool HasTier2Embedding { get; init; }
 }
 
 /// <summary>
@@ -111,6 +141,11 @@ public sealed class IndexingStatistics
     /// Total number of files discovered but not indexed.
     /// </summary>
     public int TotalNotIndexed { get; init; }
+
+    /// <summary>
+    /// Total files discovered in watched directories.
+    /// </summary>
+    public int TotalDiscovered { get; init; }
 
     /// <summary>
     /// Total number of files with indexing errors.
@@ -136,6 +171,16 @@ public sealed class IndexingStatistics
     /// Last scan time (Unix seconds).
     /// </summary>
     public long? LastScanTime { get; init; }
+
+    /// <summary>
+    /// Last scan duration in milliseconds.
+    /// </summary>
+    public long? LastScanDurationMs { get; init; }
+
+    /// <summary>
+    /// Next scheduled scan time (Unix seconds), if available.
+    /// </summary>
+    public long? NextScheduledScanTime { get; init; }
 
     /// <summary>
     /// Whether file system watcher is currently running.

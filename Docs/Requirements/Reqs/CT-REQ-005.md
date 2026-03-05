@@ -92,3 +92,24 @@ The dashboard SHALL display indexing progress, last scan time, errors, and provi
 - KM-ACC-001 (adding documents)
 - KM-ACC-002 (updating documents)
 - KM-ACC-003 (deleting documents)
+
+## Implementation Notes (2026-03-05)
+- Implemented live indexing aggregation in `IndexingStatusService` with unified file set from:
+  - persisted document records
+  - orchestration in-progress paths and recent file errors
+  - discovered-but-not-yet-indexed files from watched directories
+- Replaced placeholder statistics with live-derived values for in-progress/error/discovered counts, scan timing, and last scan duration.
+- Added metadata parsing/mapping for warning count, error message, sensitivity/shareability flags, machine location, and embedding visibility.
+- Completed MAUI transparency experience in `IndexingViewModel` and `IndexingPage`:
+  - progress/scan status/error indicators
+  - status and type filters + quick search
+  - expandable directory browser with per-file status iconography
+  - selected-file detail panel (path, timestamps, summary, embedding status, shareability, machine)
+- Added new MAUI converters and app resources to support status icon/color/visibility/byte formatting.
+- Added/updated tests:
+  - unit: `IndexingStatusServiceTests`, `KnowledgeFileOrchestrationServiceTests`, `IndexingViewModelTests`
+  - integration: `KnowledgeDocumentProcessorIntegrationTests` (error persistence transparency path)
+- Validation executed:
+  - `dotnet build Daiv3.FoundryLocal.slnx --nologo` succeeded.
+  - requirement-focused test runs for CT-REQ-005 changes succeeded.
+  - full-suite command executed; failing suites are pre-existing/unrelated to CT-REQ-005 (primarily orchestration async-disposal and web-fetch parser suites).

@@ -54,4 +54,34 @@ public sealed class KnowledgeFileOrchestrationStatistics
     /// Total deletion errors.
     /// </summary>
     public int DeletionErrors { get; set; }
+
+    /// <summary>
+    /// Unix timestamp when the last scan operation started.
+    /// </summary>
+    public long? LastScanStartedAt { get; set; }
+
+    /// <summary>
+    /// Unix timestamp when the last scan operation completed.
+    /// </summary>
+    public long? LastScanCompletedAt { get; set; }
+
+    /// <summary>
+    /// Duration in milliseconds of the last completed scan operation.
+    /// </summary>
+    public long? LastScanDurationMs { get; set; }
+
+    /// <summary>
+    /// File path of the most recently processed item.
+    /// </summary>
+    public string? LastProcessedFilePath { get; set; }
+
+    /// <summary>
+    /// File paths currently in progress.
+    /// </summary>
+    public IReadOnlyList<string> ActiveFilePaths { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Recent processing errors by file path.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> RecentFileErrors { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }
