@@ -247,6 +247,7 @@ public class DashboardViewModelTests
         await viewModel.ShutdownAsync();
     }
 
+#pragma warning disable IDISP016 // Intentionally testing disposal behavior
     [Fact]
     public async Task DisposeAsync_ShouldCleanupResources()
     {
@@ -256,9 +257,10 @@ public class DashboardViewModelTests
         // Act
         await viewModel.DisposeAsync();
 
-        // Assert - Should not throw
+        // Assert - Should not throw - Intentionally checking non-null after disposal
         Assert.NotNull(viewModel);
     }
+#pragma warning restore IDISP016
 
     [Fact]
     public void PropertyChanged_ShouldNotifyWhenPropertyUpdates()

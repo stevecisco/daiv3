@@ -1,5 +1,6 @@
 using Daiv3.App.Maui.ViewModels;
 using Daiv3.Core.Settings;
+using Daiv3.FoundryLocal.Management;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Services;
@@ -18,12 +19,14 @@ public class SettingsViewModelTests
     private readonly Mock<ILogger<SettingsViewModel>> _mockLogger;
     private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly Mock<ISettingsInitializer> _mockSettingsInitializer;
+    private readonly Mock<FoundryLocalManagementService> _mockFoundryService;
 
     public SettingsViewModelTests()
     {
         _mockLogger = new Mock<ILogger<SettingsViewModel>>();
         _mockSettingsService = new Mock<ISettingsService>();
         _mockSettingsInitializer = new Mock<ISettingsInitializer>();
+        _mockFoundryService = new Mock<FoundryLocalManagementService>();
 
         // Setup default behavior for settings service
         _mockSettingsInitializer.Setup(x => x.AreSettingsInitializedAsync(It.IsAny<CancellationToken>()))
@@ -54,7 +57,7 @@ public class SettingsViewModelTests
     public void Constructor_ShouldInitializeProperties()
     {
         // Act
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
 
         // Assert
         Assert.Equal("Settings", viewModel.Title);
@@ -66,7 +69,7 @@ public class SettingsViewModelTests
     public async Task Constructor_ShouldLoadDefaultSettings()
     {
         // Act
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
         await Task.Delay(500); // Wait for async loading
 
         // Assert - Verify settings service was called
@@ -79,7 +82,7 @@ public class SettingsViewModelTests
     public void DataDirectory_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
         var newPath = @"C:\Test\Data";
 
         // Act
@@ -93,7 +96,7 @@ public class SettingsViewModelTests
     public void ModelsDirectory_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
         var newPath = @"C:\Test\Models";
 
         // Act
@@ -107,7 +110,7 @@ public class SettingsViewModelTests
     public void UseNpu_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
 
         // Act
         viewModel.UseNpu = false;
@@ -120,7 +123,7 @@ public class SettingsViewModelTests
     public void UseGpu_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
 
         // Act
         viewModel.UseGpu = false;
@@ -133,7 +136,7 @@ public class SettingsViewModelTests
     public void AllowOnlineProviders_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
 
         // Act
         viewModel.AllowOnlineProviders = true;
@@ -146,7 +149,7 @@ public class SettingsViewModelTests
     public void TokenBudget_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
         var newBudget = 16384;
 
         // Act
@@ -160,7 +163,7 @@ public class SettingsViewModelTests
     public void SelectedTheme_WhenSet_ShouldUpdateProperty()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
         var newTheme = "Dark";
 
         // Act
@@ -174,7 +177,7 @@ public class SettingsViewModelTests
     public void SaveSettingsCommand_ShouldNotThrow()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
 
         // Act & Assert
         var exception = Record.Exception(() => viewModel.SaveSettingsCommand.Execute(null));
@@ -185,7 +188,7 @@ public class SettingsViewModelTests
     public void ResetSettingsCommand_ShouldResetToDefaults()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
         viewModel.UseNpu = false;
         viewModel.TokenBudget = 4096;
 
@@ -200,7 +203,7 @@ public class SettingsViewModelTests
     public void BrowseDataDirectoryCommand_ShouldNotThrow()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
 
         // Act & Assert
         var exception = Record.Exception(() => viewModel.BrowseDataDirectoryCommand.Execute(null));
@@ -211,7 +214,7 @@ public class SettingsViewModelTests
     public void BrowseModelsDirectoryCommand_ShouldNotThrow()
     {
         // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object);
+        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
 
         // Act & Assert
         var exception = Record.Exception(() => viewModel.BrowseModelsDirectoryCommand.Execute(null));

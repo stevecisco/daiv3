@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Daiv3.App.Maui.ViewModels"
+             xmlns:knowledge="clr-namespace:Daiv3.Knowledge;assembly=Daiv3.Knowledge"
+             x:Class="Daiv3.App.Maui.Pages.IndexingPage"
+             x:DataType="vm:IndexingViewModel"
+             Title="{Binding Title}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="20">
+            
+            <!-- Header -->
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto" ColumnSpacing="10">
+                <Label Grid.Column="0"
+                       Text="Indexing Status"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       VerticalOptions="Center" />
+                
+                <!-- Watcher Status Indicator -->
+                <HorizontalStackLayout Grid.Column="1" VerticalOptions="Center">
+                    <Label Text="●" 
+                           FontSize="14"
+                           TextColor="{Binding IsWatcherActive, Converter={StaticResource BoolToColorConverter}}"
+                           Margin="0,0,5,0"
+                           VerticalOptions="Center" />
+                    <Label Text="{Binding IsWatcherActive, StringFormat='Watcher: {0:Active;Inactive}'}" 
+                           FontSize="12"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Grid>
+
+            <!-- Last Scan Time -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="10"
+                    StrokeShape="RoundRectangle 8"
+                    StrokeThickness="0">
+                <HorizontalStackLayout>
+                    <Label Text="Last Scan:" FontAttributes="Bold" WidthRequest="100" VerticalOptions="Center" />
+                    <Label Text="{Binding LastScanTime}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
+
+            <!-- Statistics Section -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Indexing Statistics"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="5">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Total Indexed:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding TotalIndexed}" />
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Text="Not Indexed:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding TotalNotIndexed}" />
+                        
+                        <Label Grid.Row="2" Grid.Column="0" Text="Errors:" FontAttributes="Bold" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding TotalErrors}" 
+                               TextColor="{StaticResource Danger}" />
+                        
+                        <Label Grid.Row="3" Grid.Column="0" Text="In Progress:" FontAttributes="Bold" />
+                        <Label Grid.Row="3" Grid.Column="1" Text="{Binding TotalInProgress}" />
+                        
+                        <Label Grid.Row="4" Grid.Column="0" Text="Warnings:" FontAttributes="Bold" />
+                        <Label Grid.Row="4" Grid.Column="1" Text="{Binding TotalWarnings}" 
+                               TextColor="{StaticResource Warning}" />
+                        
+                        <Label Grid.Row="5" Grid.Column="0" Text="Storage Used:" FontAttributes="Bold" />
+                        <Label Grid.Row="5" Grid.Column="1" Text="{Binding TotalStorageFormatted}" />
+                        
+                        <Label Grid.Row="6" Grid.Column="0" Text="Files Processed:" FontAttributes="Bold" />
+                        <Label Grid.Row="6" Grid.Column="1" Text="{Binding FilesProcessed}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Search and Filter Section -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Search and Filter"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <!-- Search Box -->
+                    <Entry Placeholder="Search files by path..."
+                           Text="{Binding SearchText}"
+                           ClearButtonVisibility="WhileEditing" />
+                    
+                    <!-- Filter Buttons -->
+                    <HorizontalStackLayout Spacing="10">
+                        <Button Text="All" 
+                                Command="{Binding ClearFiltersCommand}"
+                                FontSize="12"
+                                Padding="10,5" />
+                        <Button Text="Indexed" 
+                                CommandParameter="{x:Static knowledge:FileIndexingStatus.Indexed}"
+                                FontSize="12"
+                                Padding="10,5" />
+                        <Button Text="Errors" 
+                                CommandParameter="{x:Static knowledge:FileIndexingStatus.Error}"
+                                FontSize="12"
+                                Padding="10,5" />
+                        <Button Text="Pending" 
+                                CommandParameter="{x:Static knowledge:FileIndexingStatus.NotIndexed}"
+                                FontSize="12"
+                                Padding="10,5" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- File List Section -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0">
+                <VerticalStackLayout Spacing="10">
+                    <HorizontalStackLayout Spacing="10">
+                        <Label Text="Indexed Files"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start" />
+                        <Label Text="{Binding FilteredFiles.Count, StringFormat='({0} files)'}"
+                               FontSize="14"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    
+                    <!-- File List -->
+                    <CollectionView ItemsSource="{Binding FilteredFiles}"
+                                    SelectionMode="Single"
+                                    SelectedItem="{Binding SelectedFile}"
+                                    HeightRequest="300">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="knowledge:FileIndexInfo">
+                                <Border Padding="10"
+                                        Margin="0,2,0,2"
+                                        StrokeShape="RoundRectangle 6"
+                                        StrokeThickness="1"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                                        BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1E293B}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                        <!-- Status Indicator -->
+                                        <Label Grid.Column="0"
+                                               Text="{Binding Status, Converter={StaticResource StatusIconConverter}}"
+                                               FontSize="16"
+                                               VerticalOptions="Center" />
+                                        
+                                        <!-- File Path -->
+                                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                            <Label Text="{Binding FilePath}"
+                                                   FontSize="12"
+                                                   LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Format, StringFormat='Format: {0}'}"
+                                                   FontSize="10"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        </VerticalStackLayout>
+                                        
+                                        <!-- Size -->
+                                        <Label Grid.Column="2"
+                                               Text="{Binding SizeBytes, Converter={StaticResource BytesToStringConverter}}"
+                                               FontSize="10"
+                                               VerticalOptions="Center"
+                                               HorizontalOptions="End" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Selected File Details Section -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"  
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0"
+                    IsVisible="{Binding SelectedFile, Converter={StaticResource IsNotNullConverter}}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="File Details"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="5">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Path:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding SelectedFile.FilePath}" 
+                               LineBreakMode="CharacterWrap" />
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Text="Status:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding SelectedFile.Status}" />
+                        
+                        <Label Grid.Row="2" Grid.Column="0" Text="Format:" FontAttributes="Bold" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding SelectedFile.Format}" />
+                        
+                        <Label Grid.Row="3" Grid.Column="0" Text="Size:" FontAttributes="Bold" />
+                        <Label Grid.Row="3" Grid.Column="1" Text="{Binding SelectedFile.SizeBytes, Converter={StaticResource BytesToStringConverter}}" />
+                        
+                        <Label Grid.Row="4" Grid.Column="0" Text="Chunks:" FontAttributes="Bold" />
+                        <Label Grid.Row="4" Grid.Column="1" Text="{Binding SelectedFile.ChunkCount}" />
+                        
+                        <Label Grid.Row="5" Grid.Column="0" Text="Embedding:" FontAttributes="Bold" />
+                        <Label Grid.Row="5" Grid.Column="1" Text="{Binding SelectedFile.EmbeddingDimension, StringFormat='{0}D'}" />
+                    </Grid>
+                    
+                    <!-- Topic Summary -->
+                    <VerticalStackLayout Spacing="5" IsVisible="{Binding SelectedFile.TopicSummary, Converter={StaticResource IsNotNullOrEmptyConverter}}">
+                        <Label Text="Topic Summary:" FontAttributes="Bold" />
+                        <Label Text="{Binding SelectedFile.TopicSummary}"
+                               FontSize="12"
+                               LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                    
+                    <!-- Error Message -->
+                    <VerticalStackLayout Spacing="5" IsVisible="{Binding SelectedFile.ErrorMessage, Converter={StaticResource IsNotNullOrEmptyConverter}}">
+                        <Label Text="Error:" FontAttributes="Bold" TextColor="{StaticResource Danger}" />
+                        <Label Text="{Binding SelectedFile.ErrorMessage}"
+                               FontSize="12"
+                               TextColor="{StaticResource Danger}"
+                               LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

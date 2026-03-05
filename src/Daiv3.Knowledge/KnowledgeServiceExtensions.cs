@@ -80,6 +80,9 @@ public static class KnowledgeServiceExtensions
         // Register file orchestration service
         services.AddSingleton<IKnowledgeFileOrchestrationService, KnowledgeFileOrchestrationService>();
 
+        // Register indexing status service (CT-REQ-005)
+        services.AddScoped<IIndexingStatusService, IndexingStatusService>();
+
         return services;
     }
 

@@ -28,7 +28,7 @@ public class DashboardServiceTests
         var config = new DashboardConfiguration();
 
         // Act
-        var service = new DashboardService(_mockLogger.Object, null, config);
+        using var service = new DashboardService(_mockLogger.Object, null, config);
 
         // Assert
         Assert.NotNull(service);
@@ -39,15 +39,17 @@ public class DashboardServiceTests
     public void Constructor_WithNullLogger_ShouldThrow()
     {
         // Act & Assert
+#pragma warning disable IDISP005 // Test validates exception throwing, instance not actually created
         Assert.Throws<ArgumentNullException>(() =>
             new DashboardService(null!, null, new DashboardConfiguration()));
+#pragma warning restore IDISP005
     }
 
     [Fact]
     public void Constructor_WithNullConfiguration_ShouldUseDefault()
     {
         // Act
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Assert
         Assert.NotNull(service.Configuration);
@@ -58,7 +60,7 @@ public class DashboardServiceTests
     public async Task GetDashboardDataAsync_ShouldReturnValidData()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act
         var data = await service.GetDashboardDataAsync();
@@ -77,7 +79,7 @@ public class DashboardServiceTests
     public async Task GetDashboardDataAsync_WithCancellation_ReturnsCancelledData()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -93,7 +95,7 @@ public class DashboardServiceTests
     {
         // Arrange - This test is timing-dependent, so we don't make strict assertions
         var config = new DashboardConfiguration { DataCollectionTimeoutMs = 10 }; // Very short but not unrealistic
-        var service = new DashboardService(_mockLogger.Object, null, config);
+        using var service = new DashboardService(_mockLogger.Object, null, config);
 
         // Act
         var data = await service.GetDashboardDataAsync();
@@ -107,7 +109,7 @@ public class DashboardServiceTests
     public async Task StartMonitoringAsync_ShouldSetMonitoringFlag()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act
         await service.StartMonitoringAsync();
@@ -124,7 +126,7 @@ public class DashboardServiceTests
     public async Task StartMonitoringAsync_WhenAlreadyMonitoring_ShouldNotFail()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
         await service.StartMonitoringAsync();
         await Task.Delay(100);
 
@@ -142,7 +144,7 @@ public class DashboardServiceTests
     public async Task StartMonitoringAsync_WithInvalidInterval_ShouldThrow()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
@@ -153,7 +155,7 @@ public class DashboardServiceTests
     public async Task StopMonitoringAsync_ShouldClearMonitoringFlag()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
         await service.StartMonitoringAsync();
         await Task.Delay(100);
 
@@ -169,7 +171,7 @@ public class DashboardServiceTests
     public async Task StopMonitoringAsync_WhenNotMonitoring_ShouldNotFail()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act
         await service.StopMonitoringAsync(); // Should not throw
@@ -182,7 +184,7 @@ public class DashboardServiceTests
     public async Task DataUpdated_ShouldRaiseEventWhenMonitoring()
     {
         // Arrange
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
         var eventRaised = false;
         service.DataUpdated += (s, e) => { eventRaised = true; };
 
@@ -202,7 +204,7 @@ public class DashboardServiceTests
     {
         // Arrange
         var config = new DashboardConfiguration { RefreshIntervalMs = 5000 };
-        var service = new DashboardService(_mockLogger.Object, null, config);
+        using var service = new DashboardService(_mockLogger.Object, null, config);
 
         // Act
         var serviceConfig = service.Configuration;
@@ -212,6 +214,7 @@ public class DashboardServiceTests
         Assert.Equal(5000, serviceConfig.RefreshIntervalMs);
     }
 
+#pragma warning disable IDISP016, IDISP017 // Intentionally testing disposal behavior
     [Fact]
     public void Dispose_ShouldCleanupResources()
     {
@@ -224,7 +227,9 @@ public class DashboardServiceTests
         // Assert - Should not throw on subsequent dispose
         service.Dispose();
     }
+#pragma warning restore IDISP016, IDISP017
 
+#pragma warning disable IDISP016, IDISP017 // Intentionally testing disposal behavior
     [Fact]
     public async Task Dispose_WhileMonitoring_ShouldStopMonitoring()
     {
@@ -237,10 +242,12 @@ public class DashboardServiceTests
         service.Dispose();
         await Task.Delay(100);
 
-        // Assert
+        // Assert - Intentionally checking state after disposal
         Assert.False(service.IsMonitoring);
     }
+#pragma warning restore IDISP016, IDISP017
 
+#pragma warning disable IDISP016, IDISP017 // Intentionally testing disposal behavior
     [Fact]
     public async Task GetDashboardDataAsync_AfterDispose_ShouldThrow()
     {
@@ -248,10 +255,11 @@ public class DashboardServiceTests
         var service = new DashboardService(_mockLogger.Object, null, null);
         service.Dispose();
 
-        // Act & Assert
+        // Act & Assert - Intentionally calling method on disposed instance to verify exception
         await Assert.ThrowsAsync<ObjectDisposedException>(
             () => service.GetDashboardDataAsync());
     }
+#pragma warning restore IDISP016, IDISP017
 
     /// <summary>
     /// Tests for CT-REQ-004: Queue status collection.
@@ -280,7 +288,7 @@ public class DashboardServiceTests
         };
         mockQueue.Setup(q => q.GetMetricsAsync()).ReturnsAsync(metrics);
         
-        var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
+        using var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
 
         // Act
         var data = await service.GetDashboardDataAsync();
@@ -319,7 +327,7 @@ public class DashboardServiceTests
         };
         mockQueue.Setup(q => q.GetMetricsAsync()).ReturnsAsync(metrics);
         
-        var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
+        using var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
 
         // Act
         var data = await service.GetDashboardDataAsync();
@@ -339,7 +347,7 @@ public class DashboardServiceTests
     public async Task GetDashboardDataAsync_WithoutModelQueue_ShouldReturnDefaultQueueStatus()
     {
         // Arrange - No model queue injected
-        var service = new DashboardService(_mockLogger.Object, null, null);
+        using var service = new DashboardService(_mockLogger.Object, null, null);
 
         // Act
         var data = await service.GetDashboardDataAsync();
@@ -361,7 +369,7 @@ public class DashboardServiceTests
         mockQueue.Setup(q => q.GetQueueStatusAsync())
             .ThrowsAsync(new InvalidOperationException("Queue service error"));
         
-        var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
+        using var service = new DashboardService(_mockLogger.Object, mockQueue.Object, null);
 
         // Act
         var data = await service.GetDashboardDataAsync();
