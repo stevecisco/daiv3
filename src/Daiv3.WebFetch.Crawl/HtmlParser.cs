@@ -59,7 +59,7 @@ public class HtmlParser : IHtmlParser
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(_options.TimeoutMs);
 
-            using var document = await context.OpenAsync(
+            var document = await context.OpenAsync(
                 req => req.Content(htmlContent),
                 cts.Token);
 
@@ -149,7 +149,7 @@ public class HtmlParser : IHtmlParser
 /// <summary>
 /// AngleSharp implementation of IHtmlDocument.
 /// </summary>
-internal class AngleSharpHtmlDocument : IHtmlDocument
+internal class AngleSharpHtmlDocument : IHtmlDocument, IDisposable
 {
     private readonly AngleSharp.Dom.IDocument _document;
     private readonly HtmlParsingOptions _options;
@@ -187,6 +187,11 @@ internal class AngleSharpHtmlDocument : IHtmlDocument
 
         var element = _document.QuerySelector(selector) as AngleSharp.Dom.IElement;
         return element != null ? new AngleSharpHtmlElement(element, _options) : null;
+    }
+
+    public void Dispose()
+    {
+        (_document as IDisposable)?.Dispose();
     }
 }
 

@@ -67,11 +67,17 @@ public sealed class OnnxInferenceSessionProvider : IOnnxInferenceSessionProvider
         }
     }
 
-    public ValueTask DisposeAsync()
+    public void Dispose()
     {
         _session?.Dispose();
         _session = null;
         _selectedProvider = null;
+        _initLock?.Dispose();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Dispose();
         return ValueTask.CompletedTask;
     }
 }

@@ -11,7 +11,7 @@ namespace Daiv3.Orchestration.Messaging;
 /// Core message broker implementation coordinating storage-based agent communication.
 /// Manages pub/sub, message persistence, and automated message watchers.
 /// </summary>
-public sealed class MessageBroker : IMessageBroker, IAsyncDisposable
+public sealed class MessageBroker : IMessageBroker, IAsyncDisposable, IDisposable
 {
     private readonly ILogger<MessageBroker> _logger;
     private readonly IMessageStore _messageStore;
@@ -248,6 +248,22 @@ public sealed class MessageBroker : IMessageBroker, IAsyncDisposable
     public Task<(bool IsHealthy, string DiagnosticMessage)> GetHealthAsync(CancellationToken ct = default)
     {
         return _messageStore.ValidateHealthAsync(ct);
+    }
+
+    public void Dispose()
+    {
+        _logger.LogInformation("Disposing message broker (synchronous)");
+
+        // Stop all watchers
+        _watcherCts.Cancel();
+        _watcherCts.Dispose();
+
+        // Clear subscriptions
+        _subscriptions.Clear();
+        _watchers.Clear();
+
+        // Clear correlation context
+        _correlationContext.Dispose();
     }
 
     public async ValueTask DisposeAsync()

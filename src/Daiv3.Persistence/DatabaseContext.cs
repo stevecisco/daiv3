@@ -318,6 +318,33 @@ public sealed class DatabaseContext : IDatabaseContext
         };
     }
 
+    public void Dispose()
+    {
+        try
+        {
+            // Perform synchronous checkpoint for cleanup
+            if (_initialized)
+            {
+                using var connection = new SqliteConnection(_connectionString);
+                connection.Open();
+
+                using var checkpointCmd = connection.CreateCommand();
+                checkpointCmd.CommandText = "PRAGMA checkpoint(RESTART)";
+                checkpointCmd.ExecuteNonQuery();
+
+                _logger.LogDebug("Performed WAL checkpoint on database during synchronous disposal");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to perform WAL checkpoint during synchronous disposal");
+        }
+        finally
+        {
+            _initLock?.Dispose();
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         // Perform WAL checkpoint to ensure all data is written to main database file

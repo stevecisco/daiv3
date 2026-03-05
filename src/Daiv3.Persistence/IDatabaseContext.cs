@@ -7,7 +7,7 @@ namespace Daiv3.Persistence;
 /// Database context interface for SQLite database operations.
 /// Provides connection management, transactions, and schema migration support.
 /// </summary>
-public interface IDatabaseContext : IAsyncDisposable
+public interface IDatabaseContext : IAsyncDisposable, IDisposable
 {
     /// <summary>
     /// Initializes the database, creating it if it doesn't exist.
