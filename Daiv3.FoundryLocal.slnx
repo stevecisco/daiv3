@@ -36,12 +36,19 @@
   <Project Path="src/Daiv3.Infrastructure.Shared/Daiv3.Infrastructure.Shared.csproj" />
   
   <!-- Tests -->
-  <Project Path="tests/unit/Daiv3.UnitTests/Daiv3.UnitTests.csproj" />
-    <Project Path="tests/unit/Daiv3.App.Cli.Tests/Daiv3.App.Cli.Tests.csproj" />
-    <Project Path="tests/unit/Daiv3.FoundryLocal.Management.Tests/Daiv3.FoundryLocal.Management.Tests.csproj" />
-    <Project Path="tests/unit/Daiv3.Infrastructure.Shared.Tests/Daiv3.Infrastructure.Shared.Tests.csproj" />
-    <Project Path="tests/unit/Daiv3.Mcp.Integration.Tests/Daiv3.Mcp.Integration.Tests.csproj" />
-    <Project Path="tests/unit/Daiv3.OnlineProviders.Tests/Daiv3.OnlineProviders.Tests.csproj" />  <Project Path="tests/unit/Daiv3.Scheduler.Tests/Daiv3.Scheduler.Tests.csproj" />  <Project Path="tests/integration/Daiv3.Knowledge.Embedding.IntegrationTests/Daiv3.Knowledge.Embedding.IntegrationTests.csproj" />
+  <Project Path="tests/unit/Daiv3.App.Cli.Tests/Daiv3.App.Cli.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.App.Maui.Tests/Daiv3.App.Maui.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.FoundryLocal.Management.Tests/Daiv3.FoundryLocal.Management.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.Infrastructure.Shared.Tests/Daiv3.Infrastructure.Shared.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.Knowledge.Tests/Daiv3.Knowledge.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.Mcp.Integration.Tests/Daiv3.Mcp.Integration.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.ModelExecution.Tests/Daiv3.ModelExecution.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.OnlineProviders.Tests/Daiv3.OnlineProviders.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.Orchestration.Tests/Daiv3.Orchestration.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.Persistence.Tests/Daiv3.Persistence.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.Scheduler.Tests/Daiv3.Scheduler.Tests.csproj" />
+  <Project Path="tests/unit/Daiv3.WebFetch.Crawl.Tests/Daiv3.WebFetch.Crawl.Tests.csproj" />
+  <Project Path="tests/integration/Daiv3.Knowledge.Embedding.IntegrationTests/Daiv3.Knowledge.Embedding.IntegrationTests.csproj" />
   <Project Path="tests/integration/Daiv3.FoundryLocal.IntegrationTests/Daiv3.FoundryLocal.IntegrationTests.csproj" />
   <Project Path="tests/integration/Daiv3.Persistence.IntegrationTests/Daiv3.Persistence.IntegrationTests.csproj" />
 </Solution>
