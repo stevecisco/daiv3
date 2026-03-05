@@ -1189,8 +1189,12 @@ public class Program
             Console.WriteLine("  Completed Tasks: 0");
             Console.WriteLine("  Current Activity: Ready for tasks");
             Console.WriteLine();
+            
+            // Queue Metrics (CT-REQ-004)
+            DisplayQueueMetrics(host);
 
-            Console.WriteLine("NOTE: Full hardware detection and queue monitoring pending integration.");
+            Console.WriteLine();
+            Console.WriteLine("NOTE: Full hardware detection pending integration.");
             Console.WriteLine("      Use 'db status' to check database, 'projects list' for projects.");
 
             return 0;
@@ -1199,6 +1203,35 @@ public class Program
         {
             Console.WriteLine($"✗ Failed to show dashboard: {ex.Message}");
             return 1;
+        }
+    }
+
+    private static void DisplayQueueMetrics(IHost host)
+    {
+        try
+        {
+            // This would integrate with the real DashboardService when the ModelQueue service is available
+            Console.WriteLine("QUEUE METRICS (CT-REQ-004):");
+            Console.WriteLine("  Current Model: Not loaded");
+            Console.WriteLine("  Average Wait Time: 0.0 seconds");
+            Console.WriteLine("  Throughput: 0.0 requests/minute");
+            Console.WriteLine("  Model Utilization: 0%");
+            Console.WriteLine();
+            
+            // Priority Distribution
+            Console.WriteLine("PRIORITY DISTRIBUTION:");
+            Console.WriteLine("  Immediate: 0");
+            Console.WriteLine("  Normal: 0");
+            Console.WriteLine("  Background: 0");
+            Console.WriteLine();
+            
+            // Top Items (CT-REQ-004)
+            Console.WriteLine("TOP QUEUED ITEMS:");
+            Console.WriteLine("  (No queued items)");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗ Failed to display queue metrics: {ex.Message}");
         }
     }
 

@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:Daiv3.App.Maui.ViewModels"
+             xmlns:local="clr-namespace:Daiv3.App.Maui.Models"
              x:Class="Daiv3.App.Maui.Pages.DashboardPage"
              x:DataType="vm:DashboardViewModel"
              Title="{Binding Title}">
@@ -99,6 +100,178 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Queue Status Section (CT-REQ-004) -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Model Queue Status"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <!-- Current Model -->
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto" RowSpacing="5">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Current Model:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding CurrentModel}" />
+                    </Grid>
+
+                    <!-- Queue Metrics (Average Wait, Throughput, Utilization) -->
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="5">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Avg Wait Time:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding AverageWaitTimeSeconds, StringFormat='{0:F1} seconds'}" />
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Text="Throughput:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding ThroughputPerMinute, StringFormat='{0:F1} req/min'}" />
+                        
+                        <Label Grid.Row="2" Grid.Column="0" Text="Utilization:" FontAttributes="Bold" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding ModelUtilizationPercent, StringFormat='{0}%'}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Top 3 Queue Items Section (CT-REQ-004: Prominent Highlighting) -->
+            <Border BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#0F172A}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="2"
+                    Stroke="{StaticResource Primary}"
+                    IsVisible="{Binding TopQueueItems, Converter={StaticResource IsNotNullOrEmptyConverter}}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Top 3 Queued Items"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource Primary}" />
+                    
+                    <!-- Items List -->
+                    <CollectionView ItemsSource="{Binding TopQueueItems}"
+                                    SelectionMode="Single"
+                                    HorizontalScrollBarVisibility="Never">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="local:QueueItemSummary">
+                                <Border Padding="12"
+                                        Margin="0,5,0,5"
+                                        StrokeShape="RoundRectangle 8"
+                                        StrokeThickness="1"
+                                        Stroke="{StaticResource Primary}"
+                                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+                                    <VerticalStackLayout Spacing="5">
+                                        <!-- Priority Badge and Status -->
+                                        <HorizontalStackLayout Spacing="8">
+                                            <!-- Priority Badge (Color-coded) -->
+                                            <Label Text="{Binding Priority}"
+                                                   Padding="6,2"
+                                                   TextColor="White"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold"
+                                                   BackgroundColor="{Binding Priority, Converter={StaticResource PriorityColorConverter}}" />
+                                            
+                                            <Label Text="{Binding Status}"
+                                                   FontSize="12"
+                                                   VerticalOptions="Center" />
+                                        </HorizontalStackLayout>
+
+                                        <!-- Request Details -->
+                                        <Label Text="{Binding Description}"
+                                               FontSize="13"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="2" />
+
+                                        <!-- Queue Position and Estimated Time -->
+                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding QueuePosition, StringFormat='Position: {0}'}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                            
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding EstimatedStartTime, StringFormat='Est: {0:HH:mm:ss}'}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                   HorizontalTextAlignment="End" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Project Filter Section (CT-REQ-004: Per-Project Queue Views) -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Queue Filter"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <!-- Project Filter Picker -->
+                    <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                        <Label Text="Project:" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Picker x:Name="ProjectFilterPicker"
+                                SelectedItem="{Binding SelectedProjectFilter}"
+                                ItemDisplayBinding="{Binding}"
+                                HorizontalOptions="FillAndExpand"
+                                TextColor="{AppThemeBinding Light=#000000, Dark=#FFFFFF}"
+                                BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#334155}"
+                                TitleColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}">
+                            <Picker.Title>All Projects</Picker.Title>
+                        </Picker>
+                    </HorizontalStackLayout>
+
+                    <!-- Filtered Queue Items -->
+                    <Label Text="Filtered Queue Items"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           Margin="0,10,0,5" />
+                    
+                    <CollectionView ItemsSource="{Binding FilteredQueueItems}"
+                                    SelectionMode="Single"
+                                    HorizontalScrollBarVisibility="Never">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="local:QueueItemSummary">
+                                <Border Padding="10"
+                                        Margin="0,3,0,3"
+                                        StrokeShape="RoundRectangle 6"
+                                        StrokeThickness="1"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#475569}"
+                                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+                                    <HorizontalStackLayout Spacing="10">
+                                        <!-- Priority Indicator Dot -->
+                                        <Label Text="●"
+                                               FontSize="10"
+                                               TextColor="{Binding Priority, Converter={StaticResource PriorityColorConverter}}"
+                                               VerticalOptions="Center" />
+                                        
+                                        <!-- Item Details -->
+                                        <VerticalStackLayout Spacing="2" HorizontalOptions="FillAndExpand">
+                                            <Label Text="{Binding Description}"
+                                                   FontSize="12"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1" />
+                                            <Label Text="{Binding Priority, StringFormat='Priority: {0}'}"
+                                                   FontSize="10"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        </VerticalStackLayout>
+                                        
+                                        <!-- Position Badge -->
+                                        <Label Text="{Binding QueuePosition}"
+                                               Padding="6,2"
+                                               TextColor="White"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               BackgroundColor="{StaticResource Primary}" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Loading Indicator -->
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                               IsVisible="{Binding IsBusy}"
@@ -107,7 +280,7 @@
                               HorizontalOptions="Center" />
 
             <!-- Refresh Note -->
-            <Label Text="Dashboard auto-refreshes every 3 seconds. Integration with hardware detection and model queue pending."
+            <Label Text="Dashboard auto-refreshes every 3 seconds."
                    FontSize="12"
                    TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                    HorizontalOptions="Center"

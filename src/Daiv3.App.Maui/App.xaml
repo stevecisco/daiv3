@@ -13,6 +13,8 @@
             
             <!-- Value Converters -->
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
+            <converters:PriorityColorConverter x:Key="PriorityColorConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
