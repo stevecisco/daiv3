@@ -10,7 +10,7 @@ namespace Daiv3.App.Maui.Services;
 /// Implements CT-REQ-003: The system SHALL provide a real-time transparency dashboard.
 /// Supports CT-NFR-001: Async/await patterns with debouncing to prevent UI blocking.
 /// </summary>
-public class DashboardService : IDashboardService, IDisposable
+public sealed class DashboardService : IDashboardService, IDisposable
 {
     private readonly ILogger<DashboardService> _logger;
     private readonly IModelQueue? _modelQueue;
@@ -104,6 +104,7 @@ public class DashboardService : IDashboardService, IDisposable
                 $"Interval must be between {DashboardConfiguration.MinRefreshIntervalMs} and {DashboardConfiguration.MaxRefreshIntervalMs}ms");
         }
 
+        _monitoringCts?.Dispose();
         _monitoringCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         IsMonitoring = true;
 

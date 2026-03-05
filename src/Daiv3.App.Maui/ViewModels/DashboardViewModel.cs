@@ -10,7 +10,7 @@ namespace Daiv3.App.Maui.ViewModels;
 /// Implements CT-NFR-001: Async/await patterns with debouncing for UI responsiveness.
 /// Displays system status, hardware info, model queue status, and agent activity with real-time updates.
 /// </summary>
-public class DashboardViewModel : BaseViewModel, IAsyncDisposable
+public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
 {
     private readonly ILogger<DashboardViewModel> _logger;
     private readonly IDashboardService _dashboardService;
@@ -203,6 +203,7 @@ public class DashboardViewModel : BaseViewModel, IAsyncDisposable
         try
         {
             // Create cancellation token for this view's lifetime
+            _viewLifetimeCts?.Dispose();
             _viewLifetimeCts = new CancellationTokenSource();
 
             // Load initial data
