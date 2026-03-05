@@ -408,7 +408,103 @@ public class [ComponentName]IntegrationTests : IAsyncLifetime
 }
 ```
 
-### 3.5. IDisposable Implementation & Analyzer Warning Prevention
+### 3.5. Build and Test Failures are BLOCKING (MANDATORY)
+
+**🚨 ABSOLUTE REQUIREMENT: You CANNOT proceed with ANY of the following conditions:**
+
+#### Build Failures are ALWAYS BLOCKING
+- **Production code fails to compile** → BLOCKING - MUST fix before proceeding
+- **Test project code fails to compile** → BLOCKING - MUST fix before proceeding
+- **Any project in the solution fails to build** → BLOCKING - MUST fix before proceeding
+- **Build errors exist** → BLOCKING - requirements CANNOT be marked complete
+
+**NO EXCEPTIONS:** Build failures must be resolved immediately, regardless of:
+- Whether the failure appears "unrelated" to your current work
+- Whether the failure existed before you started
+- Whether the failure is in a different project/component
+- Whether you believe your changes didn't cause it
+
+**If you encounter a blocking build failure:**
+1. Stop all other work immediately
+2. Investigate and fix the build failure
+3. Verify build succeeds: `dotnet build Daiv3.FoundryLocal.slnx --nologo`
+4. If you cannot fix the failure after reasonable effort, **STOP and report to user** - do NOT proceed or mark requirement complete
+
+#### Test Failures are ALWAYS BLOCKING (Unless Explicitly Skipped)
+
+**🚨 ABSOLUTE REQUIREMENT:**
+- **ANY test failing in the full test suite** → BLOCKING - requirement CANNOT be marked complete
+- **Test project failing to build** → BLOCKING - MUST fix before proceeding
+- **Test discovery failures** → BLOCKING - MUST resolve before proceeding
+
+**The ONLY exception:** Tests that are **explicitly marked with `[Fact(Skip = "reason")]`** or `[Theory(Skip = "reason")]`
+
+**NO OTHER EXCEPTIONS ALLOWED:**
+- ❌ "The failure appears unrelated to my work" → NOT an exception, BLOCKING
+- ❌ "The failure existed before I started" → NOT an exception, BLOCKING  
+- ❌ "Only 5% of tests are failing" → NOT an exception, BLOCKING
+- ❌ "The failing tests are in a different component" → NOT an exception, BLOCKING
+- ❌ "I documented the failures in the tracker" → NOT sufficient, BLOCKING
+
+**Mandatory Validation Before Completion:**
+```powershell
+# REQUIRED: Full solution build MUST succeed
+dotnet build Daiv3.FoundryLocal.slnx --nologo
+# Exit code MUST be 0
+
+# REQUIRED: Full test suite MUST pass (or all failures explicitly skipped)
+dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal
+# Review output: total tests, failed count MUST be 0 (excluding explicit skips)
+```
+
+**If Test Failures are Encountered:**
+
+1. **Categorize the failure:**
+   - **Your code regression:** Fix immediately in current requirement
+   - **Pre-existing failure from earlier work:** Fix it NOW before completing current requirement
+   - **Flaky test:** Stabilize it or skip it explicitly with `[Fact(Skip = "Reason")]`
+   - **Environmental issue:** Resolve environment, then re-run
+
+2. **Never proceed without addressing failures:**
+   - Do NOT mark requirement complete with failing tests
+   - Do NOT commit code with failing tests
+   - Do NOT document failures as "known issues" and move on
+   - Do NOT rely on "it will be fixed later"
+
+3. **Report to user if you cannot resolve:**
+   - Provide detailed failure analysis
+   - Show investigation steps taken
+   - Request guidance on whether to:
+     - Continue investigating the failure
+     - Explicitly skip the failing test with documented reason
+     - Revert changes that caused the regression
+
+**Why This is Non-Negotiable:**
+- Accumulating test debt makes the suite unreliable
+- "Unrelated" failures often ARE related (shared state, race conditions, resource leaks)
+- Each uncaught failure makes the next one harder to diagnose
+- Test suite credibility erodes quickly once failures are tolerated
+- CI/CD pipelines cannot function with failing tests
+- Other developers cannot distinguish between "expected" and unexpected failures
+
+**Historical Context (March 2026):**
+- CT-REQ-005 was incorrectly marked complete with 194 failing tests (5.1% failure rate)
+- These were documented as "pre-existing/unrelated" but left unfixed
+- This violated the "all tests must pass" principle
+- Instructions updated to make this requirement completely unambiguous
+
+**Correct Workflow:**
+1. Implement feature
+2. Create tests
+3. Run full build: `dotnet build Daiv3.FoundryLocal.slnx --nologo` → MUST succeed
+4. Run full test suite: `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`
+5. **If ANY tests fail (not explicitly skipped):**
+   - **STOP** - Do NOT proceed to documentation or commit
+   - **FIX** - Investigate and resolve ALL failures
+   - **VERIFY** - Re-run full suite until 100% pass (excluding explicit skips)
+6. Only after 100% test pass: Update docs, commit, mark complete
+
+### 3.6. IDisposable Implementation & Analyzer Warning Prevention
 
 **⚠️ CRITICAL: When implementing IDisposable, proactively prevent cascading analyzer warnings**
 
@@ -654,7 +750,7 @@ public sealed class MyIntegrationTests : IAsyncLifetime, IDisposable
 - ✅ **DO NOT call GC.SuppressFinalize()** for sealed classes without finalizer (IDISP024)
 - ✅ **Use cast to IDisposable** for fields whose type might not expose Dispose (e.g., interfaces)
 
-### 3.6. Null Reference & Nullable Type Warnings
+### 3.7. Null Reference & Nullable Type Warnings
 
 **Pattern: CS8602 - Dereference of Possibly Null Reference in Tests**
 
@@ -709,7 +805,7 @@ if (existing != null)
 - ✅ Provide **meaningful defaults** rather than empty strings
 - ✅ Consider making destination variables nullable if default doesn't make sense
 
-### 3.7. xUnit Test Parameter Warnings
+### 3.8. xUnit Test Parameter Warnings
 
 **Pattern: xUnit1026 - Theory Method Has Unused Parameters**
 
@@ -757,10 +853,7 @@ public void MyTest()
 - ✅ Add simple assertions like `Assert.NotNull(param)` if just validating parameter presence
 - ✅ Consider if the test design needs refactoring if parameters seem unnecessary
 
-### 4. Dependency & Library Management Philosophy
-- ✅ Consider if the test design needs refactoring if parameters seem unnecessary
-
-### 3.8. SQLite NULL Safety & File Locking in Tests
+### 3.9. SQLite NULL Safety & File Locking in Tests
 
 **Pattern: SQL Aggregation Functions Return NULL When No Rows Exist**
 
