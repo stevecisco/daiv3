@@ -4,6 +4,7 @@ using Daiv3.Persistence.Repositories;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics.CodeAnalysis;
 using Xunit;
 
 namespace Daiv3.Persistence.IntegrationTests;
@@ -13,13 +14,14 @@ namespace Daiv3.Persistence.IntegrationTests;
 /// Tests actual database operations with schema migrations (CT-DATA-001).
 /// </summary>
 [Collection("Database")]
-public class SettingsMigrationIntegrationTests : IAsyncLifetime
+public sealed class SettingsMigrationIntegrationTests : IAsyncLifetime, IDisposable
 {
     private string _testDatabasePath = null!;
     private IDatabaseContext _databaseContext = null!;
     private SettingsRepository _repository = null!;
     private readonly ILoggerFactory _loggerFactory;
     private readonly IServiceProvider _serviceProvider;
+    private bool _disposed;
 
     public SettingsMigrationIntegrationTests()
     {
@@ -57,23 +59,46 @@ public class SettingsMigrationIntegrationTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        // Clean up database
+        if (_disposed)
+            return;
+
+        // Dispose all disposable resources FIRST
+        (_repository as IDisposable)?.Dispose();
+        (_databaseContext as IDisposable)?.Dispose();
+        (_serviceProvider as IDisposable)?.Dispose();
+        _loggerFactory?.Dispose();
+
+        _disposed = true;
+
+        // Wait for DB locks to be released
+        await Task.Delay(100);
+
+        // Clean up database files AFTER disposing resources
         if (File.Exists(_testDatabasePath))
         {
-            File.Delete(_testDatabasePath);
+            try
+            {
+                File.Delete(_testDatabasePath);
+            }
+            catch (IOException)
+            {
+                // Ignore if file is still locked
+            }
         }
 
         // Also clean up WAL files if they exist
         var walPath = _testDatabasePath + "-wal";
         if (File.Exists(walPath))
         {
-            File.Delete(walPath);
+            try
+            {
+                File.Delete(walPath);
+            }
+            catch (IOException)
+            {
+                // Ignore if file is still locked
+            }
         }
-
-        // Dispose logger factory
-        _loggerFactory?.Dispose();
-
-        await Task.CompletedTask;
     }
 
     [Fact]
@@ -236,6 +261,7 @@ public class SettingsMigrationIntegrationTests : IAsyncLifetime
 
         // Retrieve and verify version 1
         var retrieved1 = await _repository.GetByIdAsync(settingId);
+        Assert.NotNull(retrieved1);
         Assert.Equal(1, retrieved1.SchemaVersion);
 
         // Update to schema version 2
@@ -246,6 +272,7 @@ public class SettingsMigrationIntegrationTests : IAsyncLifetime
 
         // Verify version 2
         var retrieved2 = await _repository.GetByIdAsync(settingId);
+        Assert.NotNull(retrieved2);
         Assert.Equal(2, retrieved2.SchemaVersion);
         Assert.Equal("v2_value", retrieved2.SettingValue);
     }
@@ -281,5 +308,19 @@ public class SettingsMigrationIntegrationTests : IAsyncLifetime
         // Assert
         Assert.NotEmpty(allSettings);
         Assert.True(allSettings.Count >= 5);
+    }
+
+    public void Dispose()
+    {
+        // xUnit calls DisposeAsync for IAsyncLifetime first
+        // This is a safety fallback in case someone uses 'using' directly
+        if (!_disposed)
+        {
+            (_repository as IDisposable)?.Dispose();
+            (_databaseContext as IDisposable)?.Dispose();
+            (_serviceProvider as IDisposable)?.Dispose();
+            _loggerFactory?.Dispose();
+            _disposed = true;
+        }
     }
 }

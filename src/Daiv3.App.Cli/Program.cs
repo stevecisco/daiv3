@@ -880,6 +880,54 @@ public class Program
             Environment.Exit(exitCode);
         });
 
+        // Knowledge indexing status commands (CT-REQ-005)
+        var knowledgeIndexCommand = new Command("index", "Indexing status and file browser");
+        
+        var knowledgeIndexStatusCommand = new Command("status", "Show overall indexing statistics");
+        knowledgeIndexStatusCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await KnowledgeIndexStatusCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        var knowledgeIndexListCommand = new Command("list", "List indexed files with status");
+        var indexFilterOption = new Option<string?>(
+            aliases: new[] { "--filter", "-f" },
+            description: "Filter by status (indexed, error, pending, warning)");
+        var indexFormatOption = new Option<string?>(
+            aliases: new[] { "--format" },
+            description: "Filter by file format (pdf, docx, md, txt, etc.)");
+        var indexSearchOption = new Option<string?>(
+            aliases: new[] { "--search", "-s" },
+            description: "Search files by path");
+        knowledgeIndexListCommand.AddOption(indexFilterOption);
+        knowledgeIndexListCommand.AddOption(indexFormatOption);
+        knowledgeIndexListCommand.AddOption(indexSearchOption);
+        knowledgeIndexListCommand.SetHandler(async (string? filter, string? format, string? search) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await KnowledgeIndexListCommand(host, filter, format, search);
+            Environment.Exit(exitCode);
+        }, indexFilterOption, indexFormatOption, indexSearchOption);
+
+        var knowledgeIndexDetailsCommand = new Command("details", "Show detailed information about a specific file");
+        var filePathOption = new Option<string>(
+            aliases: new[] { "--path", "-p" },
+            description: "File path to show details for")
+        { IsRequired = true };
+        knowledgeIndexDetailsCommand.AddOption(filePathOption);
+        knowledgeIndexDetailsCommand.SetHandler(async (string filePath) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await KnowledgeIndexDetailsCommand(host, filePath);
+            Environment.Exit(exitCode);
+        }, filePathOption);
+
+        knowledgeIndexCommand.AddCommand(knowledgeIndexStatusCommand);
+        knowledgeIndexCommand.AddCommand(knowledgeIndexListCommand);
+        knowledgeIndexCommand.AddCommand(knowledgeIndexDetailsCommand);
+        knowledgeCommand.AddCommand(knowledgeIndexCommand);
         knowledgeCommand.AddCommand(knowledgeLoadCommand);
         rootCommand.AddCommand(knowledgeCommand);
 
@@ -4163,8 +4211,8 @@ public class Program
 
             if (existing != null)
             {
-                category = existing.Category;
-                description = existing.Description;
+                category = existing.Category ?? "general";
+                description = existing.Description ?? "No description";
                 isSensitive = existing.IsSensitive;
                 Console.WriteLine($"Updating existing setting '{key}'...");
             }
@@ -4956,6 +5004,254 @@ public class Program
             logger.LogError(ex, "Failed to show promotion statistics");
             return 1;
         }
+    }
+
+    // Knowledge Indexing Commands (CT-REQ-005)
+
+    private static async Task<int> KnowledgeIndexStatusCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var indexingService = host.Services.GetRequiredService<IIndexingStatusService>();
+            logger.LogInformation("Displaying indexing status");
+
+            var stats = await indexingService.GetIndexingStatisticsAsync();
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("                 INDEXING STATUS (CT-REQ-005)              ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+            Console.WriteLine("OVERALL STATISTICS:");
+            Console.WriteLine($"  Total Indexed: {stats.TotalIndexed}");
+            Console.WriteLine($"  Not Indexed: {stats.TotalNotIndexed}");
+            Console.WriteLine($"  Errors: {stats.TotalErrors}");
+            Console.WriteLine($"  In Progress: {stats.TotalInProgress}");
+            Console.WriteLine($"  Warnings: {stats.TotalWarnings}");
+            Console.WriteLine($"  Storage Used: {FormatBytes(stats.TotalEmbeddingStorageBytes)}");
+            Console.WriteLine();
+
+            Console.WriteLine("WATCHER STATUS:");
+            Console.WriteLine($"  Active: {stats.IsWatcherActive}");
+            if (stats.LastScanTime.HasValue)
+            {
+                var lastScan = DateTimeOffset.FromUnixTimeSeconds(stats.LastScanTime.Value);
+                Console.WriteLine($"  Last Scan: {lastScan.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+            }
+            else
+            {
+                Console.WriteLine("  Last Scan: Never");
+            }
+            Console.WriteLine();
+
+            Console.WriteLine("ORCHESTRATION:");
+            Console.WriteLine($"  Files Processed: {stats.OrchestrationStats.FilesProcessed}");
+            Console.WriteLine($"  Files Deleted: {stats.OrchestrationStats.FilesDeleted}");
+            Console.WriteLine($"  Processing Errors: {stats.OrchestrationStats.ProcessingErrors}");
+            Console.WriteLine($"  Deletion Errors: {stats.OrchestrationStats.DeletionErrors}");
+            Console.WriteLine();
+
+            logger.LogInformation("✓ Displayed indexing status");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to show indexing status: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to show indexing status");
+            return 1;
+        }
+    }
+
+    private static async Task<int> KnowledgeIndexListCommand(
+        IHost host,
+        string? filter,
+        string? format,
+        string? search)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var indexingService = host.Services.GetRequiredService<IIndexingStatusService>();
+            logger.LogInformation("Listing indexed files");
+
+            IReadOnlyList<FileIndexInfo> files;
+
+            // Apply filters
+            if (filter != null)
+            {
+                var status = filter.ToLowerInvariant() switch
+                {
+                    "indexed" => FileIndexingStatus.Indexed,
+                    "error" => FileIndexingStatus.Error,
+                    "pending" => FileIndexingStatus.NotIndexed,
+                    "warning" => FileIndexingStatus.Warning,
+                    "inprogress" => FileIndexingStatus.InProgress,
+                    _ => FileIndexingStatus.Indexed
+                };
+                files = await indexingService.GetFilesByStatusAsync(status);
+            }
+            else if (format != null)
+            {
+                files = await indexingService.GetFilesByFormatAsync(format);
+            }
+            else if (search != null)
+            {
+                files = await indexingService.SearchFilesAsync(search);
+            }
+            else
+            {
+                files = await indexingService.GetAllFilesAsync();
+            }
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("              INDEXED FILES (CT-REQ-005)                    ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine($"Total files: {files.Count}");
+            Console.WriteLine();
+
+            if (files.Count == 0)
+            {
+                Console.WriteLine("No files found matching criteria.");
+                return 0;
+            }
+
+            foreach (var file in files.Take(50)) // Limit to first 50
+            {
+                var statusIcon = file.Status switch
+                {
+                    FileIndexingStatus.Indexed => "✓",
+                    FileIndexingStatus.Error => "✗",
+                    FileIndexingStatus.Warning => "⚠",
+                    FileIndexingStatus.InProgress => "⟳",
+                    FileIndexingStatus.NotIndexed => "○",
+                    _ => "?"
+                };
+
+                Console.WriteLine($"{statusIcon} {file.FilePath}");
+                Console.WriteLine($"  Status: {file.Status} | Format: {file.Format ?? "unknown"} | Size: {FormatBytes(file.SizeBytes ?? 0)}");
+                
+                if (file.ChunkCount.HasValue)
+                {
+                    Console.WriteLine($"  Chunks: {file.ChunkCount} | Embedding: {file.EmbeddingDimension}D");
+                }
+
+                if (!string.IsNullOrEmpty(file.ErrorMessage))
+                {
+                    Console.WriteLine($"  Error: {file.ErrorMessage}");
+                }
+
+                Console.WriteLine();
+            }
+
+            if (files.Count > 50)
+            {
+                Console.WriteLine($"... and {files.Count - 50} more files.");
+                Console.WriteLine("Use --search or --filter to narrow results.");
+            }
+
+            logger.LogInformation("✓ Listed {Count} indexed files", files.Count);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list indexed files: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to list indexed files");
+            return 1;
+        }
+    }
+
+    private static async Task<int> KnowledgeIndexDetailsCommand(IHost host, string filePath)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var indexingService = host.Services.GetRequiredService<IIndexingStatusService>();
+            logger.LogInformation("Showing file details for: {FilePath}", filePath);
+
+            var file = await indexingService.GetFileDetailsAsync(filePath);
+
+            if (file == null)
+            {
+                Console.WriteLine($"✗ File not found: {filePath}");
+                return 1;
+            }
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("              FILE DETAILS (CT-REQ-005)                     ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+            Console.WriteLine($"Path: {file.FilePath}");
+            Console.WriteLine($"Status: {file.Status}");
+            Console.WriteLine($"Format: {file.Format ?? "unknown"}");
+            Console.WriteLine($"Size: {FormatBytes(file.SizeBytes ?? 0)}");
+            Console.WriteLine();
+
+            if (file.DocId != null)
+            {
+                Console.WriteLine($"Document ID: {file.DocId}");
+            }
+
+            if (file.IndexedAt.HasValue)
+            {
+                var indexedAt = DateTimeOffset.FromUnixTimeSeconds(file.IndexedAt.Value);
+                Console.WriteLine($"Indexed At: {indexedAt.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+            }
+
+            if (file.LastModified.HasValue)
+            {
+                var lastModified = DateTimeOffset.FromUnixTimeSeconds(file.LastModified.Value);
+                Console.WriteLine($"Last Modified: {lastModified.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+            }
+
+            Console.WriteLine();
+
+            if (file.ChunkCount.HasValue)
+            {
+                Console.WriteLine($"Chunks: {file.ChunkCount}");
+                Console.WriteLine($"Embedding Dimension: {file.EmbeddingDimension}D");
+                Console.WriteLine();
+            }
+
+            if (!string.IsNullOrEmpty(file.TopicSummary))
+            {
+                Console.WriteLine("Topic Summary:");
+                Console.WriteLine($"  {file.TopicSummary}");
+                Console.WriteLine();
+            }
+
+            if (!string.IsNullOrEmpty(file.ErrorMessage))
+            {
+                Console.WriteLine($"Error: {file.ErrorMessage}");
+                Console.WriteLine();
+            }
+
+            logger.LogInformation("✓ Displayed file details");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to show file details: {ex.Message}");
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Failed to show file details");
+            return 1;
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        const long KB = 1024;
+        const long MB = KB * 1024;
+        const long GB = MB * 1024;
+
+        if (bytes >= GB)
+            return $"{bytes / (double)GB:F2} GB";
+        if (bytes >= MB)
+            return $"{bytes / (double)MB:F2} MB";
+        if (bytes >= KB)
+            return $"{bytes / (double)KB:F2} KB";
+        return $"{bytes} bytes";
     }
 
 }

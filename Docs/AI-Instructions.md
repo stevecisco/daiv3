@@ -556,6 +556,207 @@ Before implementing IDisposable on any class:
 2. Add to `Docs/Build-Warnings-Errors-Tracker.md` under "Resolved Patterns"
 3. Include prevention guidance so AI assistants don't repeat the mistake
 
+#### Test Fixture Disposal with IAsyncLifetime
+
+**Pattern: xUnit Test Fixtures with Disposable Resources (IDISP006/IDISP024/IDISP025)**
+
+When creating test fixtures that use disposable resources (database contexts, repositories, etc.):
+
+**CORRECT Pattern: Implement both IAsyncLifetime AND IDisposable, make class sealed:**
+
+```csharp
+/// <summary>
+/// Integration test fixture with async initialization and proper disposal.
+/// </summary>
+[Collection("Database")]
+public sealed class MyIntegrationTests : IAsyncLifetime, IDisposable
+{
+    private IDatabaseContext _databaseContext = null!;
+    private MyRepository _repository = null!;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly IServiceProvider _serviceProvider;
+    private bool _disposed;
+
+    public MyIntegrationTests()
+    {
+        _loggerFactory = LoggerFactory.Create(b => b.AddConsole());
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.AddConsole());
+        services.AddPersistence();
+        _serviceProvider = services.BuildServiceProvider();
+    }
+
+    public async Task InitializeAsync()
+    {
+        // Async initialization
+        _databaseContext = _serviceProvider.GetRequiredService<IDatabaseContext>();
+        await _databaseContext.InitializeAsync();
+        _repository = new MyRepository(_databaseContext, _loggerFactory.CreateLogger<MyRepository>());
+    }
+
+    public async Task DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        // Dispose all disposable resources FIRST
+        (_repository as IDisposable)?.Dispose();
+        (_databaseContext as IDisposable)?.Dispose();
+        (_serviceProvider as IDisposable)?.Dispose();
+        _loggerFactory?.Dispose();
+
+        _disposed = true;
+
+        // Wait for DB/file locks to be released
+        await Task.Delay(100);
+
+        // Clean up test files AFTER disposing resources
+        if (File.Exists(_testFilePath))
+        {
+            try
+            {
+                File.Delete(_testFilePath);
+            }
+            catch (IOException)
+            {
+                // Ignore if file is still locked - test cleanup will handle it
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        // xUnit calls DisposeAsync for IAsyncLifetime first
+        // This is a safety fallback in case someone uses 'using' directly
+        if (!_disposed)
+        {
+            (_repository as IDisposable)?.Dispose();
+            (_databaseContext as IDisposable)?.Dispose();
+            (_serviceProvider as IDisposable)?.Dispose();
+            _loggerFactory?.Dispose();
+            _disposed = true;
+        }
+        // DO NOT call GC.SuppressFinalize(this) for sealed types without finalizer (IDISP024)
+    }
+
+    [Fact]
+    public async Task MyTest()
+    {
+        // Test implementation
+    }
+}
+```
+
+**Key Prevention Points:**
+- ✅ **MUST make class `sealed`** to avoid IDISP025 warning (no virtual dispose in sealed types)
+- ✅ **MUST implement IDisposable** in addition to IAsyncLifetime to avoid IDISP006 warning
+- ✅ **MUST dispose ALL disposable fields** including IServiceProvider to avoid IDISP002 warning
+- ✅ **DO NOT call GC.SuppressFinalize()** for sealed classes without finalizer (IDISP024)
+- ✅ **Use cast to IDisposable** for fields whose type might not expose Dispose (e.g., interfaces)
+
+### 3.6. Null Reference & Nullable Type Warnings
+
+**Pattern: CS8602 - Dereference of Possibly Null Reference in Tests**
+
+When retrieving objects from repositories/services in tests, ALWAYS check for null before dereferencing:
+
+**INCORRECT:**
+```csharp
+[Fact]
+public async Task TestRetrieve()
+{
+    var retrieved = await _repository.GetByIdAsync(id);
+    Assert.Equal("value", retrieved.Property);  // ❌ CS8602: retrieved might be null
+}
+```
+
+**CORRECT:**
+```csharp
+[Fact]
+public async Task TestRetrieve()
+{
+    var retrieved = await _repository.GetByIdAsync(id);
+    Assert.NotNull(retrieved);  // ✅ Null assertion
+    Assert.Equal("value", retrieved.Property);  // ✅ Now safe
+}
+```
+
+**Pattern: CS8600 - Converting Null Literal to Non-Nullable Type**
+
+When assigning from nullable properties, provide null-coalescing defaults:
+
+**INCORRECT:**
+```csharp
+if (existing != null)
+{
+    category = existing.Category;  // ❌ CS8600: Category might be null
+    description = existing.Description;  // ❌ CS8600
+}
+```
+
+**CORRECT:**
+```csharp
+if (existing != null)
+{
+    category = existing.Category ?? "general";  // ✅ Provide default
+    description = existing.Description ?? "No description";  // ✅ Provide default
+}
+```
+
+**Key Prevention Points:**
+- ✅ **ALWAYS use `Assert.NotNull()`** before accessing properties of retrieved objects in tests
+- ✅ **ALWAYS use null-coalescing operator `??`** when assigning from nullable to non-nullable
+- ✅ Provide **meaningful defaults** rather than empty strings
+- ✅ Consider making destination variables nullable if default doesn't make sense
+
+### 3.7. xUnit Test Parameter Warnings
+
+**Pattern: xUnit1026 - Theory Method Has Unused Parameters**
+
+When using `[Theory]` with `[InlineData]`, ALL parameters MUST be used in the test body:
+
+**INCORRECT:**
+```csharp
+[Theory]
+[InlineData("test", "string")]
+[InlineData(42, "int")]
+public void MyTest(object value, string expectedType)
+{
+    var service = new MyService();
+    Assert.NotNull(service);  // ❌ xUnit1026: value and expectedType unused
+}
+```
+
+**CORRECT Option 1 - Use the Parameters:**
+```csharp
+[Theory]
+[InlineData("test", "string")]
+[InlineData(42, "int")]
+public void MyTest(object value, string expectedType)
+{
+    var service = new MyService();
+    Assert.NotNull(service);
+    Assert.NotNull(value);  // ✅ Use value parameter
+    Assert.NotEmpty(expectedType);  // ✅ Use expectedType parameter
+}
+```
+
+**CORRECT Option 2 - Remove Unused Parameters:**
+```csharp
+[Fact]  // Change from Theory to Fact if not using parameters
+public void MyTest()
+{
+    var service = new MyService();
+    Assert.NotNull(service);  // ✅ No unused parameters
+}
+```
+
+**Key Prevention Points:**
+- ✅ **ALWAYS use all Theory parameters** in the test body
+- ✅ If parameters aren't needed, **change from `[Theory]` to `[Fact]`**
+- ✅ Add simple assertions like `Assert.NotNull(param)` if just validating parameter presence
+- ✅ Consider if the test design needs refactoring if parameters seem unnecessary
+
 ### 4. Dependency & Library Management Philosophy
 
 **Prefer Homegrown, Self-Contained Code:**

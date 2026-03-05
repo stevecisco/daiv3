@@ -290,6 +290,8 @@ public class SettingsServiceTests
         // Simply verify that we can instantiate with different value types
         // Without calling SaveSettingAsync (which requires complex mocking)
         Assert.NotNull(service);
+        Assert.NotNull(value); // Verify value is provided
+        Assert.NotEmpty(expectedType); // Verify expectedType is provided
     }
 
     [Fact]
