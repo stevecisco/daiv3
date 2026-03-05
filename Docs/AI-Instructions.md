@@ -932,6 +932,73 @@ private static async Task DeleteFileWithRetryAsync(string filePath, int maxAttem
 - ✅ **Ignore final IOException** to prevent test cleanup from failing entire test run
 - ✅ **Dispose DatabaseContext before file operations** to ensure handle release is initiated
 
+### 3.10. Project-Scoped Test Execution Strategy
+
+**Run only the tests associated with modified projects during active development. Run the full suite only at the end, before marking a requirement complete.**
+
+#### Rationale
+
+Running the full test suite on every code change is slow. Because tests are now broken out per project, you can iterate quickly by running only the affected test projects, then validate no regressions were introduced across the whole solution in the final verification step.
+
+#### Project → Test Project Mapping
+
+| Source Project(s) | Unit Tests | Integration Tests |
+|---|---|---|
+| `Daiv3.App.Cli` | `tests/unit/Daiv3.App.Cli.Tests/` | — |
+| `Daiv3.App.Maui` | `tests/unit/Daiv3.App.Maui.Tests/` | — |
+| `Daiv3.FoundryLocal.Bridge`, `Daiv3.FoundryLocal.Management`, `Daiv3.FoundryLocal.Management.Cli` | `tests/unit/Daiv3.FoundryLocal.Management.Tests/` | `tests/integration/Daiv3.FoundryLocal.IntegrationTests/` |
+| `Daiv3.Infrastructure.Shared` | `tests/unit/Daiv3.Infrastructure.Shared.Tests/` | — |
+| `Daiv3.Knowledge`, `Daiv3.Knowledge.DocProc` | `tests/unit/Daiv3.Knowledge.Tests/` | `tests/integration/Daiv3.Knowledge.IntegrationTests/` |
+| `Daiv3.Knowledge.Embedding` | — | `tests/integration/Daiv3.Knowledge.Embedding.IntegrationTests/` |
+| `Daiv3.Mcp.Integration` | `tests/unit/Daiv3.Mcp.Integration.Tests/` | — |
+| `Daiv3.ModelExecution` | `tests/unit/Daiv3.ModelExecution.Tests/` | — |
+| `Daiv3.OnlineProviders.*` (all online provider projects) | `tests/unit/Daiv3.OnlineProviders.Tests/` | — |
+| `Daiv3.Orchestration` | `tests/unit/Daiv3.Orchestration.Tests/` | `tests/integration/Daiv3.Orchestration.IntegrationTests/` |
+| `Daiv3.Persistence` | `tests/unit/Daiv3.Persistence.Tests/` | `tests/integration/Daiv3.Persistence.IntegrationTests/` |
+| `Daiv3.Scheduler` | `tests/unit/Daiv3.Scheduler.Tests/` | — |
+| `Daiv3.WebFetch.Crawl` | `tests/unit/Daiv3.WebFetch.Crawl.Tests/` | — |
+| Architectural / cross-cutting changes | `tests/unit/Daiv3.Architecture.Tests/` | `tests/integration/Daiv3.Architecture.Integration.Tests/` |
+
+#### Running Project-Scoped Tests (During Development)
+
+**Single project — unit tests only:**
+```powershell
+dotnet test tests/unit/Daiv3.Persistence.Tests/Daiv3.Persistence.Tests.csproj --nologo --verbosity minimal
+```
+
+**Single project — unit + integration tests:**
+```powershell
+dotnet test tests/unit/Daiv3.Persistence.Tests/Daiv3.Persistence.Tests.csproj tests/integration/Daiv3.Persistence.IntegrationTests/Daiv3.Persistence.IntegrationTests.csproj --nologo --verbosity minimal
+```
+
+**Multiple modified projects:**
+```powershell
+dotnet test `
+  tests/unit/Daiv3.Knowledge.Tests/Daiv3.Knowledge.Tests.csproj `
+  tests/unit/Daiv3.Orchestration.Tests/Daiv3.Orchestration.Tests.csproj `
+  tests/integration/Daiv3.Knowledge.IntegrationTests/Daiv3.Knowledge.IntegrationTests.csproj `
+  --nologo --verbosity minimal
+```
+
+#### Running the Full Suite (Requirement Completion Gate Only)
+
+Reserve the full suite for **pre-completion verification** — after all development is done and before marking the requirement complete or creating a git commit:
+
+```powershell
+# REQUIRED before marking complete or committing
+dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal
+# Exit code MUST be 0; all failures (except explicit [Fact(Skip=...)] / [Theory(Skip=...)]) are blocking
+```
+
+#### Decision Summary
+
+| Situation | Command |
+|---|---|
+| Implementing / fixing code in one project | Project-scoped test command (unit ± integration) |
+| Modified two or more projects | Project-scoped commands for each modified project |
+| Requirement implementation done, ready to finalize | Full suite: `dotnet test Daiv3.FoundryLocal.slnx` |
+| Verifying no regressions before commit | Full suite: `dotnet test Daiv3.FoundryLocal.slnx` |
+
 ### 4. Dependency & Library Management Philosophy
 
 **Prefer Homegrown, Self-Contained Code:**
@@ -1922,11 +1989,13 @@ Before beginning ANY implementation work:
    - Write tests concurrent with implementation
    - Tests should be in `./tests/unit/` or alongside production code if xUnit pattern
    - Every feature must have corresponding test coverage
+   - **Run project-scoped unit tests** (not the full suite) after each change — see § 3.10 for the project → test project mapping and commands
    - **All unit tests MUST pass before proceeding to next step**
 
 3. **Integration Testing**
    - Write non-destructive integration tests for the feature
    - Test integration with database, file system, and external services
+   - **Run project-scoped integration tests** (not the full suite) — see § 3.10
    - **All integration tests MUST pass before proceeding to next step**
 
 4. **CLI Implementation & Real-World Testing**
@@ -1967,7 +2036,11 @@ Before beginning ANY implementation work:
 1. **Final Verification**
    - All code compiles without errors
    - Warning/error delta validated against baseline in `./Docs/Build-Warnings-Errors-Tracker.md`
-   - All unit tests pass
+   - **Run full test suite and verify zero failures** (excluding explicitly skipped tests):
+     ```powershell
+     dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal
+     # Exit code MUST be 0 — this is the regression gate before completion/commit
+     ```
    - Integration tests pass (if applicable)
    - Code review completed
    - **Test traceability validated**:

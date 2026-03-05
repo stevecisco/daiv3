@@ -1,0 +1,142 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Daiv3.Infrastructure.Shared -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Infrastructure.Shared\bin\Debug\net10.0\Daiv3.Infrastructure.Shared.dll
+  Daiv3.Infrastructure.Shared -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Infrastructure.Shared\bin\Debug\net10.0-windows10.0.26100\Daiv3.Infrastructure.Shared.dll
+  Daiv3.Core -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Core\bin\Debug\net10.0-windows10.0.26100\Daiv3.Core.dll
+  Daiv3.Core -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Core\bin\Debug\net10.0\Daiv3.Core.dll
+  Daiv3.Knowledge.Embedding -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge.Embedding\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.Embedding.dll
+  Daiv3.Mcp.Integration -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Mcp.Integration\bin\Debug\net10.0\Daiv3.Mcp.Integration.dll
+  Daiv3.Knowledge.Embedding -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge.Embedding\bin\Debug\net10.0\Daiv3.Knowledge.Embedding.dll
+  Daiv3.Infrastructure.Shared.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Infrastructure.Shared.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Infrastructure.Shared.Tests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Infrastructure.Shared.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Infrastructure.Shared.Tests.dll (.NETCoreApp,Version=v10.0)
+  Daiv3.FoundryLocal.Management -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.FoundryLocal.Management\bin\Debug\net10.0\Daiv3.FoundryLocal.Management.dll
+  Building Daiv3.FoundryLocal.Management for net10.0
+  Daiv3.Mcp.Integration -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Mcp.Integration\bin\Debug\net10.0-windows10.0.26100\Daiv3.Mcp.Integration.dll
+  Daiv3.FoundryLocal.Management -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.FoundryLocal.Management\bin\Debug\net10.0-windows10.0.26100\Daiv3.FoundryLocal.Management.dll
+  Daiv3.FoundryLocal.Bridge -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.FoundryLocal.Bridge\bin\Debug\net10.0\Daiv3.FoundryLocal.Bridge.dll
+  Daiv3.Knowledge.Embedding.IntegrationTests -> C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.Knowledge.Embedding.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.Embedding.IntegrationTests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.Knowledge.Embedding.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.Embedding.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+  Daiv3.Mcp.Integration.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Mcp.Integration.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Mcp.Integration.Tests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Mcp.Integration.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Mcp.Integration.Tests.dll (.NETCoreApp,Version=v10.0)
+  Daiv3.OnlineProviders.Abstractions -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.OnlineProviders.Abstractions\bin\Debug\net10.0\Daiv3.OnlineProviders.Abstractions.dll
+  Building Daiv3.FoundryLocal.Management for net10.0-windows10.0.26100
+  Building Daiv3.FoundryLocal.Management for 
+  Daiv3.OnlineProviders.Anthropic -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.OnlineProviders.Anthropic\bin\Debug\net10.0-windows10.0.26100\Daiv3.OnlineProviders.Anthropic.dll
+  Daiv3.OnlineProviders.AzureOpenAI -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.OnlineProviders.AzureOpenAI\bin\Debug\net10.0-windows10.0.26100\Daiv3.OnlineProviders.AzureOpenAI.dll
+  Daiv3.Knowledge.DocProc -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge.DocProc\bin\Debug\net10.0\Daiv3.Knowledge.DocProc.dll
+  Daiv3.FoundryLocal.Management.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.FoundryLocal.Management.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.FoundryLocal.Management.Tests.dll
+A total of 1 test files matched the specified pattern.
+  Daiv3.ModelExecution -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.ModelExecution\bin\Debug\net10.0\Daiv3.ModelExecution.dll
+  Daiv3.FoundryLocal.IntegrationTests -> C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.FoundryLocal.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.FoundryLocal.IntegrationTests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.FoundryLocal.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.FoundryLocal.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+  Daiv3.Persistence -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Persistence\bin\Debug\net10.0\Daiv3.Persistence.dll
+A total of 1 test files matched the specified pattern.
+  Daiv3.Knowledge -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge\bin\Debug\net10.0\Daiv3.Knowledge.dll
+
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 47 ms - Daiv3.Mcp.Integration.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 123 ms - Daiv3.Infrastructure.Shared.Tests.dll (net10.0)
+  Daiv3.Scheduler -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Scheduler\bin\Debug\net10.0\Daiv3.Scheduler.dll
+[xUnit.net 00:00:00.45]     Daiv3.Knowledge.Embedding.IntegrationTests.VectorSimilarityPerformanceBenchmarkTests.BatchCosineSimilarity_ScalingTest_768Dims_LinearPerformance [SKIP]
+  Skipped Daiv3.Knowledge.Embedding.IntegrationTests.VectorSimilarityPerformanceBenchmarkTests.BatchCosineSimilarity_ScalingTest_768Dims_LinearPerformance [1 ms]
+  Daiv3.WebFetch.Crawl -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.WebFetch.Crawl\bin\Debug\net10.0\Daiv3.WebFetch.Crawl.dll
+[xUnit.net 00:00:00.62]     Daiv3.Knowledge.Embedding.IntegrationTests.VectorSimilarityPerformanceBenchmarkTests.BatchCosineSimilarity_ScalingTest_384Dims_LinearPerformance [SKIP]
+  Daiv3.OnlineProviders.OpenAI -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.OnlineProviders.OpenAI\bin\Debug\net10.0-windows10.0.26100\Daiv3.OnlineProviders.OpenAI.dll
+  Daiv3.Orchestration -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Orchestration\bin\Debug\net10.0\Daiv3.Orchestration.dll
+  Skipped Daiv3.Knowledge.Embedding.IntegrationTests.VectorSimilarityPerformanceBenchmarkTests.BatchCosineSimilarity_ScalingTest_384Dims_LinearPerformance [1 ms]
+
+Passed!  - Failed:     0, Passed:    27, Skipped:     2, Total:    29, Duration: 746 ms - Daiv3.Knowledge.Embedding.IntegrationTests.dll (net10.0)
+[xUnit.net 00:00:00.82]     Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StartWebServerAsync_ShouldStartSuccessfully [SKIP]
+[xUnit.net 00:00:00.83]     Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StopWebServerAsync_AfterStart_ShouldStopSuccessfully [SKIP]
+[xUnit.net 00:00:00.83]     Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StartWebServerAsync_WithCustomUrl_ShouldUseCustomUrl [SKIP]
+[xUnit.net 00:00:00.83]     Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.MM_ACC_002_DownloadModel_CompletesSuccessfullyWithProgress [SKIP]
+[xUnit.net 00:00:00.83]     Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.DownloadModel_Twice_IsIdempotent [SKIP]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StartWebServerAsync_ShouldStartSuccessfully [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StopWebServerAsync_AfterStart_ShouldStopSuccessfully [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.WebServerTests.StartWebServerAsync_WithCustomUrl_ShouldUseCustomUrl [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.MM_ACC_002_DownloadModel_CompletesSuccessfullyWithProgress [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.DownloadModel_Twice_IsIdempotent [1 ms]
+[xUnit.net 00:00:03.32]     Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.MM_ACC_004_DeleteCachedModel_RemovesModelAndReclaimsDiskSpace [SKIP]
+[xUnit.net 00:00:03.32]     Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.GetPathAsync_WithCachedModel_ShouldReturnModelPath [SKIP]
+[xUnit.net 00:00:03.32]     Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.UnloadAsync_WithLoadedModel_ShouldUnloadModel [SKIP]
+[xUnit.net 00:00:03.32]     Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.DownloadAsync_WithValidModel_ShouldDownloadModel [SKIP]
+[xUnit.net 00:00:03.32]     Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.LoadAsync_WithDownloadedModel_ShouldLoadModel [SKIP]
+[xUnit.net 00:00:03.32]     Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.SelectVariant_WithModel_ShouldSelectVariant [SKIP]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelManagementAcceptanceTests.MM_ACC_004_DeleteCachedModel_RemovesModelAndReclaimsDiskSpace [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.GetPathAsync_WithCachedModel_ShouldReturnModelPath [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.UnloadAsync_WithLoadedModel_ShouldUnloadModel [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.DownloadAsync_WithValidModel_ShouldDownloadModel [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.LoadAsync_WithDownloadedModel_ShouldLoadModel [1 ms]
+  Skipped Daiv3.FoundryLocal.IntegrationTests.ModelLifecycleTests.SelectVariant_WithModel_ShouldSelectVariant [1 ms]
+
+Passed!  - Failed:     0, Passed:    19, Skipped:    11, Total:    30, Duration: 2 s - Daiv3.FoundryLocal.IntegrationTests.dll (net10.0)
+  Daiv3.OnlineProviders.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.OnlineProviders.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.OnlineProviders.Tests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.OnlineProviders.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.OnlineProviders.Tests.dll (.NETCoreApp,Version=v10.0)
+  Daiv3.Persistence.IntegrationTests -> C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.Persistence.IntegrationTests\bin\Debug\net10.0\Daiv3.Persistence.IntegrationTests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.FoundryLocal.Management.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.FoundryLocal.Management.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    15, Skipped:     0, Total:    15, Duration: 105 ms - Daiv3.OnlineProviders.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 32 ms - Daiv3.FoundryLocal.Management.Tests.dll (net10.0)
+  Daiv3.ModelExecution -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.ModelExecution\bin\Debug\net10.0-windows10.0.26100\Daiv3.ModelExecution.dll
+  Daiv3.ModelExecution.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.ModelExecution.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.ModelExecution.Tests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.ModelExecution.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.ModelExecution.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   260, Skipped:     0, Total:   260, Duration: 6 s - Daiv3.ModelExecution.Tests.dll (net10.0)
+  Daiv3.Persistence -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Persistence\bin\Debug\net10.0-windows10.0.26100\Daiv3.Persistence.dll
+  Daiv3.Knowledge -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Knowledge\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.dll
+  Daiv3.Scheduler -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Scheduler\bin\Debug\net10.0-windows10.0.26100\Daiv3.Scheduler.dll
+  Daiv3.Persistence.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Persistence.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Persistence.Tests.dll
+  Daiv3.Persistence.IntegrationTests -> C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.Persistence.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Persistence.IntegrationTests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Persistence.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Persistence.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   214, Skipped:     0, Total:   214, Duration: 4 s - Daiv3.Persistence.Tests.dll (net10.0)
+  Daiv3.WebFetch.Crawl -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.WebFetch.Crawl\bin\Debug\net10.0-windows10.0.26100\Daiv3.WebFetch.Crawl.dll
+  Daiv3.Scheduler.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Scheduler.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Scheduler.Tests.dll
+  Daiv3.Knowledge.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Knowledge.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.Tests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.Persistence.IntegrationTests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Persistence.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+Test run for C:\_prj\stevecisco\private\daiv3\tests\integration\Daiv3.Persistence.IntegrationTests\bin\Debug\net10.0\Daiv3.Persistence.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+  Daiv3.WebFetch.Crawl.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.WebFetch.Crawl.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.WebFetch.Crawl.Tests.dll
+
+Passed!  - Failed:     0, Passed:    92, Skipped:     0, Total:    92, Duration: 21 s - Daiv3.Persistence.IntegrationTests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    92, Skipped:     0, Total:    92, Duration: 21 s - Daiv3.Persistence.IntegrationTests.dll (net10.0)
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Scheduler.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Scheduler.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Knowledge.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Knowledge.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.WebFetch.Crawl.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.WebFetch.Crawl.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   273, Skipped:     0, Total:   273, Duration: 1 s - Daiv3.WebFetch.Crawl.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:   296, Skipped:     0, Total:   296, Duration: 11 s - Daiv3.Knowledge.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:   104, Skipped:     0, Total:   104, Duration: 1 m 14 s - Daiv3.Scheduler.Tests.dll (net10.0)
+  Daiv3.Orchestration -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.Orchestration\bin\Debug\net10.0-windows10.0.26100\Daiv3.Orchestration.dll
+  XAML source generation is enabled (MauiXamlInflator=SourceGen). This generates C# code from XAML at compile time for better performance. To disable, remove the MauiXamlInflator line from your .csproj file (reverts to configuration-based defaults: Runtime in Debug, XamlC in Release).
+  Daiv3.App.Cli -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.App.Cli\bin\Debug\net10.0-windows10.0.26100\Daiv3.App.Cli.dll
+  Daiv3.Orchestration.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Orchestration.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Orchestration.Tests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.Orchestration.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.Orchestration.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   502, Skipped:     0, Total:   502, Duration: 3 s - Daiv3.Orchestration.Tests.dll (net10.0)
+  Daiv3.App.Cli.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.App.Cli.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.App.Cli.Tests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.App.Cli.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.App.Cli.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14, Duration: 36 ms - Daiv3.App.Cli.Tests.dll (net10.0)
+  Daiv3.App.Maui -> C:\_prj\stevecisco\private\daiv3\src\Daiv3.App.Maui\bin\Debug\net10.0-windows10.0.26100\win-arm64\Daiv3.App.Maui.dll
+  Daiv3.App.Maui.Tests -> C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.App.Maui.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.App.Maui.Tests.dll
+Test run for C:\_prj\stevecisco\private\daiv3\tests\unit\Daiv3.App.Maui.Tests\bin\Debug\net10.0-windows10.0.26100\Daiv3.App.Maui.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    84, Skipped:     0, Total:    84, Duration: 1 s - Daiv3.App.Maui.Tests.dll (net10.0)

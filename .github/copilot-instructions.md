@@ -66,8 +66,24 @@ A comprehensive distributed AI system with support for:
 ### Testing Strategy
 1. Implement code → 2. Create unit tests → 3. Create integration tests → 4. Verify all pass → 5. CLI validation → 6. **Document CLI commands** → 7. MAUI implementation
 
+### Project-Scoped Test Execution (During Development)
+Tests are broken out per project. **Run only the test projects associated with the modified source project(s)** during active development — do NOT run the full suite on every change.
+
+**Single project example:**
+```
+dotnet test tests/unit/Daiv3.Persistence.Tests/Daiv3.Persistence.Tests.csproj --nologo --verbosity minimal
+```
+
+**Multiple modified projects — run each corresponding test project:**
+```
+dotnet test tests/unit/Daiv3.Knowledge.Tests/... tests/unit/Daiv3.Orchestration.Tests/... --nologo
+```
+
+See [AI-Instructions.md § 3.10](../Docs/AI-Instructions.md) for the complete project → test project mapping table.
+
 ### Full Suite Test Execution Rule
-- For "run full suite" requests, always run:
+- **Run the full suite only when a requirement is complete**, as the regression gate before marking complete or committing.
+- For "run full suite" requests or pre-completion verification, always run:
    - `dotnet test Daiv3.FoundryLocal.slnx --nologo --verbosity minimal`
 - Do not rely only on IDE/editor test tooling counts for this repository; it can under-discover tests.
 - If totals are suspiciously low versus known baseline, rerun via solution-level command before reporting.
