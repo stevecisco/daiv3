@@ -35,8 +35,8 @@
                         CornerRadius="6" />
 
                 <!-- Polling Toggle -->
-                <Label Grid.Column="2"
-                       Text="{Binding IsPolling, StringFormat='{0:Polling|Idle}'}"
+                  <Label Grid.Column="2"
+                      Text="{Binding PollingStatusText}"
                        FontSize="13"
                        FontAttributes="Bold"
                        VerticalOptions="Center"
@@ -68,17 +68,17 @@
 
                         <Label Text="{Binding MemoryAlertText}"
                                FontSize="12"
-                               TextColor="{AppThemeBinding Light:#7F1D1D, Dark:#FCA5A5}"
+                               TextColor="{AppThemeBinding Light=#7F1D1D, Dark=#FCA5A5}"
                                IsVisible="{Binding CurrentAlerts.HighMemoryAlert}" />
 
                         <Label Text="{Binding DiskAlertText}"
                                FontSize="12"
-                               TextColor="{AppThemeBinding Light:#7F1D1D, Dark:#FCA5A5}"
+                               TextColor="{AppThemeBinding Light=#7F1D1D, Dark=#FCA5A5}"
                                IsVisible="{Binding CurrentAlerts.LowDiskAlert}" />
 
                         <Label Text="{Binding QueueAlertText}"
                                FontSize="12"
-                               TextColor="{AppThemeBinding Light:#7F1D1D, Dark:#FCA5A5}"
+                               TextColor="{AppThemeBinding Light=#7F1D1D, Dark=#FCA5A5}"
                                IsVisible="{Binding CurrentAlerts.QueueBottleneckAlert}" />
                     </VerticalStackLayout>
                 </Border>
@@ -111,7 +111,7 @@
                 </Border>
 
                 <!-- Memory Metrics -->
-                <Border BackgroundColor="{AppThemeBinding Light:#FFFFFF, Dark=#1A212B}"
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                         Padding="15"
                         StrokeShape="RoundRectangle 10"
                         StrokeThickness="0">
@@ -132,12 +132,12 @@
                                      HeightRequest="10" />
                         <Label Text="{Binding MemoryUsedText, StringFormat='Used: {0}'}"
                                FontSize="11"
-                               TextColor="{AppThemeBinding Light:#64748B, Dark:#94A3B8}" />
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
                     </VerticalStackLayout>
                 </Border>
 
                 <!-- Disk Metrics -->
-                <Border BackgroundColor="{AppThemeBinding Light:#FFFFFF, Dark:#1A212B}"
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                         Padding="15"
                         StrokeShape="RoundRectangle 10"
                         StrokeThickness="0">
@@ -158,7 +158,7 @@
                                      HeightRequest="10" />
                         <Label Text="{Binding DiskUsedText, StringFormat='Free: {0}'}"
                                FontSize="11"
-                               TextColor="{AppThemeBinding Light:#64748B, Dark:#94A3B8}" />
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -203,13 +203,13 @@
                                VerticalOptions="Center" />
                         <Label Text="{Binding CurrentMetrics.Npu.ExecutionProvider}"
                                FontSize="11"
-                               TextColor="{AppThemeBinding Light:#64748B, Dark:#94A3B8}"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                                VerticalOptions="Center" />
                     </HorizontalStackLayout>
                 </Border>
 
                 <!-- Queue Status -->
-                <Border BackgroundColor="{AppThemeBinding Light#FFFFFF, Dark=#1A212B}"
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                         Padding="15"
                         StrokeShape="RoundRectangle 10"
                         StrokeThickness="0">

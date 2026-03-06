@@ -182,8 +182,16 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
     public bool IsMonitoring
     {
         get => _isMonitoring;
-        set => SetProperty(ref _isMonitoring, value);
+        set
+        {
+            if (SetProperty(ref _isMonitoring, value))
+            {
+                OnPropertyChanged(nameof(MonitoringStatusText));
+            }
+        }
     }
+
+    public string MonitoringStatusText => IsMonitoring ? "Monitoring" : "Idle";
 
     // ── Agent Activity Properties (CT-REQ-006) ────────────────────────
 

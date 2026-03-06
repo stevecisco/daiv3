@@ -25,7 +25,7 @@
                            TextColor="{StaticResource Primary}"
                            Margin="0,0,5,0"
                            VerticalOptions="Center" />
-                    <Label Text="{Binding IsMonitoring, StringFormat='{0:Monitoring}'}"
+                          <Label Text="{Binding MonitoringStatusText}"
                            FontSize="12"
                            VerticalOptions="Center" />
                 </HorizontalStackLayout>
@@ -523,7 +523,7 @@
                     <Label Text="No online usage yet. Online providers are configured but no tokens have been consumed."
                            FontSize="13"
                            TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                           IsVisible="{Binding HasActiveUsage, Converter={StaticResource InverseBoolConverter}}"
+                           IsVisible="{Binding HasActiveUsage, Converter={StaticResource InvertedBoolConverter}}"
                            Margin="0,5,0,5" />
 
                     <!-- Total Usage Summary -->
@@ -584,7 +584,7 @@
                                         Margin="0,5,0,5"
                                         StrokeShape="RoundRectangle 8"
                                         StrokeThickness="1"
-                                        Stroke="{Binding IsNearBudget, Converter={StaticResource BoolToStrokeConverter}}"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#475569}"
                                         BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
                                     <VerticalStackLayout Spacing="8">
                                         <!-- Provider Name and Status -->
@@ -600,7 +600,7 @@
                                                   FontSize="11"
                                                   FontAttributes="Bold"
                                                   TextColor="White"
-                                                  BackgroundColor="{Binding IsOverBudget, Converter={StaticResource BudgetStatusColorConverter}}"
+                                                  BackgroundColor="{StaticResource Primary}"
                                                   VerticalOptions="Center" />
                                              </Grid>
 
@@ -620,8 +620,8 @@
                                                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                                                        VerticalOptions="Center" />
                                             </HorizontalStackLayout>
-                                            <ProgressBar Progress="{Binding DailyUsagePercent, Converter={StaticResource PercentToProgressConverter}}"
-                                                         ProgressColor="{Binding DailyUsagePercent, Converter={StaticResource UsagePercentColorConverter}}"
+                                            <ProgressBar Progress="{Binding DailyUsagePercent, Converter={StaticResource PercentToDecimalConverter}}"
+                                                         ProgressColor="{StaticResource Primary}"
                                                          HeightRequest="6" />
                                         </VerticalStackLayout>
 
@@ -641,8 +641,8 @@
                                                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                                                        VerticalOptions="Center" />
                                             </HorizontalStackLayout>
-                                            <ProgressBar Progress="{Binding MonthlyUsagePercent, Converter={StaticResource PercentToProgressConverter}}"
-                                                         ProgressColor="{Binding MonthlyUsagePercent, Converter={StaticResource UsagePercentColorConverter}}"
+                                            <ProgressBar Progress="{Binding MonthlyUsagePercent, Converter={StaticResource PercentToDecimalConverter}}"
+                                                         ProgressColor="{StaticResource Primary}"
                                                          HeightRequest="6" />
                                         </VerticalStackLayout>
 

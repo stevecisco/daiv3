@@ -85,8 +85,16 @@ public sealed class AdminDashboardViewModel : BaseViewModel, IAsyncDisposable
     public bool IsPolling
     {
         get => _isPolling;
-        set => SetProperty(ref _isPolling, value);
+        set
+        {
+            if (SetProperty(ref _isPolling, value))
+            {
+                OnPropertyChanged(nameof(PollingStatusText));
+            }
+        }
     }
+
+    public string PollingStatusText => IsPolling ? "Polling" : "Idle";
 
     public int RefreshIntervalSeconds
     {

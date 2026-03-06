@@ -19,7 +19,9 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
-        var builder = MauiApp.CreateBuilder();
+        try
+        {
+            var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
             .ConfigureFonts(fonts =>
@@ -40,7 +42,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
 
         // Register Admin Dashboard Service (CT-REQ-010: System Admin Dashboard)
-        builder.Services.Configure<AdminDashboardOptions>(builder.Configuration.GetSection(AdminDashboardOptions.Section));
+        builder.Services.Configure<AdminDashboardOptions>(options =>
+        {
+            // Use default values from AdminDashboardOptions class
+        });
         builder.Services.AddSingleton<IAdminDashboardService, AdminDashboardService>();
 
         // Register Dashboard Service (CT-REQ-003, CT-REQ-006)
@@ -78,6 +83,7 @@ public static class MauiProgram
         // Register Pages
         builder.Services.AddSingleton<ChatPage>();
         builder.Services.AddSingleton<DashboardPage>();
+        builder.Services.AddSingleton<AdminDashboardPage>();
         builder.Services.AddSingleton<ProjectsPage>();
         builder.Services.AddSingleton<SettingsPage>();
         builder.Services.AddSingleton<IndexingPage>();
@@ -141,6 +147,28 @@ public static class MauiProgram
         });
 
         return app;
+        }
+        catch (Exception ex)
+        {
+            // Log to console and file
+            Console.WriteLine($"FATAL ERROR creating MAUI app: {ex.GetType().Name}");
+            Console.WriteLine($"Message: {ex.Message}");
+            Console.WriteLine($"Stack: {ex.StackTrace}");
+            
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"\nInner: {ex.InnerException.GetType().Name}");
+                Console.WriteLine($"Inner Message: {ex.InnerException.Message}");
+                Console.WriteLine($"Inner Stack: {ex.InnerException.StackTrace}");
+            }
+            
+            // Write to error file as well
+            var errorPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Daiv3", "logs", "fatal-error.txt");
+            Directory.CreateDirectory(Path.GetDirectoryName(errorPath)!);
+            File.WriteAllText(errorPath, $"{DateTime.Now:O}\n{ex}\n{ex.InnerException}");
+            
+            throw; // Re-throw to prevent app from starting in bad state
+        }
     }
 
     private static string GetDefaultEmbeddingModelPath()

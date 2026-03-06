@@ -10,37 +10,31 @@
     <TabBar>
         <ShellContent
             Title="Dashboard"
-            Icon="home.png"
             ContentTemplate="{DataTemplate pages:DashboardPage}"
             Route="DashboardPage" />
 
         <ShellContent
             Title="Admin"
-            Icon="settings.png"
             ContentTemplate="{DataTemplate pages:AdminDashboardPage}"
             Route="AdminDashboardPage" />
 
         <ShellContent
             Title="Indexing"
-            Icon="folder.png"
             ContentTemplate="{DataTemplate pages:IndexingPage}"
             Route="IndexingPage" />
 
         <ShellContent
             Title="Chat"
-            Icon="chat.png"
             ContentTemplate="{DataTemplate pages:ChatPage}"
             Route="ChatPage" />
 
         <ShellContent
             Title="Projects"
-            Icon="folder.png"
             ContentTemplate="{DataTemplate pages:ProjectsPage}"
             Route="ProjectsPage" />
 
         <ShellContent
             Title="Settings"
-            Icon="settings.png"
             ContentTemplate="{DataTemplate pages:SettingsPage}"
             Route="SettingsPage" />
     </TabBar>
