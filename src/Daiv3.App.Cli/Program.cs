@@ -173,8 +173,45 @@ public class Program
             Environment.Exit(exitCode);
         }, projectNameOption, projectDescOption, projectRootPathOption, projectInstructionsOption, preferredModelOption, fallbackModelOption);
 
+        // CT-REQ-011: Project dashboard commands
+        var projectsTreeCommand = new Command("tree", "Display projects in hierarchical tree view");
+        projectsTreeCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await ProjectsTreeCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        var projectsByStatusCommand = new Command("by-status", "Display projects grouped by status");
+        projectsByStatusCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await ProjectsByStatusCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        var projectsByAgentCommand = new Command("by-agent", "Display projects grouped by assigned agent");
+        projectsByAgentCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await ProjectsByAgentCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        var projectsAnalyticsCommand = new Command("analytics", "Display project dashboard metrics and analytics");
+        projectsAnalyticsCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await ProjectsAnalyticsCommand(host);
+            Environment.Exit(exitCode);
+        });
+
         projectsCommand.AddCommand(projectsListCommand);
         projectsCommand.AddCommand(projectsCreateCommand);
+        projectsCommand.AddCommand(projectsTreeCommand);
+        projectsCommand.AddCommand(projectsByStatusCommand);
+        projectsCommand.AddCommand(projectsByAgentCommand);
+        projectsCommand.AddCommand(projectsAnalyticsCommand);
         rootCommand.AddCommand(projectsCommand);
 
         // Tasks command
@@ -2041,6 +2078,268 @@ public class Program
 
     private static DateTimeOffset FromUnixSeconds(long unixSeconds) =>
         DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
+
+    // CT-REQ-011: Project dashboard command handlers
+    private static async Task<int> ProjectsTreeCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var projectRepository = host.Services.GetRequiredService<ProjectRepository>();
+            logger.LogInformation("Displaying project tree");
+
+            var rootProjects = await projectRepository.GetRootProjectsAsync().ConfigureAwait(false);
+
+            Console.WriteLine("PROJECT TREE:");
+            if (rootProjects.Count == 0)
+            {
+                Console.WriteLine("  (No projects found)");
+                return 0;
+            }
+
+            foreach (var project in rootProjects)
+            {
+                await DisplayProjectTree(project, projectRepository, indent: 0).ConfigureAwait(false);
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display project tree: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task DisplayProjectTree(Project project, ProjectRepository repository, int indent)
+    {
+        var indentStr = new string(' ', indent * 2);
+        var statusBadge = GetStatusBadge(project.Status);
+        var progressBar = GetProgressBar(project.ProgressPercent);
+        var deadlineInfo = project.Deadline.HasValue
+            ? $" (Due: {FromUnixSeconds(project.Deadline.Value):yyyy-MM-dd})"
+            : "";
+
+        Console.WriteLine($"{indentStr}{statusBadge} {project.Name} [{progressBar}] P{project.Priority}{deadlineInfo}");
+
+        // Display sub-projects
+        var subProjects = await repository.GetSubProjectsAsync(project.ProjectId).ConfigureAwait(false);
+        foreach (var subProject in subProjects)
+        {
+            await DisplayProjectTree(subProject, repository, indent + 1).ConfigureAwait(false);
+        }
+    }
+
+    private static string GetStatusBadge(string status) => status.ToLowerInvariant() switch
+    {
+        "active" => "🟢",
+        "pending" => "🔵",
+        "blocked" => "🟡",
+        "completed" => "⚫",
+        "archived" => "📦",
+        "deleted" => "❌",
+        _ => "⚪"
+    };
+
+    private static string GetProgressBar(double percent)
+    {
+        var filled = (int)(percent / 10);
+        var empty = 10 - filled;
+        return $"{new string('█', filled)}{new string('░', empty)} {percent:F0}%";
+    }
+
+    private static async Task<int> ProjectsByStatusCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var projectRepository = host.Services.GetRequiredService<ProjectRepository>();
+            logger.LogInformation("Displaying projects by status");
+
+            var allProjects = await projectRepository.GetAllAsync().ConfigureAwait(false);
+            var groupedByStatus = allProjects.GroupBy(p => p.Status).OrderBy(g => g.Key);
+
+            Console.WriteLine("PROJECTS BY STATUS:");
+            if (allProjects.Count == 0)
+            {
+                Console.WriteLine("  (No projects found)");
+                return 0;
+            }
+
+            foreach (var statusGroup in groupedByStatus)
+            {
+                Console.WriteLine($"\n{GetStatusBadge(statusGroup.Key)} {statusGroup.Key.ToUpper()} ({statusGroup.Count()})");
+                foreach (var project in statusGroup.OrderBy(p => p.Priority).ThenByDescending(p => p.UpdatedAt))
+                {
+                    var progressBar = GetProgressBar(project.ProgressPercent);
+                    var assignedAgent = project.AssignedAgent ?? "Unassigned";
+                    Console.WriteLine($"  P{project.Priority} {project.Name} [{progressBar}] - {assignedAgent}");
+                }
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display projects by status: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ProjectsByAgentCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var projectRepository = host.Services.GetRequiredService<ProjectRepository>();
+            logger.LogInformation("Displaying projects by agent");
+
+            var allProjects = await projectRepository.GetAllAsync().ConfigureAwait(false);
+            var groupedByAgent = allProjects.GroupBy(p => p.AssignedAgent ?? "Unassigned")
+                .OrderBy(g => g.Key == "Unassigned" ? "zzz" : g.Key);
+
+            Console.WriteLine("PROJECTS BY ASSIGNMENT:");
+            if (allProjects.Count == 0)
+            {
+                Console.WriteLine("  (No projects found)");
+                return 0;
+            }
+
+            foreach (var agentGroup in groupedByAgent)
+            {
+                var agentName = agentGroup.Key == "Unassigned" ? "📋 Unassigned" : $"🤖 {agentGroup.Key}";
+                Console.WriteLine($"\n{agentName} ({agentGroup.Count()})");
+                foreach (var project in agentGroup.OrderBy(p => p.Priority).ThenByDescending(p => p.UpdatedAt))
+                {
+                    var statusBadge = GetStatusBadge(project.Status);
+                    var progressBar = GetProgressBar(project.ProgressPercent);
+                    Console.WriteLine($"  {statusBadge} P{project.Priority} {project.Name} [{progressBar}]");
+                }
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display projects by agent: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> ProjectsAnalyticsCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            var projectRepository = host.Services.GetRequiredService<ProjectRepository>();
+            logger.LogInformation("Displaying project analytics");
+
+            var allProjects = await projectRepository.GetAllAsync().ConfigureAwait(false);
+            var activeProjects = allProjects.Where(p => p.Status == "active").ToList();
+
+            Console.WriteLine("PROJECT ANALYTICS:");
+            Console.WriteLine();
+
+            // Total counts by status
+            Console.WriteLine("📊 PROJECT COUNT BY STATUS:");
+            var statusGroups = allProjects.GroupBy(p => p.Status).OrderBy(g => g.Key);
+            foreach (var group in statusGroups)
+            {
+                Console.WriteLine($"  {GetStatusBadge(group.Key)} {group.Key}: {group.Count()}");
+            }
+            Console.WriteLine($"  Total: {allProjects.Count}");
+            Console.WriteLine();
+
+            // Progress metrics
+            if (activeProjects.Count > 0)
+            {
+                var avgProgress = activeProjects.Average(p => p.ProgressPercent);
+                Console.WriteLine($"📈 AVERAGE PROGRESS (Active Projects): {avgProgress:F1}%");
+                Console.WriteLine();
+            }
+
+            // Priority distribution
+            Console.WriteLine("🎯 PRIORITY DISTRIBUTION:");
+            var priorityGroups = allProjects.GroupBy(p => p.Priority).OrderBy(g => g.Key);
+            foreach (var group in priorityGroups)
+            {
+                var priorityLabel = GetPriorityLabel(group.Key);
+                Console.WriteLine($"  {priorityLabel}: {group.Count()}");
+            }
+            Console.WriteLine();
+
+            // Deadline alerts
+            var upcomingDeadlines = await projectRepository.GetProjectsApproachingDeadlineAsync(7).ConfigureAwait(false);
+            if (upcomingDeadlines.Count > 0)
+            {
+                Console.WriteLine($"⚠️  UPCOMING DEADLINES (Next 7 Days): {upcomingDeadlines.Count}");
+                foreach (var project in upcomingDeadlines.Take(5))
+                {
+                    var daysUntil = (FromUnixSeconds(project.Deadline!.Value) - DateTimeOffset.UtcNow).Days;
+                    Console.WriteLine($"  {project.Name} - {daysUntil} days ({FromUnixSeconds(project.Deadline.Value):MMM dd})");
+                }
+                Console.WriteLine();
+            }
+
+            // Cost summary
+            var totalEstimatedCost = allProjects.Where(p => p.EstimatedCost.HasValue).Sum(p => p.EstimatedCost!.Value);
+            var totalActualCost = allProjects.Where(p => p.ActualCost.HasValue).Sum(p => p.ActualCost!.Value);
+            if (totalEstimatedCost > 0 || totalActualCost > 0)
+            {
+                Console.WriteLine("💰 COST SUMMARY:");
+                Console.WriteLine($"  Estimated: ${totalEstimatedCost:F2}");
+                Console.WriteLine($"  Actual: ${totalActualCost:F2}");
+                if (totalEstimatedCost > 0)
+                {
+                    var costVariance = totalActualCost - totalEstimatedCost;
+                    var variancePercent = (costVariance / totalEstimatedCost) * 100;
+                    Console.WriteLine($"  Variance: ${costVariance:F2} ({variancePercent:+0.0;-0.0}%)");
+                }
+                Console.WriteLine();
+            }
+
+            // Agent workload
+            var agentWorkload = allProjects.Where(p => p.AssignedAgent != null && p.Status == "active")
+                .GroupBy(p => p.AssignedAgent)
+                .OrderByDescending(g => g.Count());
+            if (agentWorkload.Any())
+            {
+                Console.WriteLine("🤖 AGENT WORKLOAD (Active Projects):");
+                foreach (var group in agentWorkload.Take(5))
+                {
+                    Console.WriteLine($"  {group.Key}: {group.Count()} active projects");
+                }
+                Console.WriteLine();
+            }
+
+            // Throughput
+            var completedProjects = allProjects.Where(p => p.Status == "completed" && p.CompletedAt.HasValue).ToList();
+            if (completedProjects.Count > 0)
+            {
+                var thisWeek = DateTimeOffset.UtcNow.AddDays(-7).ToUnixTimeSeconds();
+                var completedThisWeek = completedProjects.Count(p => p.CompletedAt >= thisWeek);
+                Console.WriteLine($"✅ THROUGHPUT:");
+                Console.WriteLine($"  Completed this week: {completedThisWeek}");
+                Console.WriteLine($"  Total completed: {completedProjects.Count}");
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display project analytics: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static string GetPriorityLabel(int priority) => priority switch
+    {
+        0 => "P0 (Critical)",
+        1 => "P1 (High)",
+        2 => "P2 (Normal)",
+        3 => "P3 (Low)",
+        _ => $"P{priority}"
+    };
 
     private static async Task<int> TasksListCommand(
         IHost host,

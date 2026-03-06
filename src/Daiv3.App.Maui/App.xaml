@@ -19,6 +19,7 @@
             <converters:BytesToStringConverter x:Key="BytesToStringConverter" />
             <converters:StatusIconConverter x:Key="StatusIconConverter" />
             <converters:PriorityColorConverter x:Key="PriorityColorConverter" />
+            <converters:PercentToDecimalConverter x:Key="PercentToDecimalConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

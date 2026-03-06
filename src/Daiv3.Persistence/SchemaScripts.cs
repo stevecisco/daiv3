@@ -417,4 +417,46 @@ CREATE TABLE IF NOT EXISTS settings_metadata (
     updated_at INTEGER NOT NULL
 );
 ";
+
+    /// <summary>
+    /// Migration 010: Project dashboard fields for CT-REQ-011
+    /// Adds columns to projects table to support Project Master Dashboard:
+    /// - priority: Project priority (P0-P3)
+    /// - progress_percent: Completion percentage (0-100)
+    /// - deadline: Optional deadline timestamp
+    /// - assigned_agent: Agent ID assigned to project
+    /// - estimated_cost: Estimated cost in dollars
+    /// - actual_cost: Actual cost incurred
+    /// - completed_at: Timestamp when project completed
+    /// - parent_project_id: For hierarchical project structure
+    /// </summary>
+    public const string Migration010_ProjectDashboardFields = @"
+-- Add dashboard fields to projects table
+ALTER TABLE projects ADD COLUMN priority INTEGER NOT NULL DEFAULT 2;
+ALTER TABLE projects ADD COLUMN progress_percent REAL NOT NULL DEFAULT 0.0;
+ALTER TABLE projects ADD COLUMN deadline INTEGER;
+ALTER TABLE projects ADD COLUMN assigned_agent TEXT;
+ALTER TABLE projects ADD COLUMN estimated_cost REAL;
+ALTER TABLE projects ADD COLUMN actual_cost REAL;
+ALTER TABLE projects ADD COLUMN completed_at INTEGER;
+ALTER TABLE projects ADD COLUMN parent_project_id TEXT;
+
+-- Performance indexes for dashboard queries
+CREATE INDEX IF NOT EXISTS idx_projects_priority ON projects(priority);
+CREATE INDEX IF NOT EXISTS idx_projects_progress ON projects(progress_percent);
+CREATE INDEX IF NOT EXISTS idx_projects_deadline ON projects(deadline);
+CREATE INDEX IF NOT EXISTS idx_projects_assigned_agent ON projects(assigned_agent);
+CREATE INDEX IF NOT EXISTS idx_projects_completed_at ON projects(completed_at);
+CREATE INDEX IF NOT EXISTS idx_projects_parent_id ON projects(parent_project_id);
+
+-- Composite indexes for common dashboard pivot queries
+CREATE INDEX IF NOT EXISTS idx_projects_status_priority ON projects(status, priority);
+CREATE INDEX IF NOT EXISTS idx_projects_status_deadline ON projects(status, deadline);
+CREATE INDEX IF NOT EXISTS idx_projects_agent_status ON projects(assigned_agent, status);
+CREATE INDEX IF NOT EXISTS idx_projects_parent_status ON projects(parent_project_id, status);
+
+-- Foreign key constraint for hierarchical projects (self-referencing)
+-- Note: SQLite foreign key enforcement requires PRAGMA foreign_keys = ON
+-- This is enforced via DatabaseContext configuration
+";
 }

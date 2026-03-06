@@ -31,6 +31,16 @@ public class Project
     public long UpdatedAt { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? ConfigJson { get; set; }
+    
+    // CT-REQ-011: Project Master Dashboard fields
+    public int Priority { get; set; } = 2; // Default P2 (normal)
+    public double ProgressPercent { get; set; } = 0.0;
+    public long? Deadline { get; set; }
+    public string? AssignedAgent { get; set; }
+    public double? EstimatedCost { get; set; }
+    public double? ActualCost { get; set; }
+    public long? CompletedAt { get; set; }
+    public string? ParentProjectId { get; set; }
 }
 
 /// <summary>

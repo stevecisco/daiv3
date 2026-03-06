@@ -314,6 +314,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 9,
                 Description = "Add app_settings and settings_version_history tables with versioning support (CT-DATA-001)",
                 Sql = SchemaScripts.Migration009_ApplicationSettings
+            },
+            new Migration
+            {
+                Version = 10,
+                Description = "Add project dashboard fields for CT-REQ-011: priority, progress, deadline, assigned_agent, costs, parent_project_id",
+                Sql = SchemaScripts.Migration010_ProjectDashboardFields
             }
         };
     }

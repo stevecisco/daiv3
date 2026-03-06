@@ -1955,13 +1955,58 @@ Shows all available commands and options.
 | Database | `db init`, `db status` | ✅ Complete | Fully functional |
 | Dashboard | `dashboard` | 🔄 Partial | Hardware detection pending |
 | Chat | `chat`, `chat -m` | 🔄 Partial | Orchestration layer pending |
-| Projects | `projects list`, `projects create` | ✅ Complete | Persistence-backed project listing/creation with explicit root path support (`--root-path`) |
+| Projects | `projects list`, `projects create`, `projects tree`, `projects by-status`, `projects by-agent`, `projects analytics` | ✅ Complete | Full dashboard with multiple pivot views (CT-REQ-011) |
 | Settings | `settings show` | 🔄 Partial | Configuration service pending |
 
 **Legend:**
 - ✅ Complete - Fully implemented and integrated
 - 🔄 Partial - Command works, integration pending
 - ⏳ Planned - Not yet implemented
+
+---
+
+## Project Dashboard Commands (CT-REQ-011)
+
+Display projects in various dashboard views:
+
+### Projects Tree View
+
+```powershell
+.\run-cli.bat projects tree
+```
+
+Displays projects in a hierarchical tree view with status badges, progress bars, and priorities.
+
+### Projects Grouped by Status
+
+```powershell
+.\run-cli.bat projects by-status
+```
+
+Groups and displays all projects by their current status (active, pending, completed, etc.).
+
+### Projects Grouped by Agent
+
+```powershell
+.\run-cli.bat projects by-agent
+```
+
+Groups projects by assigned agent, including unassigned projects.
+
+### Projects Analytics Dashboard
+
+```powershell
+.\run-cli.bat projects analytics
+```
+
+Displays comprehensive project analytics including:
+- Project count by status
+- Average progress for active projects
+- Priority distribution
+- Upcoming deadlines (next 7 days)
+- Cost summary (estimated vs actual)
+- Agent workload
+- Throughput metrics
 
 ---
 

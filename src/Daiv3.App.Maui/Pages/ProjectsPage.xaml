@@ -15,9 +15,11 @@
                               BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}">
             <Button Text="New Project"
                     Command="{Binding CreateProjectCommand}" />
+            <Button Text="Refresh"
+                    Command="{Binding RefreshCommand}" />
         </HorizontalStackLayout>
 
-        <!-- Projects List -->
+        <!-- Projects List with Dashboard Fields (CT-REQ-011) -->
         <CollectionView Grid.Row="1"
                         ItemsSource="{Binding Projects}"
                         SelectionMode="Single"
@@ -45,41 +47,80 @@
                             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                             StrokeShape="RoundRectangle 8"
                             StrokeThickness="0">
-                        <Grid ColumnDefinitions="*,Auto"
-                              RowDefinitions="Auto,Auto,Auto">
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              RowDefinitions="Auto,Auto,Auto,Auto"
+                              ColumnSpacing="10"
+                              RowSpacing="8">
                             
-                            <!-- Project Name -->
+                            <!-- Status Badge -->
                             <Label Grid.Row="0" Grid.Column="0"
-                                   Text="{Binding Name}"
-                                   FontSize="18"
-                                   FontAttributes="Bold" />
+                                   Text="{Binding StatusBadge}"
+                                   FontSize="20"
+                                   VerticalOptions="Start" />
+                            
+                            <!-- Project Name & Priority -->
+                            <HorizontalStackLayout Grid.Row="0" Grid.Column="1"
+                                                 Spacing="10">
+                                <Label Text="{Binding Name}"
+                                       FontSize="18"
+                                       FontAttributes="Bold"
+                                       VerticalOptions="Center" />
+                                <Border BackgroundColor="{AppThemeBinding Light=#E0F2FE, Dark=#0C4A6E}"
+                                        Padding="6,2"
+                                        StrokeShape="RoundRectangle 4"
+                                        StrokeThickness="0">
+                                    <Label Text="{Binding PriorityLabel}"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light=#0369A1, Dark=#38BDF8}" />
+                                </Border>
+                            </HorizontalStackLayout>
 
                             <!-- Delete Button -->
-                            <Button Grid.Row="0" Grid.Column="1"
+                            <Button Grid.Row="0" Grid.Column="2"
                                     Text="Delete"
                                     BackgroundColor="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
                                     TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ProjectsViewModel}}, Path=DeleteProjectCommand}"
-                                    CommandParameter="{Binding .}" />
+                                    CommandParameter="{Binding .}"
+                                    VerticalOptions="Start" />
+
+                            <!-- Progress Bar -->
+                            <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                                  ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="10">
+                                <ProgressBar Progress="{Binding ProgressPercent, Converter={StaticResource PercentToDecimalConverter}}"
+                                             ProgressColor="{StaticResource Primary}"
+                                             VerticalOptions="Center" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding ProgressLabel}"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                       VerticalOptions="Center" />
+                            </Grid>
 
                             <!-- Description -->
-                            <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                            <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                                    Text="{Binding Description}"
                                    FontSize="14"
-                                   TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}"
-                                   Margin="0,5,0,0" />
+                                   TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}" />
 
                             <!-- Metadata -->
-                            <HorizontalStackLayout Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                                                  Spacing="15"
-                                                  Margin="0,10,0,0">
-                                <Label Text="{Binding CreatedDate, StringFormat='Created: {0:MMM dd, yyyy}'}"
+                            <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
+                                  ColumnDefinitions="*,*,*"
+                                  ColumnSpacing="10">
+                                <Label Grid.Column="0"
+                                       Text="{Binding AssignedAgentLabel, StringFormat='👤 {0}'}"
                                        FontSize="12"
                                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                                <Label Text="{Binding TaskCount, StringFormat='Tasks: {0}'}"
+                                <Label Grid.Column="1"
+                                       Text="{Binding DeadlineLabel, StringFormat='📅 {0}'}"
                                        FontSize="12"
                                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                            </HorizontalStackLayout>
+                                <Label Grid.Column="2"
+                                       Text="{Binding TaskCount, StringFormat='📋 {0} tasks'}"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            </Grid>
                         </Grid>
                     </Border>
                 </DataTemplate>
