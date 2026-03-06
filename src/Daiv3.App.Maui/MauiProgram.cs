@@ -39,6 +39,10 @@ public static class MauiProgram
         // Register system metrics service (CT-REQ-006: CPU/Memory/Disk)
         builder.Services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
 
+        // Register Admin Dashboard Service (CT-REQ-010: System Admin Dashboard)
+        builder.Services.Configure<AdminDashboardOptions>(builder.Configuration.GetSection(AdminDashboardOptions.Section));
+        builder.Services.AddSingleton<IAdminDashboardService, AdminDashboardService>();
+
         // Register Dashboard Service (CT-REQ-003, CT-REQ-006)
         var dashboardConfig = new DashboardConfiguration
         {
@@ -61,6 +65,7 @@ public static class MauiProgram
         // Register ViewModels
         builder.Services.AddSingleton<ChatViewModel>();
         builder.Services.AddSingleton<DashboardViewModel>();
+        builder.Services.AddSingleton<AdminDashboardViewModel>();
         builder.Services.AddSingleton<ProjectsViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>(serviceProvider =>
             new SettingsViewModel(
