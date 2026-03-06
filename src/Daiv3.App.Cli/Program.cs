@@ -53,7 +53,7 @@ public class Program
         dbCommand.AddCommand(dbStatusCommand);
         rootCommand.AddCommand(dbCommand);
 
-        // Dashboard command
+        // Dashboard command (CT-REQ-003, CT-REQ-006)
         var dashboardCommand = new Command("dashboard", "Show system dashboard and status");
         dashboardCommand.SetHandler(async () =>
         {
@@ -61,6 +61,26 @@ public class Program
             var exitCode = await Task.FromResult(DashboardCommand(host));
             Environment.Exit(exitCode);
         });
+
+        // dashboard agents subcommand (CT-REQ-006: Agent activity)
+        var dashboardAgentsCommand = new Command("agents", "Show agent definitions and active execution summary");
+        dashboardAgentsCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await DashboardAgentsCommand(host);
+            Environment.Exit(exitCode);
+        });
+        dashboardCommand.AddCommand(dashboardAgentsCommand);
+
+        // dashboard resources subcommand (CT-REQ-006: System resource metrics)
+        var dashboardResourcesCommand = new Command("resources", "Show system resource metrics (CPU, memory, disk)");
+        dashboardResourcesCommand.SetHandler(() =>
+        {
+            var exitCode = DashboardResourcesCommand();
+            Environment.Exit(exitCode);
+        });
+        dashboardCommand.AddCommand(dashboardResourcesCommand);
+
         rootCommand.AddCommand(dashboardCommand);
 
         // Chat command
@@ -1280,6 +1300,192 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"  ✗ Failed to display queue metrics: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// CT-REQ-006: Displays agent definitions and active execution summary.
+    /// Active in-process executions are only visible when agents are running in this process.
+    /// </summary>
+    private static async Task<int> DashboardAgentsCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying agent dashboard");
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("              DAIV3 AGENT ACTIVITY (CT-REQ-006)            ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            // Active in-process executions (populated when agents run in this process)
+            var agentManager = host.Services.GetRequiredService<Daiv3.Orchestration.Interfaces.IAgentManager>();
+            var metricsCollector = host.Services.GetRequiredService<Daiv3.Orchestration.AgentExecutionMetricsCollector>();
+            var activeExecutions = agentManager.GetActiveExecutions();
+
+            Console.WriteLine($"ACTIVE EXECUTIONS: {activeExecutions.Count}");
+            if (activeExecutions.Count > 0)
+            {
+                Console.WriteLine();
+                foreach (var control in activeExecutions)
+                {
+                    var metrics = metricsCollector.GetMetricsSnapshot(control.ExecutionId);
+                    var agent = await agentManager.GetAgentAsync(control.AgentId);
+                    var agentName = agent?.Name ?? control.AgentId.ToString("N")[..8];
+                    var state = control.IsStopped ? "Stopped" : control.IsPaused ? "Paused" : "Running";
+
+                    Console.WriteLine($"  Agent:      {agentName}");
+                    Console.WriteLine($"  State:      {state}");
+                    if (metrics != null)
+                    {
+                        Console.WriteLine($"  Iterations: {metrics.TotalIterations}");
+                        Console.WriteLine($"  Tokens:     {metrics.TotalTokensConsumed:N0}");
+                        Console.WriteLine($"  Started:    {metrics.StartedAt.ToLocalTime():HH:mm:ss}");
+                        var elapsed = metrics.TotalDuration;
+                        Console.WriteLine($"  Elapsed:    {(elapsed.TotalHours >= 1 ? $"{(int)elapsed.TotalHours}h {elapsed.Minutes}m" : elapsed.TotalMinutes >= 1 ? $"{(int)elapsed.TotalMinutes}m {elapsed.Seconds}s" : $"{elapsed.Seconds}s")}");
+                    }
+                    Console.WriteLine();
+                }
+            }
+            else
+            {
+                Console.WriteLine("  (No active executions in this process)");
+                Console.WriteLine("  NOTE: Agent executions running in the Worker service are tracked separately.");
+                Console.WriteLine();
+            }
+
+            // Registered agents (from persistence)
+            var agents = await agentManager.ListAgentsAsync();
+            Console.WriteLine($"REGISTERED AGENTS: {agents.Count}");
+            if (agents.Count > 0)
+            {
+                foreach (var agent in agents)
+                {
+                    Console.WriteLine($"  [{agent.Id:N}]  {agent.Name}");
+                    Console.WriteLine($"    Purpose: {agent.Purpose}");
+                    Console.WriteLine($"    Skills:  {(agent.EnabledSkills.Count > 0 ? string.Join(", ", agent.EnabledSkills) : "(none)")}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("  (No registered agents)");
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display agent dashboard: {ex.Message}");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// CT-REQ-006: Displays system resource metrics (CPU, memory, disk).
+    /// Uses process-level and GC metrics available in any .NET process.
+    /// </summary>
+    private static int DashboardResourcesCommand()
+    {
+        try
+        {
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("           DAIV3 SYSTEM RESOURCES (CT-REQ-006)             ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            var proc = System.Diagnostics.Process.GetCurrentProcess();
+            var coreCount = Environment.ProcessorCount;
+
+            // CPU
+            Console.WriteLine("CPU:");
+            Console.WriteLine($"  Logical Cores:    {coreCount}");
+            Console.WriteLine($"  Process CPU Time: {proc.TotalProcessorTime.TotalSeconds:F1}s total");
+            Console.WriteLine();
+
+            // Memory (GC-based system info)
+            var gcInfo = GC.GetGCMemoryInfo();
+            var totalSystemMemBytes = gcInfo.TotalAvailableMemoryBytes;
+            var usedSystemMemBytes = totalSystemMemBytes - gcInfo.MemoryLoadBytes;
+            var processWorkingSet = proc.WorkingSet64;
+
+            Console.WriteLine("MEMORY:");
+            if (totalSystemMemBytes > 0)
+            {
+                var usedGb = usedSystemMemBytes / (1024.0 * 1024 * 1024);
+                var totalGb = totalSystemMemBytes / (1024.0 * 1024 * 1024);
+                var utilPct = (double)(totalSystemMemBytes - gcInfo.MemoryLoadBytes) / totalSystemMemBytes * 100;
+                Console.WriteLine($"  Used / Total:     {usedGb:F1} / {totalGb:F1} GB");
+                Console.WriteLine($"  Available:        {gcInfo.MemoryLoadBytes / (1024.0 * 1024 * 1024):F1} GB committed");
+            }
+            Console.WriteLine($"  Process Working:  {processWorkingSet / (1024.0 * 1024):F0} MB");
+            Console.WriteLine();
+
+            // Disk
+            Console.WriteLine("DISK:");
+            try
+            {
+                var systemDrive = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) ?? "C:\\";
+                var driveInfo = new DriveInfo(systemDrive);
+                var freeGb = driveInfo.AvailableFreeSpace / (1024.0 * 1024 * 1024);
+                var totalGb = driveInfo.TotalSize / (1024.0 * 1024 * 1024);
+                var usedGb = totalGb - freeGb;
+                var usedPct = usedGb / totalGb * 100;
+
+                Console.WriteLine($"  Drive:            {systemDrive}");
+                Console.WriteLine($"  Used / Total:     {usedGb:F1} / {totalGb:F1} GB ({usedPct:F1}% used)");
+                Console.WriteLine($"  Free:             {freeGb:F1} GB");
+
+                // Alerts
+                if (driveInfo.AvailableFreeSpace < 1L * 1024 * 1024 * 1024)
+                    Console.WriteLine("  ⚠ WARNING: Less than 1 GB disk space remaining!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  (Could not read disk info: {ex.Message})");
+            }
+            Console.WriteLine();
+
+            // Storage: KB/model cache
+            Console.WriteLine("APPLICATION STORAGE:");
+            var appDataBase = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Daiv3");
+            PrintDirectorySize("  Knowledge Base:", Path.Combine(appDataBase, "knowledge"));
+            PrintDirectorySize("  Model Cache:   ", Path.Combine(appDataBase, "models"));
+            Console.WriteLine();
+
+            Console.WriteLine("NOTE: System-wide CPU% requires sustained sampling; GPU/NPU metrics pending HW-NFR-002.");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display resource dashboard: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static void PrintDirectorySize(string label, string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine($"{label} (not found)");
+                return;
+            }
+            var bytes = Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Sum(f =>
+            {
+                try { return new FileInfo(f).Length; } catch { return 0L; }
+            });
+            var gb = bytes / (1024.0 * 1024 * 1024);
+            var mb = bytes / (1024.0 * 1024);
+            Console.WriteLine($"{label} {(gb >= 1.0 ? $"{gb:F2} GB" : $"{mb:F1} MB")}");
+        }
+        catch
+        {
+            Console.WriteLine($"{label} (error reading)");
         }
     }
 

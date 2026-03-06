@@ -9,7 +9,7 @@
 
     <ScrollView>
         <VerticalStackLayout Padding="20" Spacing="20">
-            
+
             <!-- Header with Status -->
             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto" ColumnSpacing="10" RowSpacing="0">
                 <Label Grid.Column="0"
@@ -17,15 +17,15 @@
                        FontSize="24"
                        FontAttributes="Bold"
                        VerticalOptions="Center" />
-                
+
                 <!-- Monitoring Status Indicator -->
                 <HorizontalStackLayout Grid.Column="1" VerticalOptions="Center">
-                    <Label Text="●" 
+                    <Label Text="●"
                            FontSize="14"
                            TextColor="{StaticResource Primary}"
                            Margin="0,0,5,0"
                            VerticalOptions="Center" />
-                    <Label Text="{Binding IsMonitoring, StringFormat='{0:Monitoring}'}" 
+                    <Label Text="{Binding IsMonitoring, StringFormat='{0:Monitoring}'}"
                            FontSize="12"
                            VerticalOptions="Center" />
                 </HorizontalStackLayout>
@@ -42,8 +42,396 @@
                 </HorizontalStackLayout>
             </Border>
 
-            <!-- Hardware Status Section -->
+            <!-- Resource Alerts (CT-REQ-006: Always visible when active) -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FEF2F2, Dark=#1C0A0A}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="2"
+                    Stroke="#EF4444"
+                    IsVisible="{Binding HasAnyAlert}">
+                <VerticalStackLayout Spacing="8">
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="⚠"
+                               FontSize="18"
+                               TextColor="#EF4444"
+                               VerticalOptions="Center" />
+                        <Label Text="Resource Alerts"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="#EF4444"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    <CollectionView ItemsSource="{Binding AlertMessages}"
+                                    HorizontalScrollBarVisibility="Never">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <HorizontalStackLayout Spacing="6" Padding="0,2,0,2">
+                                    <Label Text="•"
+                                           TextColor="#EF4444"
+                                           VerticalOptions="Center" />
+                                    <Label Text="{Binding .}"
+                                           FontSize="13"
+                                           TextColor="{AppThemeBinding Light=#7F1D1D, Dark=#FCA5A5}"
+                                           VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- CT-REQ-006 View Toggle Bar -->
+            <Border BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}"
+                    Padding="4"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+                    <!-- Agent Activity Tab -->
+                    <Border Grid.Column="0"
+                            Padding="12,8"
+                            StrokeShape="RoundRectangle 8"
+                            StrokeThickness="0"
+                            BackgroundColor="{Binding ShowAgentView, Converter={StaticResource BoolToColorConverter}}">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ShowAgentViewCommand}" />
+                        </Border.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+                            <Label Text="🤖"
+                                   FontSize="14"
+                                   VerticalOptions="Center" />
+                            <Label Text="Agent Activity"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="White"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
+
+                    <!-- System Resources Tab -->
+                    <Border Grid.Column="1"
+                            Padding="12,8"
+                            StrokeShape="RoundRectangle 8"
+                            StrokeThickness="0"
+                            BackgroundColor="{Binding ShowSystemView, Converter={StaticResource BoolToColorConverter}}">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ShowSystemViewCommand}" />
+                        </Border.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+                            <Label Text="📊"
+                                   FontSize="14"
+                                   VerticalOptions="Center" />
+                            <Label Text="System Resources"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="White"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ═══ AGENT ACTIVITY PANEL (CT-REQ-006) ═══ -->
+            <VerticalStackLayout Spacing="15" IsVisible="{Binding ShowAgentView}">
+
+                <!-- Agent Summary Stats -->
                 <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                        Padding="15"
+                        StrokeShape="RoundRectangle 10"
+                        StrokeThickness="0">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Agent Activity"
+                               FontSize="18"
+                               FontAttributes="Bold" />
+
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                            <!-- Active Agents -->
+                            <Border Grid.Column="0"
+                                    Padding="10,8"
+                                    StrokeShape="RoundRectangle 8"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light=#F0FDF4, Dark=#052E16}">
+                                <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                    <Label Text="{Binding ActiveAgentCount}"
+                                           FontSize="24"
+                                           FontAttributes="Bold"
+                                           TextColor="#16A34A"
+                                           HorizontalTextAlignment="Center" />
+                                    <Label Text="Active"
+                                           FontSize="11"
+                                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                           HorizontalTextAlignment="Center" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <!-- Total Iterations -->
+                            <Border Grid.Column="1"
+                                    Padding="10,8"
+                                    StrokeShape="RoundRectangle 8"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#0F172A}">
+                                <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                    <Label Text="{Binding TotalSessionIterations}"
+                                           FontSize="24"
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource Primary}"
+                                           HorizontalTextAlignment="Center" />
+                                    <Label Text="Iterations"
+                                           FontSize="11"
+                                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                           HorizontalTextAlignment="Center" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <!-- Total Tokens -->
+                            <Border Grid.Column="2"
+                                    Padding="10,8"
+                                    StrokeShape="RoundRectangle 8"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light=#FAF5FF, Dark=#0F0720}">
+                                <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                    <Label Text="{Binding TotalSessionTokensText}"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="#7C3AED"
+                                           HorizontalTextAlignment="Center" />
+                                    <Label Text="Tokens Used"
+                                           FontSize="11"
+                                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                           HorizontalTextAlignment="Center" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Active Agent List -->
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                        Padding="15"
+                        StrokeShape="RoundRectangle 10"
+                        StrokeThickness="0">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Running Agents"
+                               FontSize="16"
+                               FontAttributes="Bold" />
+
+                        <!-- No agents placeholder -->
+                        <Label Text="No agents currently running."
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                               HorizontalTextAlignment="Center"
+                               Margin="0,10,0,10"
+                               IsVisible="{Binding HasActiveAgents, Converter={StaticResource InvertedBoolConverter}}" />
+
+                        <!-- Agent Cards -->
+                        <CollectionView ItemsSource="{Binding AgentActivities}"
+                                        HorizontalScrollBarVisibility="Never"
+                                        IsVisible="{Binding HasActiveAgents}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="local:IndividualAgentActivity">
+                                    <Border Padding="12"
+                                            Margin="0,4,0,4"
+                                            StrokeShape="RoundRectangle 8"
+                                            StrokeThickness="1"
+                                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                                            BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0F172A}">
+                                        <VerticalStackLayout Spacing="6">
+
+                                            <!-- Agent Header: Name + State Badge -->
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <HorizontalStackLayout Grid.Column="0" Spacing="6">
+                                                    <Label Text="🤖"
+                                                           FontSize="13"
+                                                           VerticalOptions="Center" />
+                                                    <Label Text="{Binding AgentName}"
+                                                           FontSize="14"
+                                                           FontAttributes="Bold"
+                                                           VerticalOptions="Center" />
+                                                </HorizontalStackLayout>
+                                                <Border Grid.Column="1"
+                                                        Padding="8,3"
+                                                        StrokeShape="RoundRectangle 6"
+                                                        StrokeThickness="0"
+                                                        BackgroundColor="{StaticResource Primary}">
+                                                    <Label Text="{Binding State}"
+                                                           FontSize="11"
+                                                           FontAttributes="Bold"
+                                                           TextColor="White" />
+                                                </Border>
+                                            </Grid>
+
+                                            <!-- Current Task -->
+                                            <Label Text="{Binding CurrentTask}"
+                                                   FontSize="12"
+                                                   TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="2" />
+
+                                            <!-- Status Detail (if any) -->
+                                            <Label Text="{Binding StatusDetail}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#64748B}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1" />
+
+                                            <!-- Metrics Row -->
+                                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="5">
+                                                <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                                    <Label Text="{Binding IterationCount}"
+                                                           FontSize="13"
+                                                           FontAttributes="Bold"
+                                                           TextColor="{StaticResource Primary}"
+                                                           HorizontalTextAlignment="Center" />
+                                                    <Label Text="Iterations"
+                                                           FontSize="10"
+                                                           TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                                           HorizontalTextAlignment="Center" />
+                                                </VerticalStackLayout>
+
+                                                <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                                    <Label Text="{Binding TokensUsed}"
+                                                           FontSize="13"
+                                                           FontAttributes="Bold"
+                                                           TextColor="#7C3AED"
+                                                           HorizontalTextAlignment="Center" />
+                                                    <Label Text="Tokens"
+                                                           FontSize="10"
+                                                           TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                                           HorizontalTextAlignment="Center" />
+                                                </VerticalStackLayout>
+
+                                                <VerticalStackLayout Grid.Column="2" Spacing="1">
+                                                    <Label Text="{Binding ElapsedTimeText}"
+                                                           FontSize="13"
+                                                           FontAttributes="Bold"
+                                                           TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}"
+                                                           HorizontalTextAlignment="Center" />
+                                                    <Label Text="Elapsed"
+                                                           FontSize="10"
+                                                           TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                                           HorizontalTextAlignment="Center" />
+                                                </VerticalStackLayout>
+                                            </Grid>
+
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+
+            <!-- ═══ SYSTEM RESOURCES PANEL (CT-REQ-006) ═══ -->
+            <VerticalStackLayout Spacing="15" IsVisible="{Binding ShowSystemView}">
+
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                        Padding="15"
+                        StrokeShape="RoundRectangle 10"
+                        StrokeThickness="0">
+                    <VerticalStackLayout Spacing="14">
+                        <HorizontalStackLayout Spacing="10">
+                            <Label Text="System Resources"
+                                   FontSize="18"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+                            <Border Padding="8,3"
+                                    StrokeShape="RoundRectangle 6"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{StaticResource Primary}">
+                                <Label Text="{Binding ExecutionProviderText}"
+                                       FontSize="12"
+                                       FontAttributes="Bold"
+                                       TextColor="White" />
+                            </Border>
+                        </HorizontalStackLayout>
+
+                        <!-- CPU -->
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0"
+                                       Text="CPU"
+                                       FontAttributes="Bold"
+                                       FontSize="13" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding CpuUtilizationPercent, StringFormat='{0:F1}%'}"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{Binding HasHighCpuAlert, Converter={StaticResource BoolToColorConverter}}" />
+                            </Grid>
+                            <ProgressBar Progress="{Binding CpuProgressValue}"
+                                         ProgressColor="{Binding HasHighCpuAlert, Converter={StaticResource BoolToColorConverter}}"
+                                         HeightRequest="8" />
+                            <Label Text="{Binding CpuCoreCount, StringFormat='Process utilization across {0} logical cores'}"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        </VerticalStackLayout>
+
+                        <!-- Memory (RAM) -->
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0"
+                                       Text="Memory (RAM)"
+                                       FontAttributes="Bold"
+                                       FontSize="13" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding MemoryUtilizationPercent, StringFormat='{0:F1}%'}"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{Binding HasHighMemoryAlert, Converter={StaticResource BoolToColorConverter}}" />
+                            </Grid>
+                            <ProgressBar Progress="{Binding MemoryProgressValue}"
+                                         ProgressColor="{Binding HasHighMemoryAlert, Converter={StaticResource BoolToColorConverter}}"
+                                         HeightRequest="8" />
+                            <Label Text="{Binding MemoryUsageText}"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        </VerticalStackLayout>
+
+                        <!-- Disk -->
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0"
+                                       Text="Disk (System Drive)"
+                                       FontAttributes="Bold"
+                                       FontSize="13" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding DiskFreeText}"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{Binding HasLowDiskAlert, Converter={StaticResource BoolToColorConverter}}" />
+                            </Grid>
+                            <ProgressBar Progress="{Binding DiskProgressValue}"
+                                         ProgressColor="{Binding HasLowDiskAlert, Converter={StaticResource BoolToColorConverter}}"
+                                         HeightRequest="8" />
+                        </VerticalStackLayout>
+
+                        <!-- Process Memory -->
+                        <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto" RowSpacing="5">
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="Process Memory:"
+                                   FontAttributes="Bold"
+                                   FontSize="13" />
+                            <Label Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding ProcessMemoryText}"
+                                   FontSize="13" />
+
+                            <Label Grid.Row="1" Grid.Column="0"
+                                   Text="Execution Provider:"
+                                   FontAttributes="Bold"
+                                   FontSize="13" />
+                            <Label Grid.Row="1" Grid.Column="1"
+                                   Text="{Binding ExecutionProviderText}"
+                                   FontSize="13" />
+                        </Grid>
+
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+
+            <!-- Hardware Status Section -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="15"
                     StrokeShape="RoundRectangle 10"
                     StrokeThickness="0">
@@ -51,14 +439,14 @@
                     <Label Text="Hardware Status"
                            FontSize="18"
                            FontAttributes="Bold" />
-                    
+
                     <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="5">
                         <Label Grid.Row="0" Grid.Column="0" Text="Overall:" FontAttributes="Bold" />
                         <Label Grid.Row="0" Grid.Column="1" Text="{Binding HardwareStatus}" />
-                        
+
                         <Label Grid.Row="1" Grid.Column="0" Text="NPU:" FontAttributes="Bold" />
                         <Label Grid.Row="1" Grid.Column="1" Text="{Binding NpuStatus}" />
-                        
+
                         <Label Grid.Row="2" Grid.Column="0" Text="GPU:" FontAttributes="Bold" />
                         <Label Grid.Row="2" Grid.Column="1" Text="{Binding GpuStatus}" />
                     </Grid>
@@ -66,7 +454,7 @@
             </Border>
 
             <!-- Task Queue Section -->
-                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="15"
                     StrokeShape="RoundRectangle 10"
                     StrokeThickness="0">
@@ -74,11 +462,11 @@
                     <Label Text="Task Queue"
                            FontSize="18"
                            FontAttributes="Bold" />
-                    
+
                     <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto" RowSpacing="5">
                         <Label Grid.Row="0" Grid.Column="0" Text="Queued Tasks:" FontAttributes="Bold" />
                         <Label Grid.Row="0" Grid.Column="1" Text="{Binding QueuedTasks}" />
-                        
+
                         <Label Grid.Row="1" Grid.Column="0" Text="Completed Tasks:" FontAttributes="Bold" />
                         <Label Grid.Row="1" Grid.Column="1" Text="{Binding CompletedTasks}" />
                     </Grid>
@@ -86,7 +474,7 @@
             </Border>
 
             <!-- Current Activity Section -->
-                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="15"
                     StrokeShape="RoundRectangle 10"
                     StrokeThickness="0">
@@ -94,7 +482,7 @@
                     <Label Text="Current Activity"
                            FontSize="18"
                            FontAttributes="Bold" />
-                    
+
                     <Label Text="{Binding CurrentActivity}"
                            FontSize="14" />
                 </VerticalStackLayout>
@@ -109,7 +497,7 @@
                     <Label Text="Model Queue Status"
                            FontSize="18"
                            FontAttributes="Bold" />
-                    
+
                     <!-- Current Model -->
                     <Grid ColumnDefinitions="150,*" RowDefinitions="Auto" RowSpacing="5">
                         <Label Grid.Row="0" Grid.Column="0" Text="Current Model:" FontAttributes="Bold" />
@@ -120,10 +508,10 @@
                     <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="5">
                         <Label Grid.Row="0" Grid.Column="0" Text="Avg Wait Time:" FontAttributes="Bold" />
                         <Label Grid.Row="0" Grid.Column="1" Text="{Binding AverageWaitTimeSeconds, StringFormat='{0:F1} seconds'}" />
-                        
+
                         <Label Grid.Row="1" Grid.Column="0" Text="Throughput:" FontAttributes="Bold" />
                         <Label Grid.Row="1" Grid.Column="1" Text="{Binding ThroughputPerMinute, StringFormat='{0:F1} req/min'}" />
-                        
+
                         <Label Grid.Row="2" Grid.Column="0" Text="Utilization:" FontAttributes="Bold" />
                         <Label Grid.Row="2" Grid.Column="1" Text="{Binding ModelUtilizationPercent, StringFormat='{0}%'}" />
                     </Grid>
@@ -142,7 +530,7 @@
                            FontSize="18"
                            FontAttributes="Bold"
                            TextColor="{StaticResource Primary}" />
-                    
+
                     <!-- Items List -->
                     <CollectionView ItemsSource="{Binding TopQueueItems}"
                                     SelectionMode="Single"
@@ -165,7 +553,7 @@
                                                    FontSize="12"
                                                    FontAttributes="Bold"
                                                    BackgroundColor="{Binding Priority, Converter={StaticResource PriorityColorConverter}}" />
-                                            
+
                                             <Label Text="{Binding Status}"
                                                    FontSize="12"
                                                    VerticalOptions="Center" />
@@ -183,7 +571,7 @@
                                                    Text="{Binding QueuePosition, StringFormat='Position: {0}'}"
                                                    FontSize="11"
                                                    TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                                            
+
                                             <Label Grid.Column="1"
                                                    Text="{Binding EstimatedStartTime, StringFormat='Est: {0:HH:mm:ss}'}"
                                                    FontSize="11"
@@ -207,7 +595,7 @@
                     <Label Text="Queue Filter"
                            FontSize="18"
                            FontAttributes="Bold" />
-                    
+
                     <!-- Project Filter Picker -->
                     <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
                         <Label Text="Project:" FontAttributes="Bold" VerticalOptions="Center" />
@@ -227,7 +615,7 @@
                            FontSize="14"
                            FontAttributes="Bold"
                            Margin="0,10,0,5" />
-                    
+
                     <CollectionView ItemsSource="{Binding FilteredQueueItems}"
                                     SelectionMode="Single"
                                     HorizontalScrollBarVisibility="Never">
@@ -245,7 +633,7 @@
                                                FontSize="10"
                                                TextColor="{Binding Priority, Converter={StaticResource PriorityColorConverter}}"
                                                VerticalOptions="Center" />
-                                        
+
                                         <!-- Item Details -->
                                         <VerticalStackLayout Spacing="2" HorizontalOptions="Fill">
                                             <Label Text="{Binding Description}"
@@ -256,7 +644,7 @@
                                                    FontSize="10"
                                                    TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
                                         </VerticalStackLayout>
-                                        
+
                                         <!-- Position Badge -->
                                         <Label Text="{Binding QueuePosition}"
                                                Padding="6,2"

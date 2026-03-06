@@ -8,6 +8,7 @@ using Daiv3.Knowledge.Embedding;
 using Daiv3.Infrastructure.Shared.Logging;
 using Daiv3.ModelExecution;
 using Daiv3.ModelExecution.Interfaces;
+using Daiv3.Orchestration;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Services;
 using Daiv3.FoundryLocal.Management;
@@ -35,7 +36,10 @@ public static class MauiProgram
 #endif
         builder.Logging.AddFileLogging("maui", LogLevel.Debug);
 
-        // Register Dashboard Service (CT-REQ-003)
+        // Register system metrics service (CT-REQ-006: CPU/Memory/Disk)
+        builder.Services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
+
+        // Register Dashboard Service (CT-REQ-003, CT-REQ-006)
         var dashboardConfig = new DashboardConfiguration
         {
             RefreshIntervalMs = 3000,
@@ -48,8 +52,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<IDashboardService>(serviceProvider =>
             new DashboardService(
                 serviceProvider.GetRequiredService<ILogger<DashboardService>>(),
-                serviceProvider.GetService<IModelQueue>(), // Optional - may not be registered
-                dashboardConfig));
+                serviceProvider.GetService<IModelQueue>(),                  // Optional - may not be registered
+                dashboardConfig,
+                serviceProvider.GetRequiredService<IServiceScopeFactory>(), // Always available
+                serviceProvider.GetService<AgentExecutionMetricsCollector>(), // Optional - registered when orchestration is active
+                serviceProvider.GetRequiredService<ISystemMetricsService>()));
 
         // Register ViewModels
         builder.Services.AddSingleton<ChatViewModel>();

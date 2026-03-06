@@ -38,6 +38,11 @@ public class DashboardData
     public SystemResourceMetrics SystemResources { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets resource alert state (CT-REQ-006: Resource Alerts).
+    /// </summary>
+    public ResourceAlerts Alerts { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets any error messages encountered during data collection.
     /// Null means no errors.
     /// </summary>
@@ -312,9 +317,24 @@ public class IndividualAgentActivity
     public string? AgentId { get; set; }
 
     /// <summary>
-    /// Current state of the agent.
+    /// Agent display name.
+    /// </summary>
+    public string? AgentName { get; set; }
+
+    /// <summary>
+    /// Current task goal or description.
+    /// </summary>
+    public string? CurrentTask { get; set; }
+
+    /// <summary>
+    /// Current state of the agent (Running, Paused, Stopped, Idle, Error).
     /// </summary>
     public string? State { get; set; }
+
+    /// <summary>
+    /// More detailed status description.
+    /// </summary>
+    public string? StatusDetail { get; set; }
 
     /// <summary>
     /// Number of iterations this agent has completed.
@@ -322,14 +342,40 @@ public class IndividualAgentActivity
     public int IterationCount { get; set; }
 
     /// <summary>
-    /// Tokens used by this agent.
+    /// Tokens used by this agent in the current task.
     /// </summary>
     public long TokensUsed { get; set; }
+
+    /// <summary>
+    /// When agent execution started.
+    /// </summary>
+    public DateTimeOffset? StartTime { get; set; }
+
+    /// <summary>
+    /// Total elapsed time of execution (wall-clock).
+    /// </summary>
+    public TimeSpan ElapsedTime { get; set; }
 
     /// <summary>
     /// When the agent last executed.
     /// </summary>
     public DateTimeOffset? LastExecutedAt { get; set; }
+
+    /// <summary>
+    /// Gets a formatted elapsed time string (e.g. "2m 30s").
+    /// </summary>
+    public string ElapsedTimeText
+    {
+        get
+        {
+            var t = ElapsedTime;
+            if (t.TotalHours >= 1)
+                return $"{(int)t.TotalHours}h {t.Minutes}m";
+            if (t.TotalMinutes >= 1)
+                return $"{(int)t.TotalMinutes}m {t.Seconds}s";
+            return $"{t.Seconds}s";
+        }
+    }
 }
 
 /// <summary>
@@ -338,7 +384,7 @@ public class IndividualAgentActivity
 public class SystemResourceMetrics
 {
     /// <summary>
-    /// CPU utilization percentage (0-100).
+    /// CPU utilization percentage (0-100). Process-level measurement.
     /// </summary>
     public double CpuUtilizationPercent { get; set; }
 
@@ -348,12 +394,24 @@ public class SystemResourceMetrics
     public double MemoryAvailablePercent { get; set; }
 
     /// <summary>
-    /// GPU utilization percentage if available (0-100, null if no GPU).
+    /// Physical RAM currently in use (bytes).
+    /// </summary>
+    public long MemoryUsedBytes { get; set; }
+
+    /// <summary>
+    /// Total physical RAM installed (bytes).
+    /// </summary>
+    public long MemoryTotalBytes { get; set; }
+
+    /// <summary>
+    /// GPU utilization percentage if available (0-100, null if no GPU or not yet integrated).
+    /// Pending HW-NFR-002 hardware integration.
     /// </summary>
     public double? GpuUtilizationPercent { get; set; }
 
     /// <summary>
-    /// NPU utilization percentage if available (0-100, null if no NPU).
+    /// NPU utilization percentage if available (0-100, null if no NPU or not yet integrated).
+    /// Pending HW-NFR-002 hardware integration.
     /// </summary>
     public double? NpuUtilizationPercent { get; set; }
 
@@ -368,13 +426,77 @@ public class SystemResourceMetrics
     public long TotalDiskBytes { get; set; }
 
     /// <summary>
-    /// Process-specific memory usage in bytes.
+    /// Process-specific memory usage in bytes (working set).
     /// </summary>
     public long ProcessMemoryBytes { get; set; }
+
+    /// <summary>
+    /// Active execution provider: "CPU", "GPU", or "NPU".
+    /// Pending HW-NFR-002 hardware integration; defaults to "CPU".
+    /// </summary>
+    public string ActiveExecutionProvider { get; set; } = "CPU";
+
+    /// <summary>
+    /// Number of logical CPU cores.
+    /// </summary>
+    public int CpuCoreCount { get; set; }
+
+    /// <summary>
+    /// Knowledge base storage size (embeddings + documents) in bytes.
+    /// </summary>
+    public long KnowledgeBaseSizeBytes { get; set; }
+
+    /// <summary>
+    /// Model cache storage size in bytes.
+    /// </summary>
+    public long ModelCacheSizeBytes { get; set; }
 
     /// <summary>
     /// Gets the disk utilization percentage (0-100).
     /// </summary>
     public double DiskUtilizationPercent =>
         TotalDiskBytes > 0 ? ((TotalDiskBytes - AvailableDiskBytes) * 100.0 / TotalDiskBytes) : 0;
+
+    /// <summary>
+    /// Gets the memory utilization percentage (0-100).
+    /// </summary>
+    public double MemoryUtilizationPercent =>
+        MemoryTotalBytes > 0 ? ((double)MemoryUsedBytes / MemoryTotalBytes * 100.0) : 0;
+}
+
+/// <summary>
+/// Resource alert state for the dashboard (CT-REQ-006: Resource Alerts).
+/// </summary>
+public class ResourceAlerts
+{
+    /// <summary>
+    /// High CPU alert (triggered at >85% sustained utilization).
+    /// </summary>
+    public bool HasHighCpuAlert { get; set; }
+
+    /// <summary>
+    /// High memory alert (triggered at >80% memory usage).
+    /// </summary>
+    public bool HasHighMemoryAlert { get; set; }
+
+    /// <summary>
+    /// Low disk alert (triggered at &lt;1 GB free space).
+    /// </summary>
+    public bool HasLowDiskAlert { get; set; }
+
+    /// <summary>
+    /// Thermal alert (CPU/GPU throttling detected). Pending HW-NFR-002.
+    /// </summary>
+    public bool HasThermalAlert { get; set; }
+
+    /// <summary>
+    /// Gets whether any alert is active.
+    /// </summary>
+    public bool HasAnyAlert =>
+        HasHighCpuAlert || HasHighMemoryAlert || HasLowDiskAlert || HasThermalAlert;
+
+    /// <summary>
+    /// Human-readable alert messages for display.
+    /// </summary>
+    public List<string> AlertMessages { get; set; } = [];
 }

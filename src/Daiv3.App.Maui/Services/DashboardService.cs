@@ -1,20 +1,28 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Daiv3.App.Maui.Models;
 using Daiv3.ModelExecution.Interfaces;
 using Daiv3.ModelExecution.Models;
+using Daiv3.Orchestration;
+using Daiv3.Orchestration.Interfaces;
 
 namespace Daiv3.App.Maui.Services;
 
 /// <summary>
 /// Implementation of IDashboardService for real-time dashboard telemetry.
 /// Implements CT-REQ-003: The system SHALL provide a real-time transparency dashboard.
+/// Implements CT-REQ-006: Agent activity, iterations, token usage, and system resource metrics.
 /// Supports CT-NFR-001: Async/await patterns with debouncing to prevent UI blocking.
 /// </summary>
 public sealed class DashboardService : IDashboardService, IDisposable
 {
     private readonly ILogger<DashboardService> _logger;
     private readonly IModelQueue? _modelQueue;
+    private readonly IServiceScopeFactory? _scopeFactory;
+    private readonly AgentExecutionMetricsCollector? _metricsCollector;
+    private readonly ISystemMetricsService? _systemMetrics;
     private readonly DashboardConfiguration _configuration;
+
     private CancellationTokenSource? _monitoringCts;
     private Task? _monitoringTask;
     private DashboardData? _cachedData;
@@ -28,17 +36,30 @@ public sealed class DashboardService : IDashboardService, IDisposable
     /// <param name="logger">Logger for diagnostic output.</param>
     /// <param name="modelQueue">Optional model queue service for queue status. If null, queue data uses defaults.</param>
     /// <param name="configuration">Optional custom configuration.</param>
+    /// <param name="scopeFactory">Optional service scope factory for resolving scoped services (e.g. IAgentManager).</param>
+    /// <param name="metricsCollector">Optional singleton agent execution metrics collector.</param>
+    /// <param name="systemMetrics">Optional system metrics service for real CPU/memory/disk data.</param>
     public DashboardService(
         ILogger<DashboardService> logger,
         IModelQueue? modelQueue = null,
-        DashboardConfiguration? configuration = null)
+        DashboardConfiguration? configuration = null,
+        IServiceScopeFactory? scopeFactory = null,
+        AgentExecutionMetricsCollector? metricsCollector = null,
+        ISystemMetricsService? systemMetrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _modelQueue = modelQueue; // Optional - service may not be registered in all contexts
+        _modelQueue = modelQueue;
         _configuration = configuration ?? new DashboardConfiguration();
         _configuration.Validate();
-        _logger.LogInformation("DashboardService initialized with refresh interval {RefreshMs}ms",
-            _configuration.RefreshIntervalMs);
+        _scopeFactory = scopeFactory;
+        _metricsCollector = metricsCollector;
+        _systemMetrics = systemMetrics;
+
+        _logger.LogInformation(
+            "DashboardService initialized: RefreshMs={RefreshMs}, AgentManager={HasAgent}, SystemMetrics={HasMetrics}",
+            _configuration.RefreshIntervalMs,
+            _scopeFactory != null,
+            _systemMetrics != null);
     }
 
     /// <inheritdoc />
@@ -57,13 +78,11 @@ public sealed class DashboardService : IDashboardService, IDisposable
 
         try
         {
-            // Use timeout for data collection
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(_configuration.DataCollectionTimeoutMs);
 
             var data = await CollectDashboardDataAsync(timeoutCts.Token).ConfigureAwait(false);
 
-            // Update cache
             lock (_cacheLock)
             {
                 _cachedData = data;
@@ -95,7 +114,6 @@ public sealed class DashboardService : IDashboardService, IDisposable
             return;
         }
 
-        // Validate interval
         if (refreshIntervalMs < DashboardConfiguration.MinRefreshIntervalMs ||
             refreshIntervalMs > DashboardConfiguration.MaxRefreshIntervalMs)
         {
@@ -109,10 +127,8 @@ public sealed class DashboardService : IDashboardService, IDisposable
         IsMonitoring = true;
 
         _monitoringTask = MonitoringLoopAsync(refreshIntervalMs, _monitoringCts.Token);
-        
+
         _logger.LogInformation("Dashboard monitoring started with {IntervalMs}ms refresh", refreshIntervalMs);
-        
-        // Don't await - let it run in background
         await Task.CompletedTask;
     }
 
@@ -122,9 +138,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
         ThrowIfDisposed();
 
         if (!IsMonitoring || _monitoringCts == null)
-        {
             return;
-        }
 
         _logger.LogInformation("Stopping dashboard monitoring");
         _monitoringCts.Cancel();
@@ -147,7 +161,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
     }
 
     /// <summary>
-    /// Background loop that periodically collects dashboard data and raises update events.
+    /// Background monitoring loop that periodically collects dashboard data and raises update events.
     /// </summary>
     private async Task MonitoringLoopAsync(int refreshIntervalMs, CancellationToken cancellationToken)
     {
@@ -158,22 +172,15 @@ public sealed class DashboardService : IDashboardService, IDisposable
                 try
                 {
                     var data = await GetDashboardDataAsync(cancellationToken).ConfigureAwait(false);
-
-                    // Raise event on main thread
-                    // Note: This will be marshaled by MAUI when DataUpdated is called from UI context
                     DataUpdated?.Invoke(this, new DashboardDataUpdatedEventArgs(data, data.CollectedAt));
 
                     if (_configuration.EnableLogging)
-                    {
                         _logger.LogDebug("Dashboard data updated at {Timestamp}", data.CollectedAt);
-                    }
 
-                    // Wait for next refresh interval
                     await Task.Delay(refreshIntervalMs, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
-                    // Cancellation requested
                     throw;
                 }
                 catch (Exception ex)
@@ -202,8 +209,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
     }
 
     /// <summary>
-    /// Collects dashboard data from all available sources.
-    /// This is the main data aggregation method.
+    /// Collects all dashboard data from available sources.
     /// </summary>
     private async Task<DashboardData> CollectDashboardDataAsync(CancellationToken cancellationToken)
     {
@@ -212,31 +218,23 @@ public sealed class DashboardService : IDashboardService, IDisposable
             CollectedAt = DateTimeOffset.UtcNow
         };
 
-        // Collect hardware status (always available)
         data.Hardware = CollectHardwareStatus();
-
-        // Collect queue status (placeholder - will integrate with actual queue service)
         data.Queue = await CollectQueueStatusAsync(cancellationToken).ConfigureAwait(false);
-
-        // Collect indexing status (placeholder - will integrate with actual indexing service)
         data.Indexing = await CollectIndexingStatusAsync(cancellationToken).ConfigureAwait(false);
-
-        // Collect agent status (placeholder - will integrate with actual agent service)
         data.Agent = await CollectAgentStatusAsync(cancellationToken).ConfigureAwait(false);
-
-        // Collect system resources (placeholder - will integrate with performance counters)
         data.SystemResources = CollectSystemResourceMetrics();
+        data.Alerts = ComputeResourceAlerts(data.SystemResources);
 
         return data;
     }
 
-    private HardwareStatus CollectHardwareStatus()
+    private static HardwareStatus CollectHardwareStatus()
     {
         return new HardwareStatus
         {
             OverallStatus = "System Ready",
-            NpuStatus = "Detection pending (integration forthcoming)",
-            GpuStatus = "Detection pending (integration forthcoming)",
+            NpuStatus = "Detection pending (HW-NFR-002)",
+            GpuStatus = "Detection pending (HW-NFR-002)",
             CpuStatus = "Available",
             PlatformInfo = "Windows 11"
         };
@@ -246,7 +244,6 @@ public sealed class DashboardService : IDashboardService, IDisposable
     {
         if (_modelQueue == null)
         {
-            // Service not available
             return new Models.QueueStatus
             {
                 PendingCount = 0,
@@ -262,15 +259,13 @@ public sealed class DashboardService : IDashboardService, IDisposable
 
         try
         {
-            // Get queue status snapshot
             var mxQueueStatus = await _modelQueue.GetQueueStatusAsync().ConfigureAwait(false);
             var mxMetrics = await _modelQueue.GetMetricsAsync().ConfigureAwait(false);
 
-            // Convert to dashboard models
             var queueStatus = new Models.QueueStatus
             {
-                PendingCount = (mxQueueStatus?.ImmediateCount ?? 0) + 
-                               (mxQueueStatus?.NormalCount ?? 0) + 
+                PendingCount = (mxQueueStatus?.ImmediateCount ?? 0) +
+                               (mxQueueStatus?.NormalCount ?? 0) +
                                (mxQueueStatus?.BackgroundCount ?? 0),
                 CompletedCount = (int)(mxMetrics?.TotalCompleted ?? 0),
                 CurrentModel = mxQueueStatus?.CurrentModelId,
@@ -280,43 +275,21 @@ public sealed class DashboardService : IDashboardService, IDisposable
                 BackgroundCount = mxQueueStatus?.BackgroundCount ?? 0
             };
 
-            // Calculate metrics if available
             if (mxMetrics != null)
             {
-                // Average processing/execution duration
                 if (mxMetrics.AverageExecutionDurationMs > 0)
-                {
                     queueStatus.AverageTaskDurationSeconds = mxMetrics.AverageExecutionDurationMs / 1000.0;
-                }
 
-                // Estimated wait time from average queue wait
                 if (mxMetrics.AverageQueueWaitMs > 0)
-                {
                     queueStatus.EstimatedWaitSeconds = mxMetrics.AverageQueueWaitMs / 1000.0;
-                }
 
-                // Calculate throughput (requests completed per minute)
-                // Using a monitoring window assumption of 1 minute
-                // In practice, this would track a rolling window
-                queueStatus.ThroughputPerMinute = mxMetrics.TotalCompleted; // Requests per the entire monitoring period
-                // For true throughput, we'd need a timestamp of when monitoring started
+                queueStatus.ThroughputPerMinute = mxMetrics.TotalCompleted;
 
-                // Model utilization (approximation: in-flight executions as a percentage of potential capacity)
-                // Assuming max capacity of about 4 concurrent requests as typical
-                if (mxMetrics.InFlightExecutions > 0)
-                {
-                    queueStatus.ModelUtilizationPercent = (int)Math.Min(100, 
-                        (mxMetrics.InFlightExecutions / 4.0) * 100.0);
-                }
-                else
-                {
-                    queueStatus.ModelUtilizationPercent = 0;
-                }
+                queueStatus.ModelUtilizationPercent = mxMetrics.InFlightExecutions > 0
+                    ? (int)Math.Min(100, (mxMetrics.InFlightExecutions / 4.0) * 100.0)
+                    : 0;
             }
 
-            // TODO: Populate TopItems and AllPendingItems from IModelQueue
-            // This requires additional methods on IModelQueue to fetch request details
-            // For now, populate placeholder data
             queueStatus.TopItems = [];
             queueStatus.AllPendingItems = [];
 
@@ -338,10 +311,9 @@ public sealed class DashboardService : IDashboardService, IDisposable
 
     private async Task<IndexingStatus> CollectIndexingStatusAsync(CancellationToken cancellationToken)
     {
-        // Placeholder implementation
-        // Will integrate with IKnowledgeFileOrchestrationService when available
+        // Placeholder - integrates with IKnowledgeFileOrchestrationService
         await Task.CompletedTask;
-        
+
         return new IndexingStatus
         {
             IsIndexing = false,
@@ -354,35 +326,177 @@ public sealed class DashboardService : IDashboardService, IDisposable
         };
     }
 
+    /// <summary>
+    /// Collects agent activity from active executions via IAgentManager.
+    /// Implements CT-REQ-006: Agent Activity Display and Agent Metrics per Agent.
+    /// Uses IServiceScopeFactory to resolve the scoped IAgentManager from this singleton service.
+    /// </summary>
     private async Task<AgentStatus> CollectAgentStatusAsync(CancellationToken cancellationToken)
     {
-        // Placeholder implementation
-        // Will integrate with agent orchestration services when available
-        await Task.CompletedTask;
-        
-        return new AgentStatus
+        if (_scopeFactory == null)
         {
-            ActiveAgentCount = 0,
-            TotalIterations = 0,
-            TotalTokensUsed = 0,
-            Activities = []
-        };
+            return new AgentStatus { ActiveAgentCount = 0, TotalIterations = 0, TotalTokensUsed = 0, Activities = [] };
+        }
+
+        try
+        {
+            var activities = new List<IndividualAgentActivity>();
+
+            using var scope = _scopeFactory.CreateScope();
+            var agentManager = scope.ServiceProvider.GetService<IAgentManager>();
+
+            if (agentManager == null)
+                return new AgentStatus { Activities = [] };
+
+            var activeExecutions = agentManager.GetActiveExecutions();
+
+            foreach (var executionControl in activeExecutions)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Resolve agent details
+                Agent? agent = null;
+                try
+                {
+                    agent = await agentManager.GetAgentAsync(executionControl.AgentId, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Could not resolve agent {AgentId}", executionControl.AgentId);
+                }
+
+                // Get execution metrics snapshot from the singleton collector
+                AgentExecutionMetricsSnapshot? snapshot = null;
+                if (_metricsCollector != null)
+                    snapshot = _metricsCollector.GetMetricsSnapshot(executionControl.ExecutionId);
+
+                var state = executionControl.IsStopped ? "Stopped"
+                          : executionControl.IsPaused ? "Paused"
+                          : "Running";
+
+                var shortId = executionControl.AgentId.ToString("N")[..8];
+                activities.Add(new IndividualAgentActivity
+                {
+                    AgentId = executionControl.AgentId.ToString(),
+                    AgentName = agent?.Name ?? $"Agent-{shortId}",
+                    CurrentTask = null, // Will be populated when execution carries task goal (future)
+                    State = state,
+                    StatusDetail = state,
+                    IterationCount = snapshot?.TotalIterations ?? 0,
+                    TokensUsed = snapshot?.TotalTokensConsumed ?? 0,
+                    StartTime = snapshot?.StartedAt,
+                    ElapsedTime = snapshot?.TotalDuration ?? TimeSpan.Zero,
+                    LastExecutedAt = snapshot?.StartedAt
+                });
+            }
+
+            return new AgentStatus
+            {
+                ActiveAgentCount = activities.Count,
+                TotalIterations = activities.Sum(a => a.IterationCount),
+                TotalTokensUsed = activities.Sum(a => a.TokensUsed),
+                Activities = activities
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error collecting agent status");
+            return new AgentStatus { Activities = [] };
+        }
     }
 
+    /// <summary>
+    /// Collects system resource metrics.
+    /// Implements CT-REQ-006: System Resource Metrics (CPU, Memory, Disk).
+    /// </summary>
     private SystemResourceMetrics CollectSystemResourceMetrics()
     {
-        // Placeholder implementation
-        // Will integrate with Windows Performance Counters for real metrics
-        return new SystemResourceMetrics
+        if (_systemMetrics == null)
         {
-            CpuUtilizationPercent = 0,
-            MemoryAvailablePercent = 100,
-            GpuUtilizationPercent = null,
-            NpuUtilizationPercent = null,
-            AvailableDiskBytes = 0,
-            TotalDiskBytes = 1,
-            ProcessMemoryBytes = 0
-        };
+            return new SystemResourceMetrics
+            {
+                CpuCoreCount = Environment.ProcessorCount,
+                ActiveExecutionProvider = "CPU"
+            };
+        }
+
+        try
+        {
+            var cpuPercent = _systemMetrics.GetCpuUtilizationPercent();
+            var (memUsed, memTotal) = _systemMetrics.GetSystemMemory();
+            var (diskAvail, diskTotal) = _systemMetrics.GetDiskInfo();
+            var processMem = _systemMetrics.GetProcessMemoryBytes();
+
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var knowledgeSize = _systemMetrics.GetDirectorySize(Path.Combine(localAppData, "Daiv3", "knowledge"));
+            var modelSize = _systemMetrics.GetDirectorySize(Path.Combine(localAppData, "Daiv3", "models"));
+
+            var memAvailPercent = memTotal > 0
+                ? ((memTotal - memUsed) * 100.0 / memTotal)
+                : 100.0;
+
+            return new SystemResourceMetrics
+            {
+                CpuUtilizationPercent = cpuPercent,
+                MemoryAvailablePercent = memAvailPercent,
+                MemoryUsedBytes = memUsed,
+                MemoryTotalBytes = memTotal,
+                GpuUtilizationPercent = null,   // Pending HW-NFR-002
+                NpuUtilizationPercent = null,   // Pending HW-NFR-002
+                AvailableDiskBytes = diskAvail,
+                TotalDiskBytes = diskTotal,
+                ProcessMemoryBytes = processMem,
+                ActiveExecutionProvider = "CPU",  // Pending HW-NFR-002
+                CpuCoreCount = Environment.ProcessorCount,
+                KnowledgeBaseSizeBytes = knowledgeSize,
+                ModelCacheSizeBytes = modelSize
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error collecting system resource metrics");
+            return new SystemResourceMetrics
+            {
+                CpuCoreCount = Environment.ProcessorCount,
+                ActiveExecutionProvider = "CPU"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Computes resource alert state from collected metrics.
+    /// Implements CT-REQ-006: Resource Alerts (CPU >85%, Memory >80%, Disk &lt;1GB).
+    /// </summary>
+    private static ResourceAlerts ComputeResourceAlerts(SystemResourceMetrics resources)
+    {
+        var alerts = new ResourceAlerts();
+
+        if (resources.CpuUtilizationPercent > 85)
+        {
+            alerts.HasHighCpuAlert = true;
+            alerts.AlertMessages.Add($"High CPU: {resources.CpuUtilizationPercent:F0}% (threshold: 85%)");
+        }
+
+        if (resources.MemoryTotalBytes > 0 && resources.MemoryUtilizationPercent > 80)
+        {
+            alerts.HasHighMemoryAlert = true;
+            alerts.AlertMessages.Add($"High Memory: {resources.MemoryUtilizationPercent:F0}% used (threshold: 80%)");
+        }
+
+        const long oneGb = 1024L * 1024 * 1024;
+        if (resources.AvailableDiskBytes > 0 && resources.AvailableDiskBytes < oneGb)
+        {
+            alerts.HasLowDiskAlert = true;
+            var freeMb = resources.AvailableDiskBytes / (1024.0 * 1024);
+            alerts.AlertMessages.Add($"Low Disk: {freeMb:F0} MB free (threshold: 1 GB)");
+        }
+
+        return alerts;
     }
 
     private DashboardData CreateErrorData(string errorMessage)
@@ -409,8 +523,6 @@ public sealed class DashboardService : IDashboardService, IDisposable
 
         _monitoringCts?.Cancel();
         _monitoringCts?.Dispose();
-        // Note: Don't dispose _monitoringTask - it will be cancelled by CTS cancellation
-        // Disposing a task that hasn't completed will throw InvalidOperationException
 
         _disposed = true;
     }
