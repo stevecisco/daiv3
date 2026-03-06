@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add Docs/Requirements/Master-Implementation-Tracker.md src/Daiv3.App.Cli/Program.cs src/Daiv3.App.Maui/MauiProgram.cs src/Daiv3.App.Maui/Models/DashboardData.cs src/Daiv3.App.Maui/Pages/DashboardPage.xaml src/Daiv3.App.Maui/Services/DashboardService.cs src/Daiv3.App.Maui/Services/ISystemMetricsService.cs src/Daiv3.App.Maui/Services/SystemMetricsService.cs src/Daiv3.App.Maui/ViewModels/DashboardViewModel.cs tests/unit/Daiv3.App.Maui.Tests/AgentActivityDashboardTests.cs)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

@@ -79,9 +79,39 @@ TASK QUEUE:
   Completed Tasks: 0
   Current Activity: Ready for tasks
 
-NOTE: Full hardware detection and queue monitoring pending integration.
+NOTE: Full hardware detection pending integration.
       Use 'db status' to check database, 'projects list' for projects.
 ```
+
+### Show System Admin Dashboard (CT-REQ-010)
+```bash
+.\run-cli.bat dashboard admin
+```
+Displays infrastructure metrics (CPU, memory, storage, queue, and agent workload).
+
+### Show System Admin Dashboard as JSON
+```bash
+.\run-cli.bat dashboard admin --json
+```
+Outputs the latest snapshot as structured JSON for automation.
+
+### Watch Live Admin Metrics
+```bash
+.\run-cli.bat dashboard admin --watch
+```
+Refreshes metrics every 3 seconds until `Ctrl+C`.
+
+### Show 24-Hour Admin Trends
+```bash
+.\run-cli.bat dashboard admin --history
+```
+Shows min/avg/max trends over the last 24 hours using persisted snapshots.
+
+### Show 24-Hour Admin Trends as JSON
+```bash
+.\run-cli.bat dashboard admin --history --json
+```
+Outputs the 24-hour trend summary in JSON format.
 
 ---
 

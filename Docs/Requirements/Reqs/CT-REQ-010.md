@@ -273,18 +273,18 @@ public record CpuMetrics(
   - `services.AddSingleton<IAdminDashboardService, AdminDashboardService>()`
   - `builder.Services.AddSingleton<AdminDashboardViewModel>()`
 
-### Phase 2: MAUI UI (Planned for next session)
-- [ ] `AdminDashboardPage.xaml` - MAUI UI page
-- [ ] Gauges/ProgressBars for CPU, memory, GPU, disk
-- [ ] Alert banner display
-- [ ] Metrics table view for details
-- [ ] Refresh/polling controls
+### Phase 2: MAUI UI ✅ COMPLETE
+- [x] `AdminDashboardPage.xaml` - MAUI UI page
+- [x] Gauges/ProgressBars for CPU, memory, GPU, disk
+- [x] Alert banner display
+- [x] Metrics table view for details
+- [x] Refresh/polling controls
 
-### Phase 3: CLI Commands (Planned for next session)
-- [ ] `daiv3 dashboard admin` - Display current metrics
-- [ ] `daiv3 dashboard admin --json` - JSON output
-- [ ] `daiv3 dashboard admin --watch` - Continuous refresh
-- [ ] `daiv3 dashboard admin --history` - Trend analysis
+### Phase 3: CLI Commands ✅ COMPLETE
+- [x] `daiv3 dashboard admin` - Display current metrics
+- [x] `daiv3 dashboard admin --json` - JSON output
+- [x] `daiv3 dashboard admin --watch` - Continuous refresh
+- [x] `daiv3 dashboard admin --history` - 24-hour trend summary from persisted snapshots
 
 ### Phase 4: Advanced Features (Post-MVP)
 - [ ] Per-model storage breakdown (model storage metrics)
@@ -295,23 +295,27 @@ public record CpuMetrics(
 - [ ] Custom threshold configuration UI
 
 ### Test Summary (2026-03-05)
-- **Unit Tests Created:** AdminDashboardServiceTests.cs
-  - 16 comprehensive tests covering:
-    - Metrics collection (CPU, memory, storage)
-    - Alert computation and thresholds
-    - Metrics history and filtering
-    - Polling start/stop lifecycle
-    - Event notification integration
+- **MAUI Unit Tests:** AdminDashboardServiceTests.cs
+  - 16 comprehensive tests covering metrics collection, alerts, history, polling lifecycle, and events
   - **Result:** ✅ 16/16 tests passing
-  - **Full MAUI Test Suite:** ✅ 151/151 tests passing (no regressions)
+- **CLI Unit Tests:** Daiv3.App.Cli.Tests
+  - Added `AdminDashboardCliHistoryTests` for 24-hour trend summary calculations
+  - **Result:** ✅ 16/16 tests passing in CLI test project
+- **Full MAUI Test Suite:** ✅ 151/151 tests passing (no regressions)
+- **Solution Regression Gate:** ⚠️ `dotnet test Daiv3.FoundryLocal.slnx` reports 1 unrelated timing failure in `Daiv3.ModelExecution.Tests.OnlineProviderRouterParallelExecutionTests.ExecuteBatchAsync_ParallelEnabled_ExecutesDifferentProvidersConcurrently` (expected <350ms, observed 359ms)
 
 ### Files Modified/Created
-- ✅ src/Daiv3.App.Maui/Models/AdminDashboardMetrics.cs (NEW - 120 LOC)
-- ✅ src/Daiv3.App.Maui/Services/IAdminDashboardService.cs (NEW - 40 LOC)
-- ✅ src/Daiv3.App.Maui/Services/AdminDashboardService.cs (NEW - 500+ LOC)
-- ✅ src/Daiv3.App.Maui/ViewModels/AdminDashboardViewModel.cs (NEW - 250+ LOC)
-- ✅ src/Daiv3.App.Maui/MauiProgram.cs (MODIFIED - added DI registration)
-- ✅ tests/unit/Daiv3.App.Maui.Tests/AdminDashboardServiceTests.cs (NEW - 300+ LOC)
+- ✅ src/Daiv3.App.Maui/Models/AdminDashboardMetrics.cs (NEW)
+- ✅ src/Daiv3.App.Maui/Services/IAdminDashboardService.cs (NEW)
+- ✅ src/Daiv3.App.Maui/Services/AdminDashboardService.cs (NEW)
+- ✅ src/Daiv3.App.Maui/ViewModels/AdminDashboardViewModel.cs (ENHANCED)
+- ✅ src/Daiv3.App.Maui/Pages/AdminDashboardPage.xaml (NEW)
+- ✅ src/Daiv3.App.Maui/Pages/AdminDashboardPage.xaml.cs (NEW)
+- ✅ src/Daiv3.App.Maui/AppShell.xaml (MODIFIED - admin tab)
+- ✅ src/Daiv3.App.Cli/Program.cs (MODIFIED - dashboard admin CLI command)
+- ✅ src/Daiv3.App.Cli/AdminDashboardCliModels.cs (NEW - snapshot and trend models)
+- ✅ tests/unit/Daiv3.App.Maui.Tests/AdminDashboardServiceTests.cs (NEW)
+- ✅ tests/unit/Daiv3.App.Cli.Tests/AdminDashboardCliHistoryTests.cs (NEW)
 
 ### Known Limitations (MVP 1.0)
 1. Per-core CPU metrics are simulated (Windows doesn't expose easily)
@@ -321,9 +325,8 @@ public record CpuMetrics(
 5. Temperature data requires WMI or hardware sensor integration
 
 ### Next Steps
-1. **UI Implementation** - Create AdminDashboardPage.xaml with gauges and controls
-2. **CLI Commands** - Implement `daiv3 dashboard admin` subcommands
-3. **Configuration UI** - Settings page for threshold customization
-4. **Integration Tests** - Test with real database and services
-5. **Performance Optimization** - Profile metrics collection on high load
+1. **Integration Tests** - Add CT-REQ-010 integration coverage for CLI history persistence and service wiring
+2. **Configuration UI** - Settings page for threshold customization
+3. **Advanced Metrics** - Per-model storage, GPU process list, and thermal telemetry
+4. **Performance Optimization** - Profile metrics collection and watch-mode overhead under load
 

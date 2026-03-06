@@ -1,20 +1,23 @@
 using System.CommandLine;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using System.Text.Json;
+using Daiv3.Core.Settings;
+using Daiv3.Infrastructure.Shared.Hardware;
 using Daiv3.Infrastructure.Shared.Logging;
-using Daiv3.Persistence;
-using Daiv3.Persistence.Entities;
-using Daiv3.Persistence.Repositories;
 using Daiv3.Knowledge;
 using Daiv3.Knowledge.Embedding;
-using Daiv3.Scheduler;
+using Daiv3.ModelExecution;
+using Daiv3.ModelExecution.Interfaces;
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Configuration;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Models;
-using Daiv3.ModelExecution;
-using Daiv3.Core.Settings;
+using Daiv3.Persistence;
+using Daiv3.Persistence.Entities;
+using Daiv3.Persistence.Repositories;
+using Daiv3.Scheduler;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Daiv3.App.Cli;
 
@@ -80,6 +83,31 @@ public class Program
             Environment.Exit(exitCode);
         });
         dashboardCommand.AddCommand(dashboardResourcesCommand);
+
+        // dashboard admin subcommand (CT-REQ-010: System admin dashboard)
+        var dashboardAdminCommand = new Command("admin", "Show system admin dashboard metrics");
+        var adminJsonOption = new Option<bool>(
+            aliases: new[] { "--json" },
+            description: "Output metrics as JSON",
+            getDefaultValue: () => false);
+        var adminWatchOption = new Option<bool>(
+            aliases: new[] { "--watch" },
+            description: "Continuously refresh metrics every 3 seconds",
+            getDefaultValue: () => false);
+        var adminHistoryOption = new Option<bool>(
+            aliases: new[] { "--history" },
+            description: "Show 24-hour trend summary from persisted snapshots",
+            getDefaultValue: () => false);
+        dashboardAdminCommand.AddOption(adminJsonOption);
+        dashboardAdminCommand.AddOption(adminWatchOption);
+        dashboardAdminCommand.AddOption(adminHistoryOption);
+        dashboardAdminCommand.SetHandler(async (bool json, bool watch, bool history) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await DashboardAdminCommand(host, json, watch, history);
+            Environment.Exit(exitCode);
+        }, adminJsonOption, adminWatchOption, adminHistoryOption);
+        dashboardCommand.AddCommand(dashboardAdminCommand);
 
         rootCommand.AddCommand(dashboardCommand);
 
@@ -1463,6 +1491,327 @@ public class Program
         {
             Console.WriteLine($"✗ Failed to display resource dashboard: {ex.Message}");
             return 1;
+        }
+    }
+
+    private static async Task<int> DashboardAdminCommand(IHost host, bool asJson, bool watch, bool history)
+    {
+        try
+        {
+            if (watch && history)
+            {
+                Console.WriteLine("✗ --watch and --history cannot be used together.");
+                return 1;
+            }
+
+            if (history)
+            {
+                return await DashboardAdminHistoryCommand(asJson).ConfigureAwait(false);
+            }
+
+            if (watch)
+            {
+                return await DashboardAdminWatchCommand(host, asJson).ConfigureAwait(false);
+            }
+
+            var snapshot = await CollectAdminDashboardSnapshotAsync(host).ConfigureAwait(false);
+            await AppendDashboardSnapshotAsync(snapshot).ConfigureAwait(false);
+            PrintDashboardAdminSnapshot(snapshot, asJson);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display admin dashboard: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> DashboardAdminWatchCommand(IHost host, bool asJson)
+    {
+        using var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            cts.Cancel();
+        };
+
+        Console.WriteLine("Starting admin dashboard watch mode (refresh every 3 seconds). Press Ctrl+C to stop.");
+
+        while (!cts.IsCancellationRequested)
+        {
+            var snapshot = await CollectAdminDashboardSnapshotAsync(host).ConfigureAwait(false);
+            await AppendDashboardSnapshotAsync(snapshot).ConfigureAwait(false);
+
+            if (!asJson)
+            {
+                Console.Clear();
+                Console.WriteLine($"Last refresh: {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}");
+                Console.WriteLine();
+            }
+
+            PrintDashboardAdminSnapshot(snapshot, asJson);
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3), cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+
+        return 0;
+    }
+
+    private static async Task<int> DashboardAdminHistoryCommand(bool asJson)
+    {
+        var snapshots = await LoadDashboardSnapshotsAsync().ConfigureAwait(false);
+        var summary = AdminDashboardCliHistory.BuildSummary(snapshots, DateTimeOffset.UtcNow);
+
+        if (asJson)
+        {
+            var payload = new
+            {
+                WindowHours = 24,
+                summary.WindowStartUtc,
+                summary.WindowEndUtc,
+                summary.SampleCount,
+                summary.CpuPercent,
+                summary.MemoryPercent,
+                summary.QueueDepth,
+                summary.DiskFreeGb
+            };
+            Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+            return 0;
+        }
+
+        Console.WriteLine("═══════════════════════════════════════════════════════════");
+        Console.WriteLine("         DAIV3 ADMIN DASHBOARD HISTORY (24 HOURS)         ");
+        Console.WriteLine("═══════════════════════════════════════════════════════════");
+        Console.WriteLine();
+        Console.WriteLine($"Window: {summary.WindowStartUtc:yyyy-MM-dd HH:mm:ss} UTC to {summary.WindowEndUtc:yyyy-MM-dd HH:mm:ss} UTC");
+        Console.WriteLine($"Samples: {summary.SampleCount}");
+        Console.WriteLine();
+
+        if (summary.SampleCount == 0)
+        {
+            Console.WriteLine("No snapshots available yet. Run 'dashboard admin' or 'dashboard admin --watch' to collect metrics.");
+            return 0;
+        }
+
+        Console.WriteLine("CPU % (min/avg/max):");
+        Console.WriteLine($"  {summary.CpuPercent.Min:F1} / {summary.CpuPercent.Avg:F1} / {summary.CpuPercent.Max:F1}");
+        Console.WriteLine("Memory % (min/avg/max):");
+        Console.WriteLine($"  {summary.MemoryPercent.Min:F1} / {summary.MemoryPercent.Avg:F1} / {summary.MemoryPercent.Max:F1}");
+        Console.WriteLine("Queue Depth (min/avg/max):");
+        Console.WriteLine($"  {summary.QueueDepth.Min:F0} / {summary.QueueDepth.Avg:F1} / {summary.QueueDepth.Max:F0}");
+        Console.WriteLine("Disk Free GB (min/avg/max):");
+        Console.WriteLine($"  {summary.DiskFreeGb.Min:F2} / {summary.DiskFreeGb.Avg:F2} / {summary.DiskFreeGb.Max:F2}");
+
+        return 0;
+    }
+
+    private static async Task<AdminDashboardCliSnapshot> CollectAdminDashboardSnapshotAsync(IHost host)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        // Process-level CPU estimate sampled over a short window.
+        var proc = System.Diagnostics.Process.GetCurrentProcess();
+        var cpuStart = proc.TotalProcessorTime;
+        var wallStart = DateTime.UtcNow;
+        await Task.Delay(200).ConfigureAwait(false);
+        proc.Refresh();
+        var cpuEnd = proc.TotalProcessorTime;
+        var wallEnd = DateTime.UtcNow;
+
+        var wallMs = Math.Max(1.0, (wallEnd - wallStart).TotalMilliseconds);
+        var cpuMs = (cpuEnd - cpuStart).TotalMilliseconds;
+        var cpuPercent = Math.Clamp((cpuMs / (wallMs * Environment.ProcessorCount)) * 100.0, 0.0, 100.0);
+
+        var gcInfo = GC.GetGCMemoryInfo();
+        var totalSystemMemBytes = gcInfo.TotalAvailableMemoryBytes;
+        var usedSystemMemBytes = Math.Max(0, totalSystemMemBytes - gcInfo.MemoryLoadBytes);
+        var memoryPercent = totalSystemMemBytes > 0
+            ? Math.Clamp((double)usedSystemMemBytes / totalSystemMemBytes * 100.0, 0.0, 100.0)
+            : 0.0;
+
+        var systemDrive = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) ?? "C:\\";
+        var driveInfo = new DriveInfo(systemDrive);
+        var totalGb = driveInfo.TotalSize / (1024.0 * 1024 * 1024);
+        var freeGb = driveInfo.AvailableFreeSpace / (1024.0 * 1024 * 1024);
+        var usedGb = Math.Max(0.0, totalGb - freeGb);
+        var diskUsedPercent = totalGb > 0 ? Math.Clamp(usedGb / totalGb * 100.0, 0.0, 100.0) : 0.0;
+
+        var appDataBase = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Daiv3");
+        var knowledgeBytes = GetDirectorySizeBytes(Path.Combine(appDataBase, "knowledge"));
+        var modelCacheBytes = GetDirectorySizeBytes(Path.Combine(appDataBase, "models"));
+
+        var hardware = host.Services.GetService<IHardwareDetectionProvider>();
+        var tiers = hardware?.GetAvailableTiers() ?? Array.Empty<HardwareAccelerationTier>();
+        var isGpuAvailable = tiers.Contains(HardwareAccelerationTier.Gpu);
+        var isNpuAvailable = tiers.Contains(HardwareAccelerationTier.Npu);
+        var activeProvider = hardware?.GetBestAvailableTier().ToString() ?? "Cpu";
+
+        var queue = host.Services.GetService<IModelQueue>();
+        var queueStatus = queue is null ? null : await queue.GetQueueStatusAsync().ConfigureAwait(false);
+        var queueTotal = queueStatus is null
+            ? 0
+            : queueStatus.ImmediateCount + queueStatus.NormalCount + queueStatus.BackgroundCount;
+
+        var agentManager = host.Services.GetService<IAgentManager>();
+        var activeAgents = agentManager?.GetActiveExecutions().Count ?? 0;
+        var registeredAgents = agentManager is null
+            ? 0
+            : (await agentManager.ListAgentsAsync(ct: CancellationToken.None).ConfigureAwait(false)).Count;
+
+        return new AdminDashboardCliSnapshot(
+            TimestampUtc: now,
+            CpuPercent: cpuPercent,
+            MemoryPercent: memoryPercent,
+            DiskUsedPercent: diskUsedPercent,
+            DiskFreeGb: freeGb,
+            IsGpuAvailable: isGpuAvailable,
+            IsNpuAvailable: isNpuAvailable,
+            ActiveExecutionProvider: activeProvider,
+            QueueTotal: queueTotal,
+            QueueImmediate: queueStatus?.ImmediateCount ?? 0,
+            QueueNormal: queueStatus?.NormalCount ?? 0,
+            QueueBackground: queueStatus?.BackgroundCount ?? 0,
+            ActiveAgents: activeAgents,
+            RegisteredAgents: registeredAgents,
+            KnowledgeBaseBytes: knowledgeBytes,
+            ModelCacheBytes: modelCacheBytes);
+    }
+
+    private static void PrintDashboardAdminSnapshot(AdminDashboardCliSnapshot snapshot, bool asJson)
+    {
+        if (asJson)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+            return;
+        }
+
+        Console.WriteLine("═══════════════════════════════════════════════════════════");
+        Console.WriteLine("            DAIV3 SYSTEM ADMIN DASHBOARD (CT-REQ-010)     ");
+        Console.WriteLine("═══════════════════════════════════════════════════════════");
+        Console.WriteLine();
+        Console.WriteLine($"Updated: {snapshot.TimestampUtc:yyyy-MM-dd HH:mm:ss} UTC");
+        Console.WriteLine();
+
+        Console.WriteLine("INFRASTRUCTURE:");
+        Console.WriteLine($"  CPU Utilization:      {snapshot.CpuPercent:F1}%");
+        Console.WriteLine($"  Memory Utilization:   {snapshot.MemoryPercent:F1}%");
+        Console.WriteLine($"  Disk Utilization:     {snapshot.DiskUsedPercent:F1}% used ({snapshot.DiskFreeGb:F2} GB free)");
+        Console.WriteLine($"  Execution Provider:   {snapshot.ActiveExecutionProvider}");
+        Console.WriteLine($"  GPU Available:        {(snapshot.IsGpuAvailable ? "Yes" : "No")}");
+        Console.WriteLine($"  NPU Available:        {(snapshot.IsNpuAvailable ? "Yes" : "No")}");
+        Console.WriteLine();
+
+        Console.WriteLine("QUEUE STATUS:");
+        Console.WriteLine($"  Total:                {snapshot.QueueTotal}");
+        Console.WriteLine($"  Immediate:            {snapshot.QueueImmediate}");
+        Console.WriteLine($"  Normal:               {snapshot.QueueNormal}");
+        Console.WriteLine($"  Background:           {snapshot.QueueBackground}");
+        Console.WriteLine();
+
+        Console.WriteLine("AGENT WORKLOAD:");
+        Console.WriteLine($"  Active Agents:        {snapshot.ActiveAgents}");
+        Console.WriteLine($"  Registered Agents:    {snapshot.RegisteredAgents}");
+        Console.WriteLine();
+
+        Console.WriteLine("STORAGE:");
+        Console.WriteLine($"  Knowledge Base:       {FormatBytes(snapshot.KnowledgeBaseBytes)}");
+        Console.WriteLine($"  Model Cache:          {FormatBytes(snapshot.ModelCacheBytes)}");
+        Console.WriteLine();
+
+        Console.WriteLine("Hints: --json for structured output, --watch for live updates, --history for 24h trends.");
+    }
+
+    private static string GetDashboardHistoryPath()
+    {
+        var appDataBase = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Daiv3",
+            "metrics");
+        Directory.CreateDirectory(appDataBase);
+        return Path.Combine(appDataBase, "admin-dashboard-history.jsonl");
+    }
+
+    private static async Task<List<AdminDashboardCliSnapshot>> LoadDashboardSnapshotsAsync()
+    {
+        var path = GetDashboardHistoryPath();
+        if (!File.Exists(path))
+        {
+            return new List<AdminDashboardCliSnapshot>();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var cutoff = now.AddHours(-24);
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var snapshots = new List<AdminDashboardCliSnapshot>();
+
+        foreach (var line in await File.ReadAllLinesAsync(path).ConfigureAwait(false))
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            try
+            {
+                var snapshot = JsonSerializer.Deserialize<AdminDashboardCliSnapshot>(line, options);
+                if (snapshot is not null && snapshot.TimestampUtc >= cutoff)
+                {
+                    snapshots.Add(snapshot);
+                }
+            }
+            catch
+            {
+                // Ignore malformed lines to keep history resilient.
+            }
+        }
+
+        // Re-write a trimmed file so history remains bounded to recent samples.
+        var rewritten = snapshots
+            .OrderBy(s => s.TimestampUtc)
+            .Select(s => JsonSerializer.Serialize(s));
+        await File.WriteAllLinesAsync(path, rewritten).ConfigureAwait(false);
+
+        return snapshots;
+    }
+
+    private static async Task AppendDashboardSnapshotAsync(AdminDashboardCliSnapshot snapshot)
+    {
+        var snapshots = await LoadDashboardSnapshotsAsync().ConfigureAwait(false);
+        snapshots.Add(snapshot);
+
+        var path = GetDashboardHistoryPath();
+        var lines = snapshots
+            .OrderBy(s => s.TimestampUtc)
+            .Select(s => JsonSerializer.Serialize(s));
+        await File.WriteAllLinesAsync(path, lines).ConfigureAwait(false);
+    }
+
+    private static long GetDirectorySizeBytes(string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path))
+            {
+                return 0;
+            }
+
+            return Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Sum(f =>
+            {
+                try { return new FileInfo(f).Length; } catch { return 0L; }
+            });
+        }
+        catch
+        {
+            return 0;
         }
     }
 
