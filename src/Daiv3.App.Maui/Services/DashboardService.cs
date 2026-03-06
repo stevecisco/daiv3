@@ -12,6 +12,7 @@ namespace Daiv3.App.Maui.Services;
 /// Implementation of IDashboardService for real-time dashboard telemetry.
 /// Implements CT-REQ-003: The system SHALL provide a real-time transparency dashboard.
 /// Implements CT-REQ-006: Agent activity, iterations, token usage, and system resource metrics.
+/// Implements CT-REQ-007: Online token usage and budget status display.
 /// Supports CT-NFR-001: Async/await patterns with debouncing to prevent UI blocking.
 /// </summary>
 public sealed class DashboardService : IDashboardService, IDisposable
@@ -21,6 +22,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
     private readonly IServiceScopeFactory? _scopeFactory;
     private readonly AgentExecutionMetricsCollector? _metricsCollector;
     private readonly ISystemMetricsService? _systemMetrics;
+    private readonly IOnlineProviderRouter? _onlineProviderRouter;
     private readonly DashboardConfiguration _configuration;
 
     private CancellationTokenSource? _monitoringCts;
@@ -39,13 +41,15 @@ public sealed class DashboardService : IDashboardService, IDisposable
     /// <param name="scopeFactory">Optional service scope factory for resolving scoped services (e.g. IAgentManager).</param>
     /// <param name="metricsCollector">Optional singleton agent execution metrics collector.</param>
     /// <param name="systemMetrics">Optional system metrics service for real CPU/memory/disk data.</param>
+    /// <param name="onlineProviderRouter">Optional online provider router for token usage tracking (CT-REQ-007).</param>
     public DashboardService(
         ILogger<DashboardService> logger,
         IModelQueue? modelQueue = null,
         DashboardConfiguration? configuration = null,
         IServiceScopeFactory? scopeFactory = null,
         AgentExecutionMetricsCollector? metricsCollector = null,
-        ISystemMetricsService? systemMetrics = null)
+        ISystemMetricsService? systemMetrics = null,
+        IOnlineProviderRouter? onlineProviderRouter = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _modelQueue = modelQueue;
@@ -54,12 +58,14 @@ public sealed class DashboardService : IDashboardService, IDisposable
         _scopeFactory = scopeFactory;
         _metricsCollector = metricsCollector;
         _systemMetrics = systemMetrics;
+        _onlineProviderRouter = onlineProviderRouter;
 
         _logger.LogInformation(
-            "DashboardService initialized: RefreshMs={RefreshMs}, AgentManager={HasAgent}, SystemMetrics={HasMetrics}",
+            "DashboardService initialized: RefreshMs={RefreshMs}, AgentManager={HasAgent}, SystemMetrics={HasMetrics}, OnlineRouter={HasOnline}",
             _configuration.RefreshIntervalMs,
             _scopeFactory != null,
-            _systemMetrics != null);
+            _systemMetrics != null,
+            _onlineProviderRouter != null);
     }
 
     /// <inheritdoc />
@@ -220,6 +226,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
 
         data.Hardware = CollectHardwareStatus();
         data.Queue = await CollectQueueStatusAsync(cancellationToken).ConfigureAwait(false);
+        data.OnlineUsage = await CollectOnlineProviderUsageAsync(cancellationToken).ConfigureAwait(false);
         data.Indexing = await CollectIndexingStatusAsync(cancellationToken).ConfigureAwait(false);
         data.Agent = await CollectAgentStatusAsync(cancellationToken).ConfigureAwait(false);
         data.SystemResources = CollectSystemResourceMetrics();
@@ -497,6 +504,107 @@ public sealed class DashboardService : IDashboardService, IDisposable
         }
 
         return alerts;
+    }
+
+    /// <summary>
+    /// Collects online provider token usage and budget status.
+    /// Implements CT-REQ-007: The dashboard SHALL display online token usage and budget status.
+    /// </summary>
+    private async Task<OnlineProviderUsage> CollectOnlineProviderUsageAsync(CancellationToken cancellationToken)
+    {
+        if (_onlineProviderRouter == null)
+        {
+            return new OnlineProviderUsage
+            {
+                HasOnlineProviders = false,
+                HasActiveUsage = false,
+                Providers = []
+            };
+        }
+
+        try
+        {
+            var providerNames = await _onlineProviderRouter.ListProvidersAsync().ConfigureAwait(false);
+
+            if (providerNames.Count == 0)
+            {
+                return new OnlineProviderUsage
+                {
+                    HasOnlineProviders = false,
+                    HasActiveUsage = false,
+                    Providers = []
+                };
+            }
+
+            var providerSummaries = new List<ProviderUsageSummary>();
+            var hasActiveUsage = false;
+
+            foreach (var providerName in providerNames)
+            {
+                try
+                {
+                    var usage = await _onlineProviderRouter.GetTokenUsageAsync(providerName, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    var summary = new ProviderUsageSummary
+                    {
+                        ProviderName = usage.ProviderName,
+                        DisplayName = GetProviderDisplayName(usage.ProviderName),
+                        DailyInputTokens = usage.DailyInputTokens,
+                        DailyOutputTokens = usage.DailyOutputTokens,
+                        MonthlyInputTokens = usage.MonthlyInputTokens,
+                        MonthlyOutputTokens = usage.MonthlyOutputTokens,
+                        DailyInputLimit = usage.DailyInputLimit,
+                        DailyOutputLimit = usage.DailyOutputLimit,
+                        MonthlyInputLimit = usage.MonthlyInputLimit,
+                        MonthlyOutputLimit = usage.MonthlyOutputLimit,
+                        ResetDate = usage.ResetDate
+                    };
+
+                    providerSummaries.Add(summary);
+
+                    if (summary.DailyTotalTokens > 0 || summary.MonthlyTotalTokens > 0)
+                    {
+                        hasActiveUsage = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error collecting token usage for provider {Provider}", providerName);
+                }
+            }
+
+            return new OnlineProviderUsage
+            {
+                HasOnlineProviders = true,
+                HasActiveUsage = hasActiveUsage,
+                Providers = providerSummaries
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error collecting online provider usage");
+            return new OnlineProviderUsage
+            {
+                HasOnlineProviders = false,
+                HasActiveUsage = false,
+                Providers = []
+            };
+        }
+    }
+
+    /// <summary>
+    /// Converts provider names to friendly display names.
+    /// </summary>
+    private static string GetProviderDisplayName(string providerName)
+    {
+        return providerName?.ToLowerInvariant() switch
+        {
+            "openai" => "OpenAI",
+            "azure-openai" => "Azure OpenAI",
+            "anthropic" => "Claude (Anthropic)",
+            _ => providerName ?? "Unknown"
+        };
     }
 
     private DashboardData CreateErrorData(string errorMessage)

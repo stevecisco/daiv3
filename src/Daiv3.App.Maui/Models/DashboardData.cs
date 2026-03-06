@@ -43,6 +43,11 @@ public class DashboardData
     public ResourceAlerts Alerts { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets online provider token usage and budget status (CT-REQ-007).
+    /// </summary>
+    public OnlineProviderUsage OnlineUsage { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets any error messages encountered during data collection.
     /// Null means no errors.
     /// </summary>
@@ -499,4 +504,192 @@ public class ResourceAlerts
     /// Human-readable alert messages for display.
     /// </summary>
     public List<string> AlertMessages { get; set; } = [];
+}
+
+/// <summary>
+/// Online provider token usage and budget status (CT-REQ-007 data).
+/// Displays token usage versus budget per provider with daily/monthly tracking.
+/// </summary>
+public class OnlineProviderUsage
+{
+    /// <summary>
+    /// Whether any online providers are configured.
+    /// </summary>
+    public bool HasOnlineProviders { get; set; }
+
+    /// <summary>
+    /// Whether any online providers have active usage.
+    /// </summary>
+    public bool HasActiveUsage { get; set; }
+
+    /// <summary>
+    /// Per-provider token usage information.
+    /// </summary>
+    public List<ProviderUsageSummary> Providers { get; set; } = [];
+
+    /// <summary>
+    /// Total tokens consumed across all providers today.
+    /// </summary>
+    public long TotalDailyTokens => Providers.Sum(p => p.DailyInputTokens + p.DailyOutputTokens);
+
+    /// <summary>
+    /// Total tokens consumed across all providers this month.
+    /// </summary>
+    public long TotalMonthlyTokens => Providers.Sum(p => p.MonthlyInputTokens + p.MonthlyOutputTokens);
+
+    /// <summary>
+    /// Total budget remaining across all providers today.
+    /// </summary>
+    public long TotalDailyBudgetRemaining => Providers.Sum(p => p.DailyBudgetRemaining);
+
+    /// <summary>
+    /// Total budget remaining across all providers this month.
+    /// </summary>
+    public long TotalMonthlyBudgetRemaining => Providers.Sum(p => p.MonthlyBudgetRemaining);
+
+    /// <summary>
+    /// Gets the provider with highest usage percentage.
+    /// </summary>
+    public ProviderUsageSummary? HighestUsageProvider =>
+        Providers.OrderByDescending(p => p.HighestUsagePercent).FirstOrDefault();
+
+    /// <summary>
+    /// Gets whether any provider is near or over budget (>80% utilization).
+    /// </summary>
+    public bool HasBudgetAlert => Providers.Any(p => p.HighestUsagePercent >= 80);
+}
+
+/// <summary>
+/// Token usage summary for a single online provider.
+/// </summary>
+public class ProviderUsageSummary
+{
+    /// <summary>
+    /// Provider name (e.g., "openai", "azure-openai", "anthropic").
+    /// </summary>
+    public string ProviderName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Display name for UI (e.g., "OpenAI", "Azure OpenAI", "Claude").
+    /// </summary>
+    public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Input tokens used today.
+    /// </summary>
+    public int DailyInputTokens { get; set; }
+
+    /// <summary>
+    /// Output tokens used today.
+    /// </summary>
+    public int DailyOutputTokens { get; set; }
+
+    /// <summary>
+    /// Input tokens used this month.
+    /// </summary>
+    public int MonthlyInputTokens { get; set; }
+
+    /// <summary>
+    /// Output tokens used this month.
+    /// </summary>
+    public int MonthlyOutputTokens { get; set; }
+
+    /// <summary>
+    /// Daily input token limit (budget).
+    /// </summary>
+    public int DailyInputLimit { get; set; }
+
+    /// <summary>
+    /// Daily output token limit (budget).
+    /// </summary>
+    public int DailyOutputLimit { get; set; }
+
+    /// <summary>
+    /// Monthly input token limit (budget).
+    /// </summary>
+    public int MonthlyInputLimit { get; set; }
+
+    /// <summary>
+    /// Monthly output token limit (budget).
+    /// </summary>
+    public int MonthlyOutputLimit { get; set; }
+
+    /// <summary>
+    /// When the daily counters will reset (UTC).
+    /// </summary>
+    public DateTimeOffset ResetDate { get; set; }
+
+    /// <summary>
+    /// Gets total daily tokens (input + output).
+    /// </summary>
+    public int DailyTotalTokens => DailyInputTokens + DailyOutputTokens;
+
+    /// <summary>
+    /// Gets total monthly tokens (input + output).
+    /// </summary>
+    public int MonthlyTotalTokens => MonthlyInputTokens + MonthlyOutputTokens;
+
+    /// <summary>
+    /// Gets total daily limit (input + output).
+    /// </summary>
+    public int DailyTotalLimit => DailyInputLimit + DailyOutputLimit;
+
+    /// <summary>
+    /// Gets total monthly limit (input + output).
+    /// </summary>
+    public int MonthlyTotalLimit => MonthlyInputLimit + MonthlyOutputLimit;
+
+    /// <summary>
+    /// Gets daily budget remaining (input + output combined).
+    /// </summary>
+    public int DailyBudgetRemaining => Math.Max(0, DailyTotalLimit - DailyTotalTokens);
+
+    /// <summary>
+    /// Gets monthly budget remaining (input + output combined).
+    /// </summary>
+    public int MonthlyBudgetRemaining => Math.Max(0, MonthlyTotalLimit - MonthlyTotalTokens);
+
+    /// <summary>
+    /// Gets daily usage percentage (0-100).
+    /// </summary>
+    public double DailyUsagePercent =>
+        DailyTotalLimit > 0 ? (DailyTotalTokens * 100.0 / DailyTotalLimit) : 0;
+
+    /// <summary>
+    /// Gets monthly usage percentage (0-100).
+    /// </summary>
+    public double MonthlyUsagePercent =>
+        MonthlyTotalLimit > 0 ? (MonthlyTotalTokens * 100.0 / MonthlyTotalLimit) : 0;
+
+    /// <summary>
+    /// Gets the highest usage percentage between daily and monthly.
+    /// </summary>
+    public double HighestUsagePercent => Math.Max(DailyUsagePercent, MonthlyUsagePercent);
+
+    /// <summary>
+    /// Gets whether this provider is over budget (any limit exceeded).
+    /// </summary>
+    public bool IsOverBudget =>
+        DailyInputTokens >= DailyInputLimit ||
+        DailyOutputTokens >= DailyOutputLimit ||
+        MonthlyInputTokens >= MonthlyInputLimit ||
+        MonthlyOutputTokens >= MonthlyOutputLimit;
+
+    /// <summary>
+    /// Gets whether this provider is near budget (&gt;= 80% utilization).
+    /// </summary>
+    public bool IsNearBudget => HighestUsagePercent >= 80;
+
+    /// <summary>
+    /// Gets a status indicator: "Over Budget", "Near Budget", or "OK".
+    /// </summary>
+    public string BudgetStatus
+    {
+        get
+        {
+            if (IsOverBudget) return "Over Budget";
+            if (IsNearBudget) return "Near Budget";
+            return "OK";
+        }
+    }
 }

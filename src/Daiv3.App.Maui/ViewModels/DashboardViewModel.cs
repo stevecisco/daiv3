@@ -8,6 +8,7 @@ namespace Daiv3.App.Maui.ViewModels;
 /// ViewModel for the Status Dashboard.
 /// Implements CT-REQ-003: Real-time transparency dashboard.
 /// Implements CT-REQ-006: Agent activity, iterations, token usage, and system resource metrics.
+/// Implements CT-REQ-007: Online token usage and budget status display.
 /// Implements CT-NFR-001: Async/await patterns with debouncing for UI responsiveness.
 /// </summary>
 public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
@@ -330,6 +331,75 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
         set => SetProperty(ref _alertMessages, value);
     }
 
+    // ── Online Provider Usage Properties (CT-REQ-007) ─────────────────
+
+    private bool _hasOnlineProviders;
+    private bool _hasActiveUsage;
+    private List<ProviderUsageSummary> _providers = [];
+    private long _totalDailyTokens;
+    private long _totalMonthlyTokens;
+    private bool _hasBudgetAlert;
+
+    /// <summary>Whether any online providers are configured.</summary>
+    public bool HasOnlineProviders
+    {
+        get => _hasOnlineProviders;
+        set => SetProperty(ref _hasOnlineProviders, value);
+    }
+
+    /// <summary>Whether any online providers have active usage.</summary>
+    public bool HasActiveUsage
+    {
+        get => _hasActiveUsage;
+        set => SetProperty(ref _hasActiveUsage, value);
+    }
+
+    /// <summary>List of provider usage summaries.</summary>
+    public List<ProviderUsageSummary> Providers
+    {
+        get => _providers;
+        set => SetProperty(ref _providers, value);
+    }
+
+    /// <summary>Total tokens consumed today across all providers.</summary>
+    public long TotalDailyTokens
+    {
+        get => _totalDailyTokens;
+        set => SetProperty(ref _totalDailyTokens, value);
+    }
+
+    /// <summary>Total tokens consumed this month across all providers.</summary>
+    public long TotalMonthlyTokens
+    {
+        get => _totalMonthlyTokens;
+        set => SetProperty(ref _totalMonthlyTokens, value);
+    }
+
+    /// <summary>Whether any provider is near or over budget.</summary>
+    public bool HasBudgetAlert
+    {
+        get => _hasBudgetAlert;
+        set => SetProperty(ref _hasBudgetAlert, value);
+    }
+
+    /// <summary>Formatted total daily tokens for display.</summary>
+    public string TotalDailyTokensText =>
+        TotalDailyTokens switch
+        {
+            >= 1_000_000 => $"{TotalDailyTokens / 1_000_000.0:F1}M",
+            >= 1_000 => $"{TotalDailyTokens / 1_000.0:F1}K",
+            _ => $"{TotalDailyTokens}"
+        };
+
+    /// <summary>Formatted total monthly tokens for display.</summary>
+    public string TotalMonthlyTokensText =>
+        TotalMonthlyTokens switch
+        {
+            >= 1_000_000 => $"{TotalMonthlyTokens / 1_000_000.0:F1}M",
+            >= 1_000 => $"{TotalMonthlyTokens / 1_000.0:F1}K",
+            _ => $"{TotalMonthlyTokens}"
+        };
+
     // ── View Toggle Properties (CT-REQ-006 Dual Layout) ───────────────
 
     /// <summary>When true, the Agent Activity panel is visible.</summary>
@@ -531,6 +601,16 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
         HasHighMemoryAlert = data.Alerts.HasHighMemoryAlert;
         HasLowDiskAlert = data.Alerts.HasLowDiskAlert;
         AlertMessages = new List<string>(data.Alerts.AlertMessages);
+
+        // Online Provider Usage (CT-REQ-007)
+        HasOnlineProviders = data.OnlineUsage.HasOnlineProviders;
+        HasActiveUsage = data.OnlineUsage.HasActiveUsage;
+        Providers = new List<ProviderUsageSummary>(data.OnlineUsage.Providers);
+        TotalDailyTokens = data.OnlineUsage.TotalDailyTokens;
+        TotalMonthlyTokens = data.OnlineUsage.TotalMonthlyTokens;
+        HasBudgetAlert = data.OnlineUsage.HasBudgetAlert;
+        OnPropertyChanged(nameof(TotalDailyTokensText));
+        OnPropertyChanged(nameof(TotalMonthlyTokensText));
 
         // Status
         CurrentActivity = data.IsValid ? "Monitoring active" : $"Error: {data.CollectionError}";

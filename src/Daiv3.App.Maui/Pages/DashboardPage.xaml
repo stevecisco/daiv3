@@ -488,6 +488,183 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Online Provider Token Usage Section (CT-REQ-007) -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0"
+                    IsVisible="{Binding HasOnlineProviders}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Online Provider Token Usage"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+
+                    <!-- Budget Alert Banner -->
+                    <Border BackgroundColor="{AppThemeBinding Light=#FEF2F2, Dark=#1C0A0A}"
+                            Padding="10"
+                            StrokeShape="RoundRectangle 8"
+                            StrokeThickness="1"
+                            Stroke="#EF4444"
+                            IsVisible="{Binding HasBudgetAlert}">
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Text="⚠"
+                                   FontSize="16"
+                                   TextColor="#EF4444"
+                                   VerticalOptions="Center" />
+                            <Label Text="One or more providers are near or over budget"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="#EF4444"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
+
+                    <!-- No Active Usage Message -->
+                    <Label Text="No online usage yet. Online providers are configured but no tokens have been consumed."
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                           IsVisible="{Binding HasActiveUsage, Converter={StaticResource InverseBoolConverter}}"
+                           Margin="0,5,0,5" />
+
+                    <!-- Total Usage Summary -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10"
+                          IsVisible="{Binding HasActiveUsage}">
+                        <!-- Today's Total -->
+                        <Border Grid.Column="0"
+                                Padding="12,10"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#0F172A}">
+                            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                                <Label Text="{Binding TotalDailyTokensText}"
+                                       FontSize="20"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource Primary}"
+                                       HorizontalTextAlignment="Center" />
+                                <Label Text="Today's Total"
+                                       FontSize="11"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                       HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- This Month's Total -->
+                        <Border Grid.Column="1"
+                                Padding="12,10"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=#FAF5FF, Dark=#0F0720}">
+                            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                                <Label Text="{Binding TotalMonthlyTokensText}"
+                                       FontSize="20"
+                                       FontAttributes="Bold"
+                                       TextColor="#7C3AED"
+                                       HorizontalTextAlignment="Center" />
+                                <Label Text="This Month's Total"
+                                       FontSize="11"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                       HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+
+                    <!-- Per-Provider Usage Details -->
+                    <Label Text="Provider Details"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           Margin="0,5,0,0"
+                           IsVisible="{Binding HasActiveUsage}" />
+
+                    <CollectionView ItemsSource="{Binding Providers}"
+                                    HorizontalScrollBarVisibility="Never"
+                                    IsVisible="{Binding HasActiveUsage}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="local:ProviderUsageSummary">
+                                <Border Padding="12"
+                                        Margin="0,5,0,5"
+                                        StrokeShape="RoundRectangle 8"
+                                        StrokeThickness="1"
+                                        Stroke="{Binding IsNearBudget, Converter={StaticResource BoolToStrokeConverter}}"
+                                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+                                    <VerticalStackLayout Spacing="8">
+                                        <!-- Provider Name and Status -->
+                                        <HorizontalStackLayout Spacing="10">
+                                            <Label Text="{Binding DisplayName}"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center"
+                                                   HorizontalOptions="StartAndExpand" />
+                                            <Label Text="{Binding BudgetStatus}"
+                                                   Padding="6,2"
+                                                   FontSize="11"
+                                                   FontAttributes="Bold"
+                                                   TextColor="White"
+                                                   BackgroundColor="{Binding IsOverBudget, Converter={StaticResource BudgetStatusColorConverter}}"
+                                                   VerticalOptions="Center" />
+                                        </HorizontalStackLayout>
+
+                                        <!-- Daily Usage -->
+                                        <VerticalStackLayout Spacing="3">
+                                            <HorizontalStackLayout Spacing="10">
+                                                <Label Text="Daily:"
+                                                       FontSize="12"
+                                                       FontAttributes="Bold"
+                                                       WidthRequest="60"
+                                                       VerticalOptions="Center" />
+                                                <Label Text="{Binding DailyTotalTokens, StringFormat='{0:N0} tokens'}"
+                                                       FontSize="12"
+                                                       VerticalOptions="Center" />
+                                                <Label Text="{Binding DailyUsagePercent, StringFormat='({0:F1}%)'}"
+                                                       FontSize="11"
+                                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                       VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
+                                            <ProgressBar Progress="{Binding DailyUsagePercent, Converter={StaticResource PercentToProgressConverter}}"
+                                                         ProgressColor="{Binding DailyUsagePercent, Converter={StaticResource UsagePercentColorConverter}}"
+                                                         HeightRequest="6" />
+                                        </VerticalStackLayout>
+
+                                        <!-- Monthly Usage -->
+                                        <VerticalStackLayout Spacing="3">
+                                            <HorizontalStackLayout Spacing="10">
+                                                <Label Text="Monthly:"
+                                                       FontSize="12"
+                                                       FontAttributes="Bold"
+                                                       WidthRequest="60"
+                                                       VerticalOptions="Center" />
+                                                <Label Text="{Binding MonthlyTotalTokens, StringFormat='{0:N0} tokens'}"
+                                                       FontSize="12"
+                                                       VerticalOptions="Center" />
+                                                <Label Text="{Binding MonthlyUsagePercent, StringFormat='({0:F1}%)'}"
+                                                       FontSize="11"
+                                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                       VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
+                                            <ProgressBar Progress="{Binding MonthlyUsagePercent, Converter={StaticResource PercentToProgressConverter}}"
+                                                         ProgressColor="{Binding MonthlyUsagePercent, Converter={StaticResource UsagePercentColorConverter}}"
+                                                         HeightRequest="6" />
+                                        </VerticalStackLayout>
+
+                                        <!-- Budget Remaining -->
+                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,5,0,0">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding DailyBudgetRemaining, StringFormat='Daily remaining: {0:N0}'}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding MonthlyBudgetRemaining, StringFormat='Monthly remaining: {0:N0}'}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                   HorizontalTextAlignment="End" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Queue Status Section (CT-REQ-004) -->
             <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="15"

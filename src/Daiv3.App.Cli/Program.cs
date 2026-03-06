@@ -84,6 +84,16 @@ public class Program
         });
         dashboardCommand.AddCommand(dashboardResourcesCommand);
 
+        // dashboard online subcommand (CT-REQ-007: Online token usage)
+        var dashboardOnlineCommand = new Command("online", "Show online provider token usage and budget status");
+        dashboardOnlineCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await DashboardOnlineCommand(host);
+            Environment.Exit(exitCode);
+        });
+        dashboardCommand.AddCommand(dashboardOnlineCommand);
+
         // dashboard admin subcommand (CT-REQ-010: System admin dashboard)
         var dashboardAdminCommand = new Command("admin", "Show system admin dashboard metrics");
         var adminJsonOption = new Option<bool>(
@@ -1561,6 +1571,187 @@ public class Program
             Console.WriteLine($"✗ Failed to display admin dashboard: {ex.Message}");
             return 1;
         }
+    }
+
+    /// <summary>
+    /// CT-REQ-007: Displays online provider token usage and budget status.
+    /// Shows per-provider token consumption versus configured budgets.
+    /// </summary>
+    private static async Task<int> DashboardOnlineCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying online provider token usage");
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("      ONLINE PROVIDER TOKEN USAGE (CT-REQ-007)             ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            var onlineRouter = host.Services.GetService<IOnlineProviderRouter>();
+            if (onlineRouter == null)
+            {
+                Console.WriteLine("✗ Online provider router not available.");
+                Console.WriteLine("  Configure online providers in appsettings.json.");
+                return 1;
+            }
+
+            var providers = await onlineRouter.ListProvidersAsync().ConfigureAwait(false);
+            
+            if (providers.Count == 0)
+            {
+                Console.WriteLine("No online providers configured.");
+                Console.WriteLine();
+                Console.WriteLine("To configure providers, add an 'OnlineProviders' section");
+                Console.WriteLine("to your appsettings.json with provider credentials and budgets.");
+                return 0;
+            }
+
+            Console.WriteLine($"CONFIGURED PROVIDERS: {providers.Count}");
+            Console.WriteLine();
+
+            long totalDailyTokens = 0;
+            long totalMonthlyTokens = 0;
+            var hasActiveUsage = false;
+            var hasBudgetAlert = false;
+
+            foreach (var providerName in providers)
+            {
+                try
+                {
+                    var usage = await onlineRouter.GetTokenUsageAsync(providerName).ConfigureAwait(false);
+                    
+                    var displayName = GetProviderDisplayName(providerName);
+                    var dailyTotal = usage.DailyInputTokens + usage.DailyOutputTokens;
+                    var monthlyTotal = usage.MonthlyInputTokens + usage.MonthlyOutputTokens;
+                    var dailyLimit = usage.DailyInputLimit + usage.DailyOutputLimit;
+                    var monthlyLimit = usage.MonthlyInputLimit + usage.MonthlyOutputLimit;
+                    
+                    var dailyPct = dailyLimit > 0 ? (dailyTotal * 100.0 / dailyLimit) : 0;
+                    var monthlyPct = monthlyLimit > 0 ? (monthlyTotal * 100.0 / monthlyLimit) : 0;
+                    
+                    totalDailyTokens += dailyTotal;
+                    totalMonthlyTokens += monthlyTotal;
+
+                    if (dailyTotal > 0 || monthlyTotal > 0)
+                        hasActiveUsage = true;
+
+                    var isOverBudget = dailyTotal >= dailyLimit || monthlyTotal >= monthlyLimit;
+                    var isNearBudget = Math.Max(dailyPct, monthlyPct) >= 80;
+
+                    if (isOverBudget || isNearBudget)
+                        hasBudgetAlert = true;
+
+                    Console.WriteLine($"─── {displayName} ───");
+                    Console.WriteLine();
+                    
+                    // Status badge
+                    var status = isOverBudget ? "OVER BUDGET" 
+                               : isNearBudget ? "NEAR BUDGET" 
+                               : "OK";
+                    Console.WriteLine($"  Status: {status}");
+                    Console.WriteLine();
+
+                    // Daily usage
+                    Console.WriteLine($"  Daily:");
+                    Console.WriteLine($"    Used:      {dailyTotal:N0} tokens ({dailyPct:F1}%)");
+                    Console.WriteLine($"    Limit:     {dailyLimit:N0} tokens");
+                    Console.WriteLine($"    Remaining: {Math.Max(0, dailyLimit - dailyTotal):N0} tokens");
+                    PrintProgressBar("    ", dailyPct);
+                    Console.WriteLine();
+
+                    // Monthly usage
+                    Console.WriteLine($"  Monthly:");
+                    Console.WriteLine($"    Used:      {monthlyTotal:N0} tokens ({monthlyPct:F1}%)");
+                    Console.WriteLine($"    Limit:     {monthlyLimit:N0} tokens");
+                    Console.WriteLine($"    Remaining: {Math.Max(0, monthlyLimit - monthlyTotal):N0} tokens");
+                    PrintProgressBar("    ", monthlyPct);
+                    Console.WriteLine();
+
+                    // Breakdown
+                    Console.WriteLine($"  Input/Output Breakdown:");
+                    Console.WriteLine($"    Daily:   {usage.DailyInputTokens:N0} in / {usage.DailyOutputTokens:N0} out");
+                    Console.WriteLine($"    Monthly: {usage.MonthlyInputTokens:N0} in / {usage.MonthlyOutputTokens:N0} out");
+                    Console.WriteLine();
+
+                    // Reset date
+                    Console.WriteLine($"  Daily Reset: {usage.ResetDate.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+                    Console.WriteLine();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"✗ Error fetching usage for {providerName}: {ex.Message}");
+                    Console.WriteLine();
+                }
+            }
+
+            // Summary
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("SUMMARY:");
+            Console.WriteLine($"  Today's Total:      {FormatTokenCount(totalDailyTokens)} tokens");
+            Console.WriteLine($"  This Month's Total: {FormatTokenCount(totalMonthlyTokens)} tokens");
+            Console.WriteLine($"  Active Usage:       {(hasActiveUsage ? "Yes" : "No")}");
+            Console.WriteLine($"  Budget Alert:       {(hasBudgetAlert ? "⚠ YES" : "No")}");
+            Console.WriteLine();
+
+            if (!hasActiveUsage)
+            {
+                Console.WriteLine("NOTE: No tokens consumed yet. Online providers configured but not used.");
+            }
+
+            if (hasBudgetAlert)
+            {
+                Console.WriteLine("⚠ WARNING: One or more providers are near or over budget!");
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display online provider usage: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static string GetProviderDisplayName(string providerName)
+    {
+        return providerName?.ToLowerInvariant() switch
+        {
+            "openai" => "OpenAI",
+            "azure-openai" => "Azure OpenAI",
+            "anthropic" => "Claude (Anthropic)",
+            _ => providerName ?? "Unknown"
+        };
+    }
+
+    private static string FormatTokenCount(long tokens)
+    {
+        return tokens switch
+        {
+            >= 1_000_000 => $"{tokens / 1_000_000.0:F1}M",
+            >= 1_000 => $"{tokens / 1_000.0:F1}K",
+            _ => $"{tokens}"
+        };
+    }
+
+    private static void PrintProgressBar(string indent, double percentage)
+    {
+        const int barWidth = 40;
+        var filled = Math.Min(barWidth, (int)(percentage / 100.0 * barWidth));
+        var empty = barWidth - filled;
+        
+        var color = percentage >= 100 ? ConsoleColor.Red 
+                   : percentage >= 80 ? ConsoleColor.Yellow 
+                   : ConsoleColor.Green;
+        
+        Console.Write(indent);
+        Console.Write("[");
+        Console.ForegroundColor = color;
+        Console.Write(new string('█', filled));
+        Console.ResetColor();
+        Console.Write(new string('░', empty));
+        Console.WriteLine("]");
     }
 
     private static async Task<int> DashboardAdminWatchCommand(IHost host, bool asJson)
