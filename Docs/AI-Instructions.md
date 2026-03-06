@@ -41,6 +41,21 @@
 5. **Learning loop requirement**
    - When a warning/error pattern is resolved, add a concise prevention note in `AI-Instructions.md` (or linked guidance) so the same issue is not repeated.
 
+6. **Mandatory warning-proof evidence before completion**
+    - Do not claim "baseline warnings only" without command evidence captured in the same session.
+    - Run from workspace root and capture output to a file in `temp/`:
+       - `dotnet build Daiv3.FoundryLocal.slnx --nologo --verbosity minimal 2>&1 | Tee-Object -FilePath temp/build-warnings-<date>.txt`
+    - Validate warning count from the captured output, not from memory or prior commits:
+       - `Select-String temp/build-warnings-<date>.txt -Pattern ': warning ' | Measure-Object`
+    - If count is non-zero, fix regressions before requirement completion or follow the 3-attempt escalation rule.
+
+7. **MAUI analyzer regression guardrails (required for UI work)**
+    - Do not use deprecated StackLayout expansion values such as `StartAndExpand` / `EndAndExpand`; use `Grid` with `*,Auto` columns for fill+align layouts.
+    - When reassigning `CancellationTokenSource` fields, always dispose prior value first:
+       - `_cts?.Dispose(); _cts = new CancellationTokenSource();`
+    - Apply the same pattern for linked sources:
+       - `_linkedCts?.Dispose(); _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);`
+
 ### 2. Target Framework & Platform Configuration
 
 **Follow the established TFM (Target Framework Moniker) pattern used in existing projects.**

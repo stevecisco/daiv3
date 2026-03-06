@@ -94,6 +94,12 @@ See [AI-Instructions.md § 3.10](../Docs/AI-Instructions.md) for the complete pr
 3. Fix any net-new errors and warnings introduced by the requirement
 4. If unresolved after up to 3 attempts, ask user whether to track as temporary debt or continue remediation
 5. When a warning pattern is resolved, add a prevention note to shared AI instructions/tracker to avoid repeating it
+6. Never claim "baseline warnings only" without same-session command evidence
+   - Run: `dotnet build Daiv3.FoundryLocal.slnx --nologo --verbosity minimal 2>&1 | Tee-Object -FilePath temp/build-warnings-<date>.txt`
+   - Verify: `Select-String temp/build-warnings-<date>.txt -Pattern ': warning ' | Measure-Object`
+7. MAUI-specific regression checks for UI changes
+   - Avoid obsolete `StartAndExpand` / `EndAndExpand` layout options; use `Grid` layout patterns
+   - Dispose previous `CancellationTokenSource` before reassigning (`IDISP003` prevention)
 
 ### Git Commit Strategy (MANDATORY)
 **When asked to work on multiple requirements, implement them ONE AT A TIME in sequential order:**
@@ -216,12 +222,14 @@ See [AI-Instructions.md](../Docs/AI-Instructions.md) for the complete sub-agent 
 
 ---
 
-**Version:** 1.5  
-**Last Updated:** February 28, 2026  
+**Version:** 1.6  
+**Last Updated:** March 6, 2026  
 **Status:** Active - Repository-wide GitHub Copilot instructions  
 **Detailed Instructions Version:** [AI-Instructions.md v2.0](../Docs/AI-Instructions.md)
 
 **Recent Updates:**
+- Added mandatory same-session warning-proof evidence commands before claiming baseline-only warnings
+- Added MAUI analyzer guardrails for deprecated `StartAndExpand` and `CancellationTokenSource` reassignment disposal
 - Added mandatory warning/error baseline + delta workflow and tracker reference (`Docs/Build-Warnings-Errors-Tracker.md`)
 - Clarified default build gate: errors block completion, warnings are tracked and remediated via delta process
 - **CRITICAL:** Added explicit sequential multi-requirement workflow - implement ONE AT A TIME, commit after EACH requirement

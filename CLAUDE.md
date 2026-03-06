@@ -66,11 +66,23 @@ Each project has its own `CLAUDE.md` under `src/<ProjectName>/CLAUDE.md` with pr
 
 - ✅ Compiles without errors
 - ✅ Warning/error delta tracked in `Docs/Build-Warnings-Errors-Tracker.md`
+- ✅ Warning claims are backed by same-session command evidence (`temp/build-warnings-<date>.txt`)
 - ✅ `ILogger<T>` used for all logging (no `Console.WriteLine` in production code)
 - ✅ Error handling at all public API boundaries
 - ✅ Dependency injection throughout; no hard-coded dependencies
 - ✅ Proper `IDisposable`/`IAsyncDisposable` resource cleanup
 - ✅ Structured logging with named parameters (not string interpolation)
+
+Warning regression-proof commands (run from repo root):
+
+```powershell
+dotnet build Daiv3.FoundryLocal.slnx --nologo --verbosity minimal 2>&1 | Tee-Object -FilePath temp/build-warnings-<date>.txt
+Select-String temp/build-warnings-<date>.txt -Pattern ': warning ' | Measure-Object
+```
+
+MAUI analyzer guardrails:
+- Do not use `StartAndExpand` / `EndAndExpand`; use `Grid`-based layout expansion.
+- Dispose prior `CancellationTokenSource` before any reassignment to avoid `IDISP003`.
 
 ---
 

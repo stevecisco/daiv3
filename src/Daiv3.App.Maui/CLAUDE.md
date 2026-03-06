@@ -38,6 +38,15 @@ MAUI Desktop application (Windows only)
 - Use `ILogger<T>` in ViewModels; log to `%LOCALAPPDATA%\Daiv3\logs\maui-YYYY-MM-DD.log`
 - Handle `OperationCanceledException` gracefully in all async UI operations
 
+## Warning Regression Guardrails
+
+- Do not introduce obsolete stack expansion options (`StartAndExpand`, `EndAndExpand`); prefer `Grid` column/row layout for expansion and alignment.
+- For `CancellationTokenSource` fields in services/viewmodels, dispose previous instance before reassignment:
+	- `_cts?.Dispose(); _cts = new CancellationTokenSource();`
+	- `_linkedCts?.Dispose(); _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);`
+- Validate MAUI warning delta before completion:
+	- `dotnet build src/Daiv3.App.Maui/Daiv3.App.Maui.csproj --nologo --verbosity minimal`
+
 ## Test Projects
 
 ```powershell

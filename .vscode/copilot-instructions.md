@@ -72,6 +72,12 @@ For complete details, see **[AI-Instructions.md](../Docs/AI-Instructions.md)**.
 2. After each requirement, compare post-build diagnostics to baseline
 3. Fix net-new warnings/errors introduced by the requirement
 4. After up to 3 failed attempts to resolve, ask user whether to track as temporary debt or keep remediating
+5. Capture and verify warnings in-session before reporting status
+	- `dotnet build Daiv3.FoundryLocal.slnx --nologo --verbosity minimal 2>&1 | Tee-Object -FilePath temp/build-warnings-<date>.txt`
+	- `Select-String temp/build-warnings-<date>.txt -Pattern ': warning ' | Measure-Object`
+6. For MAUI changes, prevent known analyzer regressions
+	- Replace `StartAndExpand` / `EndAndExpand` with `Grid` layout patterns
+	- Dispose previous `CancellationTokenSource` before reassignment (`IDISP003`)
 
 ### Testing Strategy
 1. Unit tests → 2. Integration tests → 3. CLI validation → 4. MAUI implementation
@@ -148,8 +154,8 @@ dotnet test Daiv3.FoundryLocal.slnx --verbosity detailed
 
 ---
 
-**Version:** 2.1  
-**Last Updated:** February 28, 2026  
+**Version:** 2.2  
+**Last Updated:** March 6, 2026  
 **Status:** Active - VS Code-specific instructions (references shared guidelines)  
 
 **📖 For complete details, see [AI-Instructions.md](../Docs/AI-Instructions.md)**

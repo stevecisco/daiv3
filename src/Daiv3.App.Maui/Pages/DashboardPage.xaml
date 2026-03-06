@@ -588,20 +588,21 @@
                                         BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
                                     <VerticalStackLayout Spacing="8">
                                         <!-- Provider Name and Status -->
-                                        <HorizontalStackLayout Spacing="10">
-                                            <Label Text="{Binding DisplayName}"
-                                                   FontSize="14"
-                                                   FontAttributes="Bold"
-                                                   VerticalOptions="Center"
-                                                   HorizontalOptions="StartAndExpand" />
-                                            <Label Text="{Binding BudgetStatus}"
-                                                   Padding="6,2"
-                                                   FontSize="11"
-                                                   FontAttributes="Bold"
-                                                   TextColor="White"
-                                                   BackgroundColor="{Binding IsOverBudget, Converter={StaticResource BudgetStatusColorConverter}}"
-                                                   VerticalOptions="Center" />
-                                        </HorizontalStackLayout>
+                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                              <Label Grid.Column="0"
+                                                  Text="{Binding DisplayName}"
+                                                  FontSize="14"
+                                                  FontAttributes="Bold"
+                                                  VerticalOptions="Center" />
+                                              <Label Grid.Column="1"
+                                                  Text="{Binding BudgetStatus}"
+                                                  Padding="6,2"
+                                                  FontSize="11"
+                                                  FontAttributes="Bold"
+                                                  TextColor="White"
+                                                  BackgroundColor="{Binding IsOverBudget, Converter={StaticResource BudgetStatusColorConverter}}"
+                                                  VerticalOptions="Center" />
+                                             </Grid>
 
                                         <!-- Daily Usage -->
                                         <VerticalStackLayout Spacing="3">

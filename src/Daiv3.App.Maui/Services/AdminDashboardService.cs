@@ -162,6 +162,7 @@ public sealed class AdminDashboardService : IAdminDashboardService, IDisposable
             return;
         }
 
+        _pollingCancellation?.Dispose();
         _pollingCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         _pollingTask = PollingLoopAsync(refreshIntervalSeconds, _pollingCancellation.Token);

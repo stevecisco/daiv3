@@ -150,6 +150,7 @@ public sealed class AdminDashboardViewModel : BaseViewModel, IAsyncDisposable
             IsBusy = true;
             ErrorMessage = null;
 
+            _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = new CancellationTokenSource();
             await _adminDashboardService.StartMetricsPollingAsync(RefreshIntervalSeconds, _cancellationTokenSource.Token);
             IsPolling = true;
