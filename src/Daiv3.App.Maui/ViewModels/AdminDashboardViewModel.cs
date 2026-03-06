@@ -210,6 +210,220 @@ public sealed class AdminDashboardViewModel : BaseViewModel, IAsyncDisposable
 
     // ── Private Event Handlers ────────────────────────────────────────
 
+    // ── Computed Display Properties ───────────────────────────────────
+
+    /// <summary>
+    /// CPU utilization percentage formatted for display.
+    /// </summary>
+    public string CpuPercentText => CurrentMetrics?.Cpu.OverallUtilizationPercent.ToString("F1") is string s ? $"{s}%" : "0%";
+
+    /// <summary>
+    /// CPU progress (0-1) for ProgressBar binding.
+    /// </summary>
+    public double CpuProgress => CurrentMetrics?.Cpu.OverallUtilizationPercent / 100.0 ?? 0;
+
+    /// <summary>
+    /// GPU utilization percentage formatted for display.
+    /// </summary>
+    public string GpuPercentText => CurrentMetrics?.Gpu.UtilizationPercent.ToString("F1") is string s ? $"{s}%" : "0%";
+
+    /// <summary>
+    /// GPU progress (0-1) for ProgressBar binding.
+    /// </summary>
+    public double GpuProgress => CurrentMetrics?.Gpu.UtilizationPercent / 100.0 ?? 0;
+
+    /// <summary>
+    /// Memory utilization percentage formatted for display.
+    /// </summary>
+    public string MemoryPercentText
+    {
+        get
+        {
+            if (CurrentMetrics?.Memory is null) return "0%";
+            var percent = (CurrentMetrics.Memory.PhysicalRamUsedBytes * 100.0) / CurrentMetrics.Memory.PhysicalRamTotalBytes;
+            return $"{percent:F1}%";
+        }
+    }
+
+    /// <summary>
+    /// Memory progress (0-1) for ProgressBar binding.
+    /// </summary>
+    public double MemoryProgress
+    {
+        get
+        {
+            if (CurrentMetrics?.Memory is null) return 0;
+            return (CurrentMetrics.Memory.PhysicalRamUsedBytes / (double)CurrentMetrics.Memory.PhysicalRamTotalBytes);
+        }
+    }
+
+    /// <summary>
+    /// Used memory formatted for display.
+    /// </summary>
+    public string MemoryUsedText
+    {
+        get
+        {
+            if (CurrentMetrics?.Memory is null) return "0 MB";
+            var mb = CurrentMetrics.Memory.PhysicalRamUsedBytes / (1024.0 * 1024.0);
+            return $"{mb:F1} MB";
+        }
+    }
+
+    /// <summary>
+    /// Total memory formatted for display.
+    /// </summary>
+    public string MemoryTotalText
+    {
+        get
+        {
+            if (CurrentMetrics?.Memory is null) return "0 MB";
+            var mb = CurrentMetrics.Memory.PhysicalRamTotalBytes / (1024.0 * 1024.0);
+            return $"{mb:F1} MB";
+        }
+    }
+
+    /// <summary>
+    /// Disk utilization percentage formatted for display.
+    /// </summary>
+    public string DiskPercentText
+    {
+        get
+        {
+            if (CurrentMetrics?.Storage is null) return "0%";
+            var used = CurrentMetrics.Storage.TotalDiskSpaceBytes - CurrentMetrics.Storage.AvailableDiskSpaceBytes;
+            var percent = (used * 100.0) / CurrentMetrics.Storage.TotalDiskSpaceBytes;
+            return $"{percent:F1}%";
+        }
+    }
+
+    /// <summary>
+    /// Disk progress (0-1) for ProgressBar binding.
+    /// </summary>
+    public double DiskProgress
+    {
+        get
+        {
+            if (CurrentMetrics?.Storage is null) return 0;
+            var used = CurrentMetrics.Storage.TotalDiskSpaceBytes - CurrentMetrics.Storage.AvailableDiskSpaceBytes;
+            return (used / (double)CurrentMetrics.Storage.TotalDiskSpaceBytes);
+        }
+    }
+
+    /// <summary>
+    /// Used disk space formatted for display.
+    /// </summary>
+    public string DiskUsedText
+    {
+        get
+        {
+            if (CurrentMetrics?.Storage is null) return "0 GB";
+            var used = CurrentMetrics.Storage.TotalDiskSpaceBytes - CurrentMetrics.Storage.AvailableDiskSpaceBytes;
+            var gb = used / (1024.0 * 1024.0 * 1024.0);
+            return $"{gb:F2} GB";
+        }
+    }
+
+    /// <summary>
+    /// Total disk space formatted for display.
+    /// </summary>
+    public string DiskTotalText
+    {
+        get
+        {
+            if (CurrentMetrics?.Storage is null) return "0 GB";
+            var gb = CurrentMetrics.Storage.TotalDiskSpaceBytes / (1024.0 * 1024.0 * 1024.0);
+            return $"{gb:F2} GB";
+        }
+    }
+
+    /// <summary>
+    /// Total tokens used (cumulative across all agents).
+    /// </summary>
+    public string TotalTokensText
+    {
+        get
+        {
+            if (CurrentMetrics?.Agents is null || CurrentMetrics.Agents.Count == 0) return "0";
+            var total = CurrentMetrics.Agents.Sum(a => a.TokensUsed);
+            return total > 1000000 ? $"{total / 1000000.0:F1}M" : $"{total:N0}";
+        }
+    }
+
+    /// <summary>
+    /// Whether the queue is experiencing bottleneck conditions.
+    /// </summary>
+    public bool IsQueueBottlenecked => CurrentMetrics?.Queue.IsBottlenecked ?? false;
+
+    /// <summary>
+    /// Whether there are active agents.
+    /// </summary>
+    public bool HasActiveAgents => CurrentMetrics?.Agents?.Count > 0;
+
+    /// <summary>
+    /// CPU alert message.
+    /// </summary>
+    public string CpuAlertText => $"CPU at {CurrentMetrics?.Cpu.OverallUtilizationPercent:F1}% (threshold: >85%)";
+
+    /// <summary>
+    /// GPU alert message.
+    /// </summary>
+    public string GpuAlertText => $"GPU at {CurrentMetrics?.Gpu.UtilizationPercent:F1}% (threshold: >90%)";
+
+    /// <summary>
+    /// Memory alert message.
+    /// </summary>
+    public string MemoryAlertText
+    {
+        get
+        {
+            if (CurrentMetrics?.Memory is null) return "Memory unavailable";
+            var percent = (CurrentMetrics.Memory.PhysicalRamUsedBytes * 100.0) / CurrentMetrics.Memory.PhysicalRamTotalBytes;
+            return $"Memory at {percent:F1}% (threshold: >80%)";
+        }
+    }
+
+    /// <summary>
+    /// Disk alert message.
+    /// </summary>
+    public string DiskAlertText
+    {
+        get
+        {
+            if (CurrentMetrics?.Storage is null) return "Disk unavailable";
+            var free = CurrentMetrics.Storage.AvailableDiskSpaceBytes / (1024.0 * 1024.0 * 1024.0);
+            return $"Free space at {free:F2} GB (threshold: <1 GB)";
+        }
+    }
+
+    /// <summary>
+    /// Queue alert message.
+    /// </summary>
+    public string QueueAlertText => $"Queue at {CurrentMetrics?.Queue.TotalQueuedItems} items (threshold: >100)";
+
+    // ── Relay Commands ────────────────────────────────────────────────
+
+    private Command? _refreshCommand;
+    private Command? _startPollingCommand;
+    private Command? _stopPollingCommand;
+
+    /// <summary>
+    /// Command to refresh metrics immediately.
+    /// </summary>
+    public Command RefreshMetricsCommand => _refreshCommand ??= new Command(async () => await RefreshMetricsAsync());
+
+    /// <summary>
+    /// Command to start background polling.
+    /// </summary>
+    public Command StartPollingCommand => _startPollingCommand ??= new Command(async () => await StartPollingAsync());
+
+    /// <summary>
+    /// Command to stop background polling.
+    /// </summary>
+    public Command StopPollingCommand => _stopPollingCommand ??= new Command(async () => await StopPollingAsync());
+
+    // ── Private Event Handlers ────────────────────────────────────────
+
     private void OnMetricsUpdated(object? sender, AdminDashboardMetrics metrics)
     {
         MainThread.BeginInvokeOnMainThread(() =>

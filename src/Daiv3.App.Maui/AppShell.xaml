@@ -15,6 +15,12 @@
             Route="DashboardPage" />
 
         <ShellContent
+            Title="Admin"
+            Icon="settings.png"
+            ContentTemplate="{DataTemplate pages:AdminDashboardPage}"
+            Route="AdminDashboardPage" />
+
+        <ShellContent
             Title="Indexing"
             Icon="folder.png"
             ContentTemplate="{DataTemplate pages:IndexingPage}"
