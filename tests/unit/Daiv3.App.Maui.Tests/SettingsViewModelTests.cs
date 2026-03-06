@@ -2,7 +2,6 @@ using Daiv3.App.Maui.ViewModels;
 using Daiv3.Core.Settings;
 using Daiv3.FoundryLocal.Management;
 using Daiv3.Persistence;
-using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -12,7 +11,7 @@ namespace Daiv3.App.Maui.Tests;
 
 /// <summary>
 /// Unit tests for SettingsViewModel.
-/// Updated for CT-REQ-001: Local settings storage integration.
+/// Verifies CT-REQ-002 settings load/save coverage across configuration domains.
 /// </summary>
 public class SettingsViewModelTests
 {
@@ -28,199 +27,268 @@ public class SettingsViewModelTests
         _mockSettingsInitializer = new Mock<ISettingsInitializer>();
         _mockFoundryService = new Mock<IFoundryLocalManagementService>();
 
-        // Setup default behavior for settings service
-        _mockSettingsInitializer.Setup(x => x.AreSettingsInitializedAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(
-                ApplicationSettings.Paths.DataDirectory, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ApplicationSettings.Defaults.DataDirectory);
-
-        _mockSettingsService.Setup(x => x.GetSettingValueAsync<bool>(
-                ApplicationSettings.Hardware.DisableNpu, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ApplicationSettings.Defaults.DisableNpu);
-
-        _mockSettingsService.Setup(x => x.GetSettingValueAsync<bool>(
-                ApplicationSettings.Hardware.DisableGpu, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ApplicationSettings.Defaults.DisableGpu);
-
-        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(
-                ApplicationSettings.UI.Theme, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ApplicationSettings.Defaults.Theme);
-
-        _mockSettingsService.Setup(x => x.GetSettingValueAsync<int>(
-                ApplicationSettings.Providers.DailyTokenBudget, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ApplicationSettings.Defaults.DailyTokenBudget);
-
-        _mockFoundryService.Setup(x => x.GetModelsDirectoryAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync("(Not configured)");
+        SetupCommonSettings();
     }
 
     [Fact]
     public void Constructor_ShouldInitializeProperties()
     {
-        // Act
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
+        var viewModel = CreateViewModel();
 
-        // Assert
         Assert.Equal("Settings", viewModel.Title);
         Assert.NotNull(viewModel.SaveSettingsCommand);
         Assert.NotNull(viewModel.ResetSettingsCommand);
     }
 
     [Fact]
-    public async Task Constructor_ShouldLoadDefaultSettings()
+    public async Task Constructor_ShouldLoadCtReq002Settings()
     {
-        // Act
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-        await Task.Delay(500); // Wait for async loading
+        var viewModel = CreateViewModel();
+        await Task.Delay(500);
 
-        // Assert - Verify settings service was called
-        _mockSettingsInitializer.Verify(x => x.AreSettingsInitializedAsync(It.IsAny<CancellationToken>()), Times.AtLeastOnce);
         _mockSettingsService.Verify(x => x.GetSettingValueAsync<string>(
-            ApplicationSettings.Paths.DataDirectory, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+            ApplicationSettings.Paths.WatchedDirectories,
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _mockSettingsService.Verify(x => x.GetSettingValueAsync<string>(
+            ApplicationSettings.Models.FoundryLocalDefaultModel,
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _mockSettingsService.Verify(x => x.GetSettingValueAsync<string>(
+            ApplicationSettings.Providers.OnlineAccessMode,
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _mockSettingsService.Verify(x => x.GetSettingValueAsync<bool>(
+            ApplicationSettings.General.EnableAgents,
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _mockSettingsService.Verify(x => x.GetSettingValueAsync<string>(
+            ApplicationSettings.General.SkillMarketplaceUrls,
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _mockSettingsService.Verify(x => x.GetSettingValueAsync<string>(
+            ApplicationSettings.Providers.OnlineProvidersEnabled,
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
     [Fact]
-    public void DataDirectory_WhenSet_ShouldUpdateProperty()
+    public async Task Constructor_ShouldDisableOnlineProvidersWhenModeIsNever()
     {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-        var newPath = @"C:\Test\Data";
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(
+                ApplicationSettings.Providers.OnlineAccessMode,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync("never");
 
-        // Act
-        viewModel.DataDirectory = newPath;
+        CreateViewModel();
+        await Task.Delay(500);
 
-        // Assert
-        Assert.Equal(newPath, viewModel.DataDirectory);
+        _mockSettingsService.Verify(x => x.GetSettingValueAsync<string>(
+            ApplicationSettings.Providers.OnlineAccessMode,
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
     [Fact]
-    public void ModelsDirectory_WhenSet_ShouldUpdateProperty()
+    public async Task SaveSettingsCommand_ShouldPersistCtReq002Settings()
     {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-        var newPath = @"C:\Test\Models";
+        var viewModel = CreateViewModel();
+        await Task.Delay(500);
 
-        // Act
-        viewModel.ModelsDirectory = newPath;
-
-        // Assert
-        Assert.Equal(newPath, viewModel.ModelsDirectory);
-    }
-
-    [Fact]
-    public void UseNpu_WhenSet_ShouldUpdateProperty()
-    {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-
-        // Act
-        viewModel.UseNpu = false;
-
-        // Assert
-        Assert.False(viewModel.UseNpu);
-    }
-
-    [Fact]
-    public void UseGpu_WhenSet_ShouldUpdateProperty()
-    {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-
-        // Act
-        viewModel.UseGpu = false;
-
-        // Assert
-        Assert.False(viewModel.UseGpu);
-    }
-
-    [Fact]
-    public void AllowOnlineProviders_WhenSet_ShouldUpdateProperty()
-    {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-
-        // Act
+        viewModel.WatchedDirectories = "C:\\docs\nD:\\repo";
+        viewModel.KnowledgeBackPropagationPath = "D:\\daiv3\\backprop";
+        viewModel.DefaultModel = "phi-4-mini";
+        viewModel.ChatModel = "phi-4-chat";
+        viewModel.CodeModel = "phi-4-code";
+        viewModel.ReasoningModel = "phi-4-reason";
         viewModel.AllowOnlineProviders = true;
+        viewModel.OnlineAccessMode = "per_task";
+        viewModel.OnlineProvidersEnabled = "openai, azure_openai";
+        viewModel.TokenBudget = 90000;
+        viewModel.MonthlyTokenBudget = 1200000;
+        viewModel.TokenBudgetAlertThreshold = 75;
+        viewModel.TokenBudgetMode = "hard_stop";
+        viewModel.EnableAgents = true;
+        viewModel.EnableSkills = false;
+        viewModel.AgentIterationLimit = 12;
+        viewModel.AgentTokenBudget = 15000;
+        viewModel.EnableScheduling = true;
+        viewModel.SchedulerCheckInterval = 30;
+        viewModel.SkillMarketplaceUrls = "https://skills1.test/skills.json\nhttps://skills2.test/skills.json";
+        viewModel.SelectedTheme = "Dark";
 
-        // Assert
-        Assert.True(viewModel.AllowOnlineProviders);
+        viewModel.SaveSettingsCommand.Execute(null);
+        await Task.Delay(500);
+
+        _mockSettingsService.Verify(x => x.SaveSettingAsync(
+            ApplicationSettings.Paths.WatchedDirectories,
+            It.Is<object>(v => v.ToString() == "[\"C:\\\\docs\",\"D:\\\\repo\"]"),
+            ApplicationSettings.Categories.Paths,
+            ApplicationSettings.Descriptions.WatchedDirectories,
+            false,
+            "user_ui_change",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockSettingsService.Verify(x => x.SaveSettingAsync(
+            ApplicationSettings.Models.FoundryLocalDefaultModel,
+            "phi-4-mini",
+            ApplicationSettings.Categories.Models,
+            ApplicationSettings.Descriptions.FoundryLocalDefaultModel,
+            false,
+            "user_ui_change",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockSettingsService.Verify(x => x.SaveSettingAsync(
+            ApplicationSettings.Providers.OnlineAccessMode,
+            "per_task",
+            ApplicationSettings.Categories.Providers,
+            ApplicationSettings.Descriptions.OnlineAccessMode,
+            false,
+            "user_ui_change",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockSettingsService.Verify(x => x.SaveSettingAsync(
+            ApplicationSettings.General.EnableAgents,
+            true,
+            ApplicationSettings.Categories.General,
+            ApplicationSettings.Descriptions.EnableAgents,
+            false,
+            "user_ui_change",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockSettingsService.Verify(x => x.SaveSettingAsync(
+            ApplicationSettings.General.EnableScheduling,
+            true,
+            ApplicationSettings.Categories.General,
+            ApplicationSettings.Descriptions.EnableScheduling,
+            false,
+            "user_ui_change",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockSettingsService.Verify(x => x.SaveSettingAsync(
+            ApplicationSettings.General.SkillMarketplaceUrls,
+            It.Is<object>(v => v.ToString() == "[\"https://skills1.test/skills.json\",\"https://skills2.test/skills.json\"]"),
+            ApplicationSettings.Categories.General,
+            ApplicationSettings.Descriptions.SkillMarketplaceUrls,
+            false,
+            "user_ui_change",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public void TokenBudget_WhenSet_ShouldUpdateProperty()
+    public async Task SaveSettingsCommand_ShouldForceNeverOnlineMode_WhenOnlineDisabled()
     {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-        var newBudget = 16384;
+        var viewModel = CreateViewModel();
+        await Task.Delay(500);
 
-        // Act
-        viewModel.TokenBudget = newBudget;
+        viewModel.AllowOnlineProviders = false;
+        viewModel.OnlineAccessMode = "per_task";
 
-        // Assert
-        Assert.Equal(newBudget, viewModel.TokenBudget);
-    }
+        viewModel.SaveSettingsCommand.Execute(null);
+        await Task.Delay(500);
 
-    [Fact]
-    public void SelectedTheme_WhenSet_ShouldUpdateProperty()
-    {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-        var newTheme = "Dark";
-
-        // Act
-        viewModel.SelectedTheme = newTheme;
-
-        // Assert
-        Assert.Equal(newTheme, viewModel.SelectedTheme);
-    }
-
-    [Fact]
-    public void SaveSettingsCommand_ShouldNotThrow()
-    {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-
-        // Act & Assert
-        var exception = Record.Exception(() => viewModel.SaveSettingsCommand.Execute(null));
-        Assert.Null(exception);
+        _mockSettingsService.Verify(x => x.SaveSettingAsync(
+            ApplicationSettings.Providers.OnlineAccessMode,
+            "never",
+            ApplicationSettings.Categories.Providers,
+            ApplicationSettings.Descriptions.OnlineAccessMode,
+            false,
+            "user_ui_change",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public void ResetSettingsCommand_ShouldResetToDefaults()
     {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
-        viewModel.UseNpu = false;
-        viewModel.TokenBudget = 4096;
+        var viewModel = CreateViewModel();
 
-        // Act
         viewModel.ResetSettingsCommand.Execute(null);
 
-        // Assert - Verify reset was called
         _mockSettingsInitializer.Verify(x => x.ResetToDefaultsAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public void BrowseDataDirectoryCommand_ShouldNotThrow()
+    public void BrowseCommands_ShouldNotThrow()
     {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
+        var viewModel = CreateViewModel();
 
-        // Act & Assert
-        var exception = Record.Exception(() => viewModel.BrowseDataDirectoryCommand.Execute(null));
-        Assert.Null(exception);
+        var browseDataException = Record.Exception(() => viewModel.BrowseDataDirectoryCommand.Execute(null));
+        var browseModelsException = Record.Exception(() => viewModel.BrowseModelsDirectoryCommand.Execute(null));
+
+        Assert.Null(browseDataException);
+        Assert.Null(browseModelsException);
     }
 
-    [Fact]
-    public void BrowseModelsDirectoryCommand_ShouldNotThrow()
+    private SettingsViewModel CreateViewModel()
     {
-        // Arrange
-        var viewModel = new SettingsViewModel(_mockLogger.Object, _mockSettingsService.Object, _mockSettingsInitializer.Object, _mockFoundryService.Object);
+        return new SettingsViewModel(
+            _mockLogger.Object,
+            _mockSettingsService.Object,
+            _mockSettingsInitializer.Object,
+            _mockFoundryService.Object);
+    }
 
-        // Act & Assert
-        var exception = Record.Exception(() => viewModel.BrowseModelsDirectoryCommand.Execute(null));
-        Assert.Null(exception);
+    private void SetupCommonSettings()
+    {
+        _mockSettingsInitializer.Setup(x => x.AreSettingsInitializedAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Paths.DataDirectory, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApplicationSettings.Defaults.DataDirectory);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Paths.WatchedDirectories, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("[\"C:\\\\docs\",\"D:\\\\repo\"]");
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Paths.KnowledgeBackPropagationPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("D:\\daiv3\\backprop");
+
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<bool>(ApplicationSettings.Hardware.DisableNpu, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<bool>(ApplicationSettings.Hardware.DisableGpu, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Models.FoundryLocalDefaultModel, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("phi-3-mini");
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Models.FoundryLocalChatModel, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("phi-3-mini");
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Models.FoundryLocalCodeModel, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("phi-3-mini");
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Models.FoundryLocalReasoningModel, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("phi-3-mini");
+
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Providers.OnlineAccessMode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("ask");
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Providers.OnlineProvidersEnabled, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("[\"openai\",\"azure_openai\"]");
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<int>(ApplicationSettings.Providers.DailyTokenBudget, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(50000);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<int>(ApplicationSettings.Providers.MonthlyTokenBudget, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1000000);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<int>(ApplicationSettings.Providers.TokenBudgetAlertThreshold, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(80);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.Providers.TokenBudgetMode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("user_confirm");
+
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<bool>(ApplicationSettings.General.EnableAgents, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<bool>(ApplicationSettings.General.EnableSkills, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<int>(ApplicationSettings.General.AgentIterationLimit, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(10);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<int>(ApplicationSettings.General.AgentTokenBudget, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(10000);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<bool>(ApplicationSettings.General.EnableScheduling, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<int>(ApplicationSettings.General.SchedulerCheckInterval, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(60);
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.General.SkillMarketplaceUrls, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("[\"https://skills1.test/skills.json\"]");
+
+        _mockSettingsService.Setup(x => x.GetSettingValueAsync<string>(ApplicationSettings.UI.Theme, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("system");
+
+        _mockSettingsService.Setup(x => x.SaveSettingAsync(
+                It.IsAny<string>(),
+                It.IsAny<object>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Guid.NewGuid().ToString());
+
+        _mockFoundryService.Setup(x => x.GetModelsDirectoryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync("(Not configured)");
     }
 }

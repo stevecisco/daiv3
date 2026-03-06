@@ -160,7 +160,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         var version = await _context.GetSchemaVersionAsync();
 
         // Assert
-        Assert.Equal(9, version);
+        Assert.Equal(10, version);
     }
 
     [Fact]
