@@ -137,6 +137,58 @@ Shows only time entries associated with a specific agent/service.
 ```
 Outputs flattened time entries suitable for spreadsheet analysis.
 
+### Show Calendar Dashboard (CT-REQ-014)
+```bash
+.\run-cli.bat dashboard calendar
+```
+Displays upcoming deadlines for projects and tasks in the next 30 days, grouped by urgency.
+
+**Output Example:**
+```
+═══════════════════════════════════════════════════════════
+                   CALENDAR DASHBOARD
+═══════════════════════════════════════════════════════════
+
+🔥 URGENT (< 2 days)
+  - Release v1.0 (Project) | Deadline: 2026-03-08 | 1 day | 75% | Active
+
+⚠️ Soon (< 7 days)
+  - UI Polish (Task) | Deadline: 2026-03-11 | 5 days | 50% | In Progress
+  - API Testing (Task) | Deadline: 2026-03-12 | 6 days | 60% | Active
+
+📅 Scheduled (> 7 days)
+  - Q2 Planning (Project) | Deadline: 2026-04-01 | 26 days | 10% | Not Started
+
+Summary: 4 total (1 urgent, 2 soon, 1 scheduled)
+```
+
+### Show Calendar for Custom Days Ahead
+```bash
+.\run-cli.bat dashboard calendar --days 14
+```
+Shows deadlines in the next 14 days (or any custom number).
+
+### Show Active Reminders
+```bash
+.\run-cli.bat dashboard reminders
+```
+Displays active reminders for overdue items and approaching deadlines.
+
+**Output Example:**
+```
+═══════════════════════════════════════════════════════════
+                   ACTIVE REMINDERS
+═══════════════════════════════════════════════════════════
+
+🚨 OVERDUE
+  - Sprint Planning (Task) | Deadline: 2026-03-05 | 1 day overdue | High Priority
+
+⚠️ APPROACHING (<3 days)
+  - Code Review (Task) | Deadline: 2026-03-08 | 2 days | Medium Priority
+
+Total: 2 reminders (1 overdue, 1 approaching)
+```
+
 
 ## Chat Commands
 

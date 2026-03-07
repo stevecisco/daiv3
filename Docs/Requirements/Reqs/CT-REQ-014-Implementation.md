@@ -3,7 +3,8 @@
 **Status:** ✅ Complete  
 **Date:** March 6, 2026  
 **Phase:** 6.2 - Priority P2  
-**Verified:** Repository-wide build clean, 22 unit tests passing (2 skipped)
+**Verified:** Repository-wide build clean, 22 unit tests passing (2 skipped)  
+**Critical Fix Applied:** March 6, 2026 - DI registration for IRepository<T> interfaces (calendar tab crash resolved)
 
 ---
 
@@ -161,9 +162,10 @@ Delivered comprehensive calendar and reminders dashboard providing visibility in
 - "No upcoming deadlines"
 - "No active reminders"
 
-**Converter Dependencies (referenced but not blocking):**
-- IsGreaterThanZeroConverter, IsZeroConverter
-- BoolToBackgroundColorConverter, InverseBoolConverter
+**Converter Dependencies (implemented):**
+- IsGreaterThanZeroConverter, IsZeroConverter - `src/Daiv3.App.Maui/Converters/`
+- BoolToBackgroundColorConverter - `src/Daiv3.App.Maui/Converters/`
+- InverseBoolConverter - Alias to existing InvertedBoolConverter in App.xaml
 
 ---
 
@@ -174,7 +176,19 @@ Delivered comprehensive calendar and reminders dashboard providing visibility in
 builder.Services.AddSingleton<ICalendarService, CalendarService>();
 builder.Services.AddSingleton<CalendarViewModel>();
 builder.Services.AddSingleton<CalendarPage>();
+builder.Services.AddScheduler(); // CT-REQ-014: Required by CalendarService
 ```
+
+**PersistenceServiceExtensions.cs Registrations (Critical Fix):**
+```csharp
+// Register generic IRepository<T> interfaces for DI resolution
+services.AddScoped<IRepository<Project>>(sp => sp.GetRequiredService<ProjectRepository>());
+services.AddScoped<IRepository<ProjectTask>>(sp => sp.GetRequiredService<TaskRepository>());
+```
+
+**Issue Resolved:** Original implementation registered only concrete repository types (ProjectRepository, TaskRepository), causing DI resolution failure when CalendarService requested `IRepository<Project>` and `IRepository<ProjectTask>`. App crashed on Calendar tab navigation with "Unable to resolve service" error. Fix: Added explicit interface-to-implementation mappings in PersistenceServiceExtensions.cs.
+
+**Prevention Pattern Documented:** See `Docs/AI-Instructions.md` § 9 and `src/Daiv3.App.Maui/CLAUDE.md` for MAUI DI registration validation checklist.
 
 **AppShell.xaml Navigation:**
 ```xml
@@ -327,27 +341,20 @@ Summary: 3 total (1 urgent, 1 soon, 1 scheduled)
 ## Known Issues
 
 ### Minor
-1. **MAUI Converters Referenced But Not Implemented:**
-   - IsGreaterThanZeroConverter, IsZeroConverter
-   - BoolToBackgroundColorConverter, InverseBoolConverter
-   - **Impact:** XAML runtime errors if bindings trigger missing converters
-   - **Workaround:** Converters likely already exist in App.xaml resources
-   - **Priority:** Low (not blocking calendar functionality)
-
-2. **Frame Obsolescence Warnings (37 warnings):**
+1. **Frame Obsolescence Warnings (37 warnings):**
    - XAML uses `<Frame>` which is obsolete in .NET 9+
    - **Impact:** Build warnings only, no runtime impact
    - **Recommendation:** Refactor to `<Border>` in future UI polish phase
    - **Priority:** Low (cosmetic, not functional)
 
-3. **IDISP Warnings (2 warnings):**
+2. **IDISP Warnings (2 warnings):**
    - CalendarViewModel: IDISP006 (implement IDisposable for _refreshCts)
    - CalendarViewModel: IDISP003 (dispose previous _refreshCts before reassigning)
    - **Impact:** Potential CancellationTokenSource leak on ViewModel reuse
    - **Priority:** Medium (should fix in next maintenance iteration)
 
 ### Test Infrastructure
-4. **MainThread Dispatcher Tests Skipped (2 tests):**
+3. **MainThread Dispatcher Tests Skipped (2 tests):**
    - Cannot test InitializeAsync/RefreshDataAsync UI marshaling in xUnit
    - **Resolution:** Requires MAUI test host infrastructure or IDispatcher abstraction
    - **Priority:** Low (functionality verified via manual testing and integration tests)
