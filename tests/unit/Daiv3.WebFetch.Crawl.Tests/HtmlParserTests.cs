@@ -87,7 +87,7 @@ public class HtmlParserTests
     public async Task ParseAsync_NullContent_ThrowsArgumentNullException()
     {
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() => _parser.ParseAsync(null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => ParseAndDisposeAsync(_parser, null!));
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class HtmlParserTests
         var parser = new HtmlParser(_mockLogger.Object);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => parser.ParseAsync(largeContent));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ParseAndDisposeAsync(parser, largeContent));
     }
 
     [Fact]
@@ -110,7 +110,12 @@ public class HtmlParserTests
         var largeContent = new string('a', 150);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => parser.ParseAsync(largeContent));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ParseAndDisposeAsync(parser, largeContent));
+    }
+
+    private static async Task ParseAndDisposeAsync(HtmlParser parser, string htmlContent)
+    {
+        using var document = await parser.ParseAsync(htmlContent);
     }
 
     [Fact]

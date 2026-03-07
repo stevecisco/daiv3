@@ -30,14 +30,20 @@ public class DatabaseContextTests
         var options = CreateTestOptions();
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => new DatabaseContext(null!, options));
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            using var context = new DatabaseContext(null!, options);
+        });
     }
 
     [Fact]
     public void Constructor_WithNullOptions_ThrowsArgumentNullException()
     {
         // Arrange & Act & Assert
-        Assert.Throws<ArgumentNullException>(() => new DatabaseContext(_mockLogger.Object, null!));
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            using var context = new DatabaseContext(_mockLogger.Object, null!);
+        });
     }
 
     [Fact]
