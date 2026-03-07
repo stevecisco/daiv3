@@ -5,6 +5,7 @@ using Daiv3.ModelExecution.Interfaces;
 using Daiv3.ModelExecution.Models;
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Scheduler;
 
 namespace Daiv3.App.Maui.Services;
 
@@ -13,6 +14,7 @@ namespace Daiv3.App.Maui.Services;
 /// Implements CT-REQ-003: The system SHALL provide a real-time transparency dashboard.
 /// Implements CT-REQ-006: Agent activity, iterations, token usage, and system resource metrics.
 /// Implements CT-REQ-007: Online token usage and budget status display.
+/// Implements CT-REQ-008: Scheduled jobs status and execution results display.
 /// Supports CT-NFR-001: Async/await patterns with debouncing to prevent UI blocking.
 /// </summary>
 public sealed class DashboardService : IDashboardService, IDisposable
@@ -23,6 +25,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
     private readonly AgentExecutionMetricsCollector? _metricsCollector;
     private readonly ISystemMetricsService? _systemMetrics;
     private readonly IOnlineProviderRouter? _onlineProviderRouter;
+    private readonly IScheduler? _scheduler;
     private readonly DashboardConfiguration _configuration;
 
     private CancellationTokenSource? _monitoringCts;
@@ -42,6 +45,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
     /// <param name="metricsCollector">Optional singleton agent execution metrics collector.</param>
     /// <param name="systemMetrics">Optional system metrics service for real CPU/memory/disk data.</param>
     /// <param name="onlineProviderRouter">Optional online provider router for token usage tracking (CT-REQ-007).</param>
+    /// <param name="scheduler">Optional scheduler for job status tracking (CT-REQ-008).</param>
     public DashboardService(
         ILogger<DashboardService> logger,
         IModelQueue? modelQueue = null,
@@ -49,7 +53,8 @@ public sealed class DashboardService : IDashboardService, IDisposable
         IServiceScopeFactory? scopeFactory = null,
         AgentExecutionMetricsCollector? metricsCollector = null,
         ISystemMetricsService? systemMetrics = null,
-        IOnlineProviderRouter? onlineProviderRouter = null)
+        IOnlineProviderRouter? onlineProviderRouter = null,
+        IScheduler? scheduler = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _modelQueue = modelQueue;
@@ -59,13 +64,15 @@ public sealed class DashboardService : IDashboardService, IDisposable
         _metricsCollector = metricsCollector;
         _systemMetrics = systemMetrics;
         _onlineProviderRouter = onlineProviderRouter;
+        _scheduler = scheduler;
 
         _logger.LogInformation(
-            "DashboardService initialized: RefreshMs={RefreshMs}, AgentManager={HasAgent}, SystemMetrics={HasMetrics}, OnlineRouter={HasOnline}",
+            "DashboardService initialized: RefreshMs={RefreshMs}, AgentManager={HasAgent}, SystemMetrics={HasMetrics}, OnlineRouter={HasOnline}, Scheduler={HasScheduler}",
             _configuration.RefreshIntervalMs,
             _scopeFactory != null,
             _systemMetrics != null,
-            _onlineProviderRouter != null);
+            _onlineProviderRouter != null,
+            _scheduler != null);
     }
 
     /// <inheritdoc />
@@ -227,6 +234,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
         data.Hardware = CollectHardwareStatus();
         data.Queue = await CollectQueueStatusAsync(cancellationToken).ConfigureAwait(false);
         data.OnlineUsage = await CollectOnlineProviderUsageAsync(cancellationToken).ConfigureAwait(false);
+        data.ScheduledJobs = await CollectScheduledJobsStatusAsync(cancellationToken).ConfigureAwait(false);
         data.Indexing = await CollectIndexingStatusAsync(cancellationToken).ConfigureAwait(false);
         data.Agent = await CollectAgentStatusAsync(cancellationToken).ConfigureAwait(false);
         data.SystemResources = CollectSystemResourceMetrics();
@@ -605,6 +613,111 @@ public sealed class DashboardService : IDashboardService, IDisposable
             "anthropic" => "Claude (Anthropic)",
             _ => providerName ?? "Unknown"
         };
+    }
+
+    /// <summary>
+    /// Collects scheduled jobs status and execution history for the dashboard.
+    /// Implements CT-REQ-008: The dashboard SHALL display scheduled jobs and results.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Scheduled jobs status with all job metadata.</returns>
+    private async Task<ScheduledJobsStatus> CollectScheduledJobsStatusAsync(CancellationToken cancellationToken)
+    {
+        if (_scheduler == null)
+        {
+            return new ScheduledJobsStatus
+            {
+                HasScheduledJobs = false,
+                TotalJobs = 0,
+                Jobs = []
+            };
+        }
+
+        try
+        {
+            var allJobs = await _scheduler.GetAllJobsAsync(cancellationToken).ConfigureAwait(false);
+
+            if (allJobs.Count == 0)
+            {
+                return new ScheduledJobsStatus
+                {
+                    HasScheduledJobs = false,
+                    TotalJobs = 0,
+                    Jobs = []
+                };
+            }
+
+            var jobSummaries = new List<ScheduledJobSummary>();
+            var statusCounts = new Dictionary<ScheduledJobStatus, int>
+            {
+                [ScheduledJobStatus.Pending] = 0,
+                [ScheduledJobStatus.Running] = 0,
+                [ScheduledJobStatus.Completed] = 0,
+                [ScheduledJobStatus.Failed] = 0,
+                [ScheduledJobStatus.Cancelled] = 0,
+                [ScheduledJobStatus.Scheduled] = 0,
+                [ScheduledJobStatus.Paused] = 0
+            };
+
+            foreach (var jobMetadata in allJobs)
+            {
+                try
+                {
+                    var summary = new ScheduledJobSummary
+                    {
+                        JobId = jobMetadata.JobId,
+                        JobName = jobMetadata.JobName,
+                        Status = jobMetadata.Status.ToString(),
+                        ScheduleType = jobMetadata.ScheduleType.ToString(),
+                        NextRunTime = jobMetadata.ScheduledAtUtc,
+                        LastStartTime = jobMetadata.LastStartedAtUtc,
+                        LastCompletionTime = jobMetadata.LastCompletedAtUtc,
+                        LastExecutionDuration = jobMetadata.LastExecutionDuration,
+                        ExecutionCount = jobMetadata.ExecutionCount,
+                        IntervalSeconds = jobMetadata.IntervalSeconds,
+                        CronExpression = jobMetadata.CronExpression,
+                        EventType = jobMetadata.EventType,
+                        LastErrorMessage = jobMetadata.LastErrorMessage
+                    };
+
+                    jobSummaries.Add(summary);
+
+                    // Count by status
+                    if (statusCounts.ContainsKey(jobMetadata.Status))
+                    {
+                        statusCounts[jobMetadata.Status]++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error converting job metadata for job {JobId}", jobMetadata.JobId);
+                }
+            }
+
+            return new ScheduledJobsStatus
+            {
+                HasScheduledJobs = true,
+                TotalJobs = allJobs.Count,
+                ScheduledCount = statusCounts[ScheduledJobStatus.Scheduled],
+                RunningCount = statusCounts[ScheduledJobStatus.Running],
+                PendingCount = statusCounts[ScheduledJobStatus.Pending],
+                CompletedCount = statusCounts[ScheduledJobStatus.Completed],
+                FailedCount = statusCounts[ScheduledJobStatus.Failed],
+                PausedCount = statusCounts[ScheduledJobStatus.Paused],
+                CancelledCount = statusCounts[ScheduledJobStatus.Cancelled],
+                Jobs = jobSummaries
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error collecting scheduled jobs status");
+            return new ScheduledJobsStatus
+            {
+                HasScheduledJobs = false,
+                TotalJobs = 0,
+                Jobs = []
+            };
+        }
     }
 
     private DashboardData CreateErrorData(string errorMessage)

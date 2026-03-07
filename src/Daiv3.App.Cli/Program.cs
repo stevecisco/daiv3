@@ -94,6 +94,16 @@ public class Program
         });
         dashboardCommand.AddCommand(dashboardOnlineCommand);
 
+        // dashboard scheduled subcommand (CT-REQ-008: Scheduled jobs status)
+        var dashboardScheduledCommand = new Command("scheduled", "Show scheduled jobs status and execution results");
+        dashboardScheduledCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await DashboardScheduledCommand(host);
+            Environment.Exit(exitCode);
+        });
+        dashboardCommand.AddCommand(dashboardScheduledCommand);
+
         // dashboard admin subcommand (CT-REQ-010: System admin dashboard)
         var dashboardAdminCommand = new Command("admin", "Show system admin dashboard metrics");
         var adminJsonOption = new Option<bool>(
@@ -1752,6 +1762,154 @@ public class Program
         Console.ResetColor();
         Console.Write(new string('░', empty));
         Console.WriteLine("]");
+    }
+
+    private static async Task<int> DashboardScheduledCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying scheduled jobs status");
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("      SCHEDULED JOBS STATUS (CT-REQ-008)                  ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            var scheduler = host.Services.GetService<IScheduler>();
+            if (scheduler == null)
+            {
+                Console.WriteLine("✗ Scheduler not available.");
+                return 1;
+            }
+
+            var allJobs = await scheduler.GetAllJobsAsync().ConfigureAwait(false);
+            
+            if (allJobs.Count == 0)
+            {
+                Console.WriteLine("No scheduled jobs found.");
+                Console.WriteLine();
+                Console.WriteLine("Use 'daiv3 schedule' commands to create jobs:");
+                Console.WriteLine("  - daiv3 schedule once    - Schedule one-time job");
+                Console.WriteLine("  - daiv3 schedule cron    - Schedule cron-based job");
+                Console.WriteLine("  - daiv3 schedule on-event - Schedule event-triggered job");
+                return 0;
+            }
+
+            // Group jobs by status
+            var jobsByStatus = allJobs.GroupBy(j => j.Status).OrderBy(g => g.Key);
+
+            Console.WriteLine($"TOTAL JOBS: {allJobs.Count}");
+            Console.WriteLine();
+
+            // Status summary
+            var pendingCount = allJobs.Count(j => j.Status == ScheduledJobStatus.Pending);
+            var runningCount = allJobs.Count(j => j.Status == ScheduledJobStatus.Running);
+            var scheduledCount = allJobs.Count(j => j.Status == ScheduledJobStatus.Scheduled);
+            var completedCount = allJobs.Count(j => j.Status == ScheduledJobStatus.Completed);
+            var failedCount = allJobs.Count(j => j.Status == ScheduledJobStatus.Failed);
+            var pausedCount = allJobs.Count(j => j.Status == ScheduledJobStatus.Paused);
+            var cancelledCount = allJobs.Count(j => j.Status == ScheduledJobStatus.Cancelled);
+
+            Console.WriteLine($"Status Summary:");
+            Console.WriteLine($"  Running:   {runningCount}");
+            Console.WriteLine($"  Scheduled: {scheduledCount}");
+            Console.WriteLine($"  Pending:   {pendingCount}");
+            Console.WriteLine($"  Paused:    {pausedCount}");
+            Console.WriteLine($"  Completed: {completedCount}");
+            Console.WriteLine($"  Failed:    {failedCount}");
+            Console.WriteLine($"  Cancelled: {cancelledCount}");
+            Console.WriteLine();
+
+            // Next job to run
+            var nextJob = allJobs.Where(j => j.ScheduledAtUtc.HasValue)
+                .OrderBy(j => j.ScheduledAtUtc!.Value)
+                .FirstOrDefault();
+
+            if (nextJob != null)
+            {
+                var timeUntil = nextJob.ScheduledAtUtc!.Value - DateTime.UtcNow;
+                var timeDescription = timeUntil.TotalSeconds < 0 ? "overdue"
+                    : timeUntil.TotalMinutes < 1 ? "in <1 minute"
+                    : timeUntil.TotalMinutes < 60 ? $"in {timeUntil.TotalMinutes:F0} minutes"
+                    : timeUntil.TotalHours < 24 ? $"in {timeUntil.TotalHours:F1} hours"
+                    : $"in {timeUntil.TotalDays:F1} days";
+
+                Console.WriteLine($"NEXT JOB:");
+                Console.WriteLine($"  Name:      {nextJob.JobName}");
+                Console.WriteLine($"  Scheduled: {nextJob.ScheduledAtUtc!.Value.ToLocalTime():yyyy-MM-dd HH:mm:ss} ({timeDescription})");
+                Console.WriteLine($"  Type:      {nextJob.ScheduleType}");
+                Console.WriteLine();
+            }
+
+            // Show all jobs grouped by status
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("JOB DETAILS:");
+            Console.WriteLine();
+
+            foreach (var statusGroup in jobsByStatus)
+            {
+                Console.WriteLine($"─── {statusGroup.Key} ({statusGroup.Count()}) ───");
+                Console.WriteLine();
+
+                foreach (var job in statusGroup.OrderBy(j => j.CreatedAtUtc))
+                {
+                    Console.WriteLine($"  {job.JobName} (ID: {job.JobId})");
+                    Console.WriteLine($"    Type:       {job.ScheduleType}");
+                    
+                    if (job.ScheduleType == ScheduleType.Cron && !string.IsNullOrEmpty(job.CronExpression))
+                        Console.WriteLine($"    Cron:       {job.CronExpression}");
+                    
+                    if (job.ScheduleType == ScheduleType.Recurring && job.IntervalSeconds.HasValue)
+                        Console.WriteLine($"    Interval:   Every {job.IntervalSeconds} seconds");
+                    
+                    if (job.ScheduleType == ScheduleType.EventTriggered && !string.IsNullOrEmpty(job.EventType))
+                        Console.WriteLine($"    Event:      {job.EventType}");
+
+                    if (job.ScheduledAtUtc.HasValue)
+                    {
+                        var nextRun = job.ScheduledAtUtc.Value.ToLocalTime();
+                        Console.WriteLine($"    Next Run:   {nextRun:yyyy-MM-dd HH:mm:ss}");
+                    }
+
+                    if (job.ExecutionCount > 0)
+                    {
+                        Console.WriteLine($"    Executions: {job.ExecutionCount}");
+                        
+                        if (job.LastCompletedAtUtc.HasValue)
+                            Console.WriteLine($"    Last Run:   {job.LastCompletedAtUtc.Value.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+                        
+                        if (job.LastExecutionDuration.HasValue)
+                            Console.WriteLine($"    Duration:   {job.LastExecutionDuration.Value.TotalSeconds:F2}s");
+                    }
+
+                    if (!string.IsNullOrEmpty(job.LastErrorMessage))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"    Error:      {job.LastErrorMessage}");
+                        Console.ResetColor();
+                    }
+
+                    Console.WriteLine();
+                }
+            }
+
+            // Alert if there are failures
+            if (failedCount > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"⚠ WARNING: {failedCount} job(s) have failed. Review error messages above.");
+                Console.ResetColor();
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display scheduled jobs: {ex.Message}");
+            return 1;
+        }
     }
 
     private static async Task<int> DashboardAdminWatchCommand(IHost host, bool asJson)

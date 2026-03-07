@@ -408,6 +408,87 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
             _ => $"{TotalMonthlyTokens}"
         };
 
+    // ── Scheduled Jobs Properties (CT-REQ-008) ────────────────────────
+
+    private bool _hasScheduledJobs;
+    private int _totalJobs;
+    private int _scheduledCount;
+    private int _runningCount;
+    private int _pendingCount;
+    private int _failedCount;
+    private int _pausedCount;
+    private List<ScheduledJobSummary> _scheduledJobs = [];
+    private ScheduledJobSummary? _nextJob;
+
+    /// <summary>Whether any scheduled jobs exist.</summary>
+    public bool HasScheduledJobs
+    {
+        get => _hasScheduledJobs;
+        set => SetProperty(ref _hasScheduledJobs, value);
+    }
+
+    /// <summary>Total count of all jobs.</summary>
+    public int TotalJobs
+    {
+        get => _totalJobs;
+        set => SetProperty(ref _totalJobs, value);
+    }
+
+    /// <summary>Count of jobs scheduled to run in the future.</summary>
+    public int ScheduledCount
+    {
+        get => _scheduledCount;
+        set => SetProperty(ref _scheduledCount, value);
+    }
+
+    /// <summary>Count of jobs currently executing.</summary>
+    public int RunningCount
+    {
+        get => _runningCount;
+        set => SetProperty(ref _runningCount, value);
+    }
+
+    /// <summary>Count of jobs pending execution.</summary>
+    public int PendingCount
+    {
+        get => _pendingCount;
+        set => SetProperty(ref _pendingCount, value);
+    }
+
+    /// <summary>Count of jobs that failed.</summary>
+    public int FailedCount
+    {
+        get => _failedCount;
+        set => SetProperty(ref _failedCount, value);
+    }
+
+    /// <summary>Count of jobs that are paused.</summary>
+    public int PausedCount
+    {
+        get => _pausedCount;
+        set => SetProperty(ref _pausedCount, value);
+    }
+
+    /// <summary>List of all scheduled jobs.</summary>
+    public List<ScheduledJobSummary> ScheduledJobs
+    {
+        get => _scheduledJobs;
+        set => SetProperty(ref _scheduledJobs, value);
+    }
+
+    /// <summary>The next job scheduled to run.</summary>
+    public ScheduledJobSummary? NextJob
+    {
+        get => _nextJob;
+        set => SetProperty(ref _nextJob, value);
+    }
+
+    /// <summary>Formatted active jobs count (pending + running + scheduled).</summary>
+    public string ActiveJobsText => $"{PendingCount + RunningCount + ScheduledCount} active";
+
+    /// <summary>Whether there are any jobs with errors.</summary>
+    public bool HasJobErrors => FailedCount > 0;
+
     // ── View Toggle Properties (CT-REQ-006 Dual Layout) ───────────────
 
     /// <summary>When true, the Agent Activity panel is visible.</summary>
@@ -619,6 +700,19 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
         HasBudgetAlert = data.OnlineUsage.HasBudgetAlert;
         OnPropertyChanged(nameof(TotalDailyTokensText));
         OnPropertyChanged(nameof(TotalMonthlyTokensText));
+
+        // Scheduled Jobs (CT-REQ-008)
+        HasScheduledJobs = data.ScheduledJobs.HasScheduledJobs;
+        TotalJobs = data.ScheduledJobs.TotalJobs;
+        ScheduledCount = data.ScheduledJobs.ScheduledCount;
+        RunningCount = data.ScheduledJobs.RunningCount;
+        PendingCount = data.ScheduledJobs.PendingCount;
+        FailedCount = data.ScheduledJobs.FailedCount;
+        PausedCount = data.ScheduledJobs.PausedCount;
+        ScheduledJobs = new List<ScheduledJobSummary>(data.ScheduledJobs.Jobs);
+        NextJob = data.ScheduledJobs.NextJob;
+        OnPropertyChanged(nameof(ActiveJobsText));
+        OnPropertyChanged(nameof(HasJobErrors));
 
         // Status
         CurrentActivity = data.IsValid ? "Monitoring active" : $"Error: {data.CollectionError}";

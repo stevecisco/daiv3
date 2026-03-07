@@ -1,5 +1,6 @@
 using Daiv3.App.Maui.ViewModels;
 using Daiv3.Knowledge;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -9,12 +10,12 @@ namespace Daiv3.App.Maui.Tests;
 public sealed class IndexingViewModelTests
 {
     private readonly Mock<ILogger<IndexingViewModel>> _mockLogger = new();
-    private readonly Mock<IIndexingStatusService> _mockStatusService = new();
+    private readonly Mock<IServiceScopeFactory> _mockScopeFactory = new();
 
     [Fact]
     public void Constructor_InitializesCommandsAndTitle()
     {
-        var viewModel = new IndexingViewModel(_mockLogger.Object, _mockStatusService.Object);
+        var viewModel = new IndexingViewModel(_mockLogger.Object, _mockScopeFactory.Object);
 
         Assert.Equal("Indexing Status", viewModel.Title);
         Assert.NotNull(viewModel.RefreshCommand);
@@ -27,7 +28,7 @@ public sealed class IndexingViewModelTests
     [Fact]
     public void ProgressAndStatus_ReflectAssignedCounters()
     {
-        var viewModel = new IndexingViewModel(_mockLogger.Object, _mockStatusService.Object)
+        var viewModel = new IndexingViewModel(_mockLogger.Object, _mockScopeFactory.Object)
         {
             TotalIndexed = 4,
             TotalDiscovered = 8,
@@ -46,7 +47,7 @@ public sealed class IndexingViewModelTests
     public void SelectedFile_ExposesDetailDisplayFields()
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var viewModel = new IndexingViewModel(_mockLogger.Object, _mockStatusService.Object);
+        var viewModel = new IndexingViewModel(_mockLogger.Object, _mockScopeFactory.Object);
 
         viewModel.SelectedFile = new FileIndexInfo
         {

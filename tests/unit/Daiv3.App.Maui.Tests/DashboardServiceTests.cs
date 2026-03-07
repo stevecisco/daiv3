@@ -1,6 +1,7 @@
 using Daiv3.App.Maui.Models;
 using Daiv3.App.Maui.Services;
 using Daiv3.ModelExecution.Interfaces;
+using Daiv3.Scheduler;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -405,6 +406,143 @@ public class DashboardServiceTests
         Assert.Single(projBItems);
         Assert.Equal(4, allItems.Count);
     }
+
+    // ── Scheduled Jobs Tests (CT-REQ-008) ──────────────────────────────
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithNoScheduler_ShouldReturnEmptyScheduledJobs()
+    {
+        // Arrange
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.ScheduledJobs);
+        Assert.False(data.ScheduledJobs.HasScheduledJobs);
+        Assert.Equal(0, data.ScheduledJobs.TotalJobs);
+        Assert.Empty(data.ScheduledJobs.Jobs);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithNoJobs_ShouldReturnEmptyScheduledJobs()
+    {
+        // Arrange
+        var mockScheduler = new Mock<IScheduler>();
+        mockScheduler.Setup(s => s.GetAllJobsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ScheduledJobMetadata>());
+
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, mockScheduler.Object);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.ScheduledJobs);
+        Assert.False(data.ScheduledJobs.HasScheduledJobs);
+        Assert.Equal(0, data.ScheduledJobs.TotalJobs);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithScheduledJobs_ShouldReturnCorrectCounts()
+    {
+        // Arrange
+        var mockScheduler = new Mock<IScheduler>();
+        var jobMetadata = new List<ScheduledJobMetadata>
+        {
+            new() { JobId = "job1", JobName = "Job 1", Status = ScheduledJobStatus.Pending, ScheduleType = ScheduleType.OneTime, CreatedAtUtc = DateTime.UtcNow },
+            new() { JobId = "job2", JobName = "Job 2", Status = ScheduledJobStatus.Running, ScheduleType = ScheduleType.Recurring, CreatedAtUtc = DateTime.UtcNow },
+            new() { JobId = "job3", JobName = "Job 3", Status = ScheduledJobStatus.Scheduled, ScheduleType = ScheduleType.Cron, CreatedAtUtc = DateTime.UtcNow },
+            new() { JobId = "job4", JobName = "Job 4", Status = ScheduledJobStatus.Failed, ScheduleType = ScheduleType.OneTime, CreatedAtUtc = DateTime.UtcNow, LastErrorMessage = "Test error" },
+            new() { JobId = "job5", JobName = "Job 5", Status = ScheduledJobStatus.Completed, ScheduleType = ScheduleType.OneTime, CreatedAtUtc = DateTime.UtcNow }
+        };
+
+        mockScheduler.Setup(s => s.GetAllJobsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(jobMetadata);
+
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, mockScheduler.Object);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.ScheduledJobs);
+        Assert.True(data.ScheduledJobs.HasScheduledJobs);
+        Assert.Equal(5, data.ScheduledJobs.TotalJobs);
+        Assert.Equal(1, data.ScheduledJobs.PendingCount);
+        Assert.Equal(1, data.ScheduledJobs.RunningCount);
+        Assert.Equal(1, data.ScheduledJobs.ScheduledCount);
+        Assert.Equal(1, data.ScheduledJobs.FailedCount);
+        Assert.Equal(1, data.ScheduledJobs.CompletedCount);
+        Assert.Equal(5, data.ScheduledJobs.Jobs.Count);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithScheduledJobs_ShouldMapJobProperties()
+    {
+        // Arrange
+        var mockScheduler = new Mock<IScheduler>();
+        var scheduledTime = DateTime.UtcNow.AddHours(1);
+        var lastCompleted = DateTime.UtcNow.AddMinutes(-30);
+        var jobMetadata = new List<ScheduledJobMetadata>
+        {
+            new()
+            {
+                JobId = "job1",
+                JobName = "Test Job",
+                Status = ScheduledJobStatus.Scheduled,
+                ScheduleType = ScheduleType.Cron,
+                CreatedAtUtc = DateTime.UtcNow,
+                ScheduledAtUtc = scheduledTime,
+                LastCompletedAtUtc = lastCompleted,
+                LastExecutionDuration = TimeSpan.FromSeconds(5.5),
+                ExecutionCount = 3,
+                CronExpression = "0 0 * * *",
+                LastErrorMessage = null
+            }
+        };
+
+        mockScheduler.Setup(s => s.GetAllJobsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(jobMetadata);
+
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, mockScheduler.Object);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        var job = data.ScheduledJobs.Jobs.First();
+        Assert.Equal("job1", job.JobId);
+        Assert.Equal("Test Job", job.JobName);
+        Assert.Equal("Scheduled", job.Status);
+        Assert.Equal("Cron", job.ScheduleType);
+        Assert.Equal(scheduledTime, job.NextRunTime);
+        Assert.Equal(lastCompleted, job.LastCompletionTime);
+        Assert.Equal(TimeSpan.FromSeconds(5.5), job.LastExecutionDuration);
+        Assert.Equal(3, job.ExecutionCount);
+        Assert.Equal("0 0 * * *", job.CronExpression);
+        Assert.Null(job.LastErrorMessage);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WhenSchedulerThrows_ShouldReturnEmptyScheduledJobs()
+    {
+        // Arrange
+        var mockScheduler = new Mock<IScheduler>();
+        mockScheduler.Setup(s => s.GetAllJobsAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Scheduler error"));
+
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, mockScheduler.Object);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.ScheduledJobs);
+        Assert.False(data.ScheduledJobs.HasScheduledJobs);
+        Assert.Equal(0, data.ScheduledJobs.TotalJobs);
+    }
 }
 
 /// <summary>
@@ -553,5 +691,194 @@ public class DashboardDataTests
 
         // Assert
         Assert.Equal(0, utilization);
+    }
+
+    [Fact]
+    public void ScheduledJobsStatus_ShouldHaveDefaultValues()
+    {
+        // Arrange
+        var data = new DashboardData();
+
+        // Act
+        var scheduled = data.ScheduledJobs;
+
+        // Assert
+        Assert.NotNull(scheduled);
+        Assert.False(scheduled.HasScheduledJobs);
+        Assert.Equal(0, scheduled.TotalJobs);
+        Assert.NotNull(scheduled.Jobs);
+    }
+
+    [Fact]
+    public void ScheduledJobsStatus_NextJob_ShouldReturnEarliestScheduled()
+    {
+        // Arrange
+        var status = new ScheduledJobsStatus
+        {
+            Jobs = new List<ScheduledJobSummary>
+            {
+                new() { JobId = "job1", JobName = "Later Job", NextRunTime = DateTime.UtcNow.AddHours(5) },
+                new() { JobId = "job2", JobName = "Earlier Job", NextRunTime = DateTime.UtcNow.AddHours(1) },
+                new() { JobId = "job3", JobName = "Latest Job", NextRunTime = DateTime.UtcNow.AddHours(10) }
+            }
+        };
+
+        // Act
+        var nextJob = status.NextJob;
+
+        // Assert
+        Assert.NotNull(nextJob);
+        Assert.Equal("job2", nextJob!.JobId);
+        Assert.Equal("Earlier Job", nextJob.JobName);
+    }
+
+    [Fact]
+    public void ScheduledJobsStatus_NextJob_WithNoScheduledJobs_ShouldReturnNull()
+    {
+        // Arrange
+        var status = new ScheduledJobsStatus
+        {
+            Jobs = new List<ScheduledJobSummary>
+            {
+                new() { JobId = "job1", JobName = "Completed Job", Status = "Completed" }
+            }
+        };
+
+        // Act
+        var nextJob = status.NextJob;
+
+        // Assert
+        Assert.Null(nextJob);
+    }
+
+    [Fact]
+    public void ScheduledJobsStatus_HasErrors_ShouldBeTrueWhenFailuresExist()
+    {
+        // Arrange
+        var status = new ScheduledJobsStatus
+        {
+            FailedCount = 3
+        };
+
+        // Act
+        var hasErrors = status.HasErrors;
+
+        // Assert
+        Assert.True(hasErrors);
+    }
+
+    [Fact]
+    public void ScheduledJobsStatus_ActiveJobsCount_ShouldSumPendingRunningScheduled()
+    {
+        // Arrange
+        var status = new ScheduledJobsStatus
+        {
+            PendingCount = 2,
+            RunningCount = 1,
+            ScheduledCount = 5
+        };
+
+        // Act
+        var activeCount = status.ActiveJobsCount;
+
+        // Assert
+        Assert.Equal(8, activeCount);
+    }
+
+    [Fact]
+    public void ScheduledJobSummary_NextRunDescription_ForEventTriggered_ShouldReturnOnEvent()
+    {
+        // Arrange
+        var job = new ScheduledJobSummary
+        {
+            ScheduleType = "EventTriggered"
+        };
+
+        // Act
+        var description = job.NextRunDescription;
+
+        // Assert
+        Assert.Equal("On event", description);
+    }
+
+    [Fact]
+    public void ScheduledJobSummary_NextRunDescription_ForOverdue_ShouldReturnOverdue()
+    {
+        // Arrange
+        var job = new ScheduledJobSummary
+        {
+            ScheduleType = "OneTime",
+            NextRunTime = DateTime.UtcNow.AddMinutes(-10)
+        };
+
+        // Act
+        var description = job.NextRunDescription;
+
+        // Assert
+        Assert.Equal("Overdue", description);
+    }
+
+    [Fact]
+    public void ScheduledJobSummary_ScheduleDescription_ForCron_ShouldIncludeCronExpression()
+    {
+        // Arrange
+        var job = new ScheduledJobSummary
+        {
+            CronExpression = "0 0 * * *"
+        };
+
+        // Act
+        var description = job.ScheduleDescription;
+
+        // Assert
+        Assert.Equal("Cron: 0 0 * * *", description);
+    }
+
+    [Fact]
+    public void ScheduledJobSummary_ScheduleDescription_ForRecurring_ShouldShowInterval()
+    {
+        // Arrange
+        var job = new ScheduledJobSummary
+        {
+            IntervalSeconds = 300
+        };
+
+        // Act
+        var description = job.ScheduleDescription;
+
+        // Assert
+        Assert.Equal("Every 300s", description);
+    }
+
+    [Fact]
+    public void ScheduledJobSummary_HasError_WithErrorMessage_ShouldBeTrue()
+    {
+        // Arrange
+        var job = new ScheduledJobSummary
+        {
+            LastErrorMessage = "Connection timeout"
+        };
+
+        // Act
+        var hasError = job.HasError;
+
+        // Assert
+        Assert.True(hasError);
+    }
+
+    [Fact]
+    public void ScheduledJobSummary_HasError_WithFailedStatus_ShouldBeTrue()
+    {
+        // Arrange
+        var job = new ScheduledJobSummary
+        {
+            Status = "Failed"
+        };
+
+        // Act
+        var hasError = job.HasError;
+
+        // Assert
+        Assert.True(hasError);
     }
 }

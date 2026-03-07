@@ -48,6 +48,11 @@ public class DashboardData
     public OnlineProviderUsage OnlineUsage { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets scheduled jobs status and execution history (CT-REQ-008).
+    /// </summary>
+    public ScheduledJobsStatus ScheduledJobs { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets any error messages encountered during data collection.
     /// Null means no errors.
     /// </summary>
@@ -690,6 +695,206 @@ public class ProviderUsageSummary
             if (IsOverBudget) return "Over Budget";
             if (IsNearBudget) return "Near Budget";
             return "OK";
+        }
+    }
+}
+
+/// <summary>
+/// Scheduled jobs status and execution history (CT-REQ-008 data).
+/// Displays scheduled jobs with status, next run times, and execution results.
+/// </summary>
+public class ScheduledJobsStatus
+{
+    /// <summary>
+    /// Whether any scheduled jobs exist in the system.
+    /// </summary>
+    public bool HasScheduledJobs { get; set; }
+
+    /// <summary>
+    /// Total count of all jobs regardless of status.
+    /// </summary>
+    public int TotalJobs { get; set; }
+
+    /// <summary>
+    /// Count of jobs currently scheduled to run in the future.
+    /// </summary>
+    public int ScheduledCount { get; set; }
+
+    /// <summary>
+    /// Count of jobs currently executing.
+    /// </summary>
+    public int RunningCount { get; set; }
+
+    /// <summary>
+    /// Count of jobs pending execution (ready to run but not yet started).
+    /// </summary>
+    public int PendingCount { get; set; }
+
+    /// <summary>
+    /// Count of jobs that completed successfully.
+    /// </summary>
+    public int CompletedCount { get; set; }
+
+    /// <summary>
+    /// Count of jobs that failed execution.
+    /// </summary>
+    public int FailedCount { get; set; }
+
+    /// <summary>
+    /// Count of jobs that are paused.
+    /// </summary>
+    public int PausedCount { get; set; }
+
+    /// <summary>
+    /// Count of jobs that were cancelled.
+    /// </summary>
+    public int CancelledCount { get; set; }
+
+    /// <summary>
+    /// List of all scheduled jobs with metadata.
+    /// </summary>
+    public List<ScheduledJobSummary> Jobs { get; set; } = [];
+
+    /// <summary>
+    /// Gets the next job scheduled to run (earliest scheduled time).
+    /// </summary>
+    public ScheduledJobSummary? NextJob =>
+        Jobs.Where(j => j.NextRunTime.HasValue)
+            .OrderBy(j => j.NextRunTime!.Value)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Gets whether there are any jobs in error state.
+    /// </summary>
+    public bool HasErrors => FailedCount > 0;
+
+    /// <summary>
+    /// Gets whether there are any jobs currently running.
+    /// </summary>
+    public bool HasRunningJobs => RunningCount > 0;
+
+    /// <summary>
+    /// Gets count of active jobs (pending, running, or scheduled).
+    /// </summary>
+    public int ActiveJobsCount => PendingCount + RunningCount + ScheduledCount;
+}
+
+/// <summary>
+/// Summary information for a single scheduled job.
+/// </summary>
+public class ScheduledJobSummary
+{
+    /// <summary>
+    /// Unique job identifier.
+    /// </summary>
+    public string JobId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Human-readable job name.
+    /// </summary>
+    public string JobName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Current job status (Pending, Running, Completed, Failed, etc.).
+    /// </summary>
+    public string Status { get; set; } = "Unknown";
+
+    /// <summary>
+    /// Type of schedule (OneTime, Recurring, Cron, EventTriggered).
+    /// </summary>
+    public string ScheduleType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the job is next scheduled to run (UTC).
+    /// </summary>
+    public DateTime? NextRunTime { get; set; }
+
+    /// <summary>
+    /// When the job last started execution (UTC).
+    /// </summary>
+    public DateTime? LastStartTime { get; set; }
+
+    /// <summary>
+    /// When the job last completed execution (UTC).
+    /// </summary>
+    public DateTime? LastCompletionTime { get; set; }
+
+    /// <summary>
+    /// Duration of the last execution.
+    /// </summary>
+    public TimeSpan? LastExecutionDuration { get; set; }
+
+    /// <summary>
+    /// Number of times this job has executed.
+    /// </summary>
+    public int ExecutionCount { get; set; }
+
+    /// <summary>
+    /// Recurrence interval in seconds (for recurring jobs).
+    /// </summary>
+    public uint? IntervalSeconds { get; set; }
+
+    /// <summary>
+    /// Cron expression (for cron-based jobs).
+    /// </summary>
+    public string? CronExpression { get; set; }
+
+    /// <summary>
+    /// Event type (for event-triggered jobs).
+    /// </summary>
+    public string? EventType { get; set; }
+
+    /// <summary>
+    /// Last error message if the job failed.
+    /// </summary>
+    public string? LastErrorMessage { get; set; }
+
+    /// <summary>
+    /// Gets whether this job has errors (status is Failed or has error message).
+    /// </summary>
+    public bool HasError => Status == "Failed" || !string.IsNullOrEmpty(LastErrorMessage);
+
+    /// <summary>
+    /// Gets a user-friendly description of when the job will next run.
+    /// </summary>
+    public string NextRunDescription
+    {
+        get
+        {
+            if (!NextRunTime.HasValue)
+                return ScheduleType == "EventTriggered" ? "On event" : "Not scheduled";
+
+            var timeUntil = NextRunTime.Value - DateTime.UtcNow;
+
+            if (timeUntil.TotalSeconds < 0)
+                return "Overdue";
+            if (timeUntil.TotalMinutes < 1)
+                return "In less than a minute";
+            if (timeUntil.TotalMinutes < 60)
+                return $"In {timeUntil.TotalMinutes:F0} minutes";
+            if (timeUntil.TotalHours < 24)
+                return $"In {timeUntil.TotalHours:F0} hours";
+
+            return $"In {timeUntil.TotalDays:F0} days";
+        }
+    }
+
+    /// <summary>
+    /// Gets a formatted string for the schedule (e.g., "Every 300s", "Cron: 0 0 * * *").
+    /// </summary>
+    public string ScheduleDescription
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(CronExpression))
+                return $"Cron: {CronExpression}";
+            if (!string.IsNullOrEmpty(EventType))
+                return $"Event: {EventType}";
+            if (IntervalSeconds.HasValue)
+                return $"Every {IntervalSeconds}s";
+            if (NextRunTime.HasValue)
+                return NextRunTime.Value.ToLocalTime().ToString("g");
+            return "One-time";
         }
     }
 }
