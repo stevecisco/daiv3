@@ -60,15 +60,38 @@ Five CLI commands provide comprehensive visibility into promotion history:
 
 **Implementation:** [src/Daiv3.App.Cli/Program.cs](../../../src/Daiv3.App.Cli/Program.cs) (Lines 853-4552)
 
-#### 3. Dashboard UI Visibility (Blocked)
+#### 3. Dashboard UI Visibility (Now Unblocked)
 
-**Status:** ⏳ Blocked by **CT-REQ-003** (Dashboard Foundation - Not Started)
+**Status:** ✅ **UNBLOCKED** - **CT-REQ-003 (Dashboard Foundation) completed March 7, 2026**
 
-The dashboard UI for promotion visibility is planned but blocked on the foundational transparency dashboard requirement. Once CT-REQ-003 is complete, promotion visibility will include:
-- Real-time promotion feed
-- Interactive timeline visualization
-- Filterable promotion history
-- Learning-to-promotion navigation
+The dashboard UI for promotion visibility was previously blocked on the foundational transparency dashboard requirement. CT-REQ-003 is now complete with:
+- IDashboardService for centralized metric collection
+- DashboardService background monitoring loop (configurable refresh intervals)
+- DashboardViewModel with async/dispatch patterns (CT-NFR-001)
+- DashboardPage lifecycle integration
+- Data collection architecture ready for downstream dashboards
+
+**Now Ready to Implement (Backlog-02 in v0.2):**
+Dashboard visibility will include:
+- Real-time promotion feed (recent 50 promotions, paginated)
+- Interactive timeline visualization with date grouping
+- Filterable promotion history (by scope, source task, date range)
+- Promotion path per learning (multi-level promotion tracking)
+- Summary stats: total promotions, by-scope distribution, by-trigger distribution
+- Learning-to-promotion navigation links
+
+**Recommended Implementation Approach:**
+1. Create `KnowledgePromotionViewModel` extending dashboard patterns from CT-REQ-004 (queue dashboard) and CT-REQ-008 (scheduled jobs)
+2. Create `KnowledgePromotionPage.xaml` with timeline and filter controls
+3. Leverage existing `PromotionRepository` queries (6 methods) from KBP-DATA-001
+4. Add to Shell.xaml navigation under Dashboard section
+5. Estimated effort: 3-5 story points (documented as BACKLOG-02 in Master-Implementation-Tracker.md)
+
+**Reference:** Parallel dashboard implementations completed in Phase 6:
+- CT-REQ-004: Queue dashboard with top 3 items + project filtering
+- CT-REQ-008: Scheduled jobs dashboard with status/execution metrics
+- CT-REQ-006: Agent activity dashboard with resource metrics
+
 
 ### Query Capabilities
 

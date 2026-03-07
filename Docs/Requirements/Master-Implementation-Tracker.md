@@ -347,6 +347,23 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 ---
 
+### Session Auto-Summarization & Knowledge Integration (v0.2+)
+
+**Purpose:** Automate session summarization, knowledge backpropagation integration, and learning observability. Enables learning loop automation and dashboard transparency for executed tasks.
+
+**Note:** Comprehensive backlog requirements documented in [BACKLOG-SESSION-AUTO-SUMMARIZATION.md](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md). Each backlog item references completed Phase 5 requirements and proposes future integration work.
+
+| Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
+|-----|-------------|---------------|-------------|--------------|--------|------------|-------|
+| 212.1 | **[BACKLOG-01: Session Auto-Summarization Trigger](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [9. Learning Memory](Specs/09-Learning-Memory.md) | **Automatically generate structured summary after agent execution capturing milestones, learnings, errors, decisions, and success criteria results.** | **AST-REQ-001✅, LM-REQ-001✅** | **Backlog (v0.2 P6.3)** | **0%** | **Unblocks:** BACKLOG-03 (session key facts), dashboard session context. **Effort:** 5-8 pts. Integration: `AgentManager.ExecuteTaskAsync()` completion → `ISessionSummarizationService.SummarizeExecutionAsync()` → `sessions.key_knowledge_json` population |
+| 212.2 | **[BACKLOG-02: Dashboard Promotion History Visibility](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | **Add MAUI dashboard view for promotion visibility (CLI commands already complete via KBP-ACC-002). NOW UNBLOCKED: CT-REQ-003 (dashboard foundation) is complete.** | **KBP-ACC-002✅, CT-REQ-003✅** | **Backlog (v0.2 P6.2) - NOW UNBLOCKED** | **0%** | **Priority:** Medium-High (dashboard infrastructure ready). **Effort:** 3-5 pts. Dashboard page: promotion history, filters (scope/task/learner/date), timeline visualization, stats cards. Leverage existing PromotionRepository queries. Reference: CT-REQ-004 (queue dashboard) pattern. |
+| 212.3 | **[BACKLOG-03: Session Key Knowledge Auto-Population](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | **Auto-populate `sessions.key_knowledge_json` with structured facts: milestones, learnings, error patterns, resource usage, external data sources.** | **BACKLOG-01 (Session Auto-Summarization)** | **Backlog (v0.2 P6.3)** | **0%** | **Effort:** 4-6 pts. Requires BACKLOG-01 for summary context. Enables rich session inspection and dashboard summarization. Integration: Call `ISessionKnowledgeExtractor.ExtractKeyKnowledgeAsync()` after execution completes. |
+| 212.4 | **[BACKLOG-04: Auto-Learning Trigger from Agent Failures](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [9. Learning Memory](Specs/09-Learning-Memory.md) | **Auto-detect self-correction patterns (step N fails → step N+1 succeeds) and create learnings via `LM-REQ-001` SelfCorrectionTriggerContext without manual user action.** | **LM-REQ-001✅, AST-REQ-001✅** | **Backlog (v0.2 P7.1)** | **0%** | **Priority:** Medium (automation feature). **Effort:** 6-8 pts. Advanced learning automation; deferred for Phase 7. Integrates `ISelfCorrectionLearningDetector` with agent execution result analysis. |
+| 212.5 | **[BACKLOG-05: Learning Injection Breadcrumb Logging](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | **Track and display why learnings were/weren't injected: candidate count, similarity scores, filter decisions, injection reasons per step.** | **LM-REQ-005✅, CT-REQ-006✅** | **Backlog (v0.2 P6.2)** | **0%** | **Priority:** Medium (observability enhancement). **Effort:** 3-4 pts. CLI: `daiv3 agent inspect <execution_id> --learning-trace`. Dashboard: learning source badges per step. Minimal perf overhead (enabled by config). |
+| 212.6 | **[BACKLOG-06: Agent Learning History UI](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | **MAUI dashboard view: per-agent learning reuse metrics (count, effectiveness score), most-used learnings, learning source badges, injection history details.** | **BACKLOG-01, BACKLOG-02, BACKLOG-05** | **Backlog (v0.2 P6.3/P7.1)** | **0%** | **Priority:** Low (polish feature). **Effort:** 8-10 pts. Deferred to Phase 7+. Provides exec reflection story: which learnings drove better outcomes? Integrates with breadcrumb traces + effectiveness scoring. |
+
+---
+
 ## Status Definitions
 
 - **Not Started**: No work has begun.
@@ -359,8 +376,12 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 ---
 
-**Last Updated:** March 4, 2026  
-**Total Requirements:** 219 (+6 new Phase 6 UI dashboards)  
+**Last Updated:** March 7, 2026  
+**Total Requirements:** 225 (+6 new Phase 6 UI dashboards, +6 new v0.2+ backlog items for session auto-summarization & knowledge integration)  
+**Completed:** 139 (62%)  
+**In Progress:** 4 (2%)  
+**Not Started:** 78 (35%)  
+**Backlog (v0.2+):** 8 (4%) - Embedding models (2), Session auto-summarization (6)  
 **Completed:** 139 (63%)  
 **In Progress:** 4 (2%)  
 **Not Started:** 76 (35%)
@@ -374,7 +395,12 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 - **Phase 6 (User Experience):** 6/22 Complete (27%) - CT-REQ-001 ✅, CT-REQ-003 ✅, CT-NFR-001 ✅, CT-REQ-004 ✅, CT-REQ-005 ✅, CT-REQ-006 ✅
 - **Executive Summary & Product Goals:** 0/15 Complete (0%)
 - **Glossary & Future:** 0/13 Complete (0%)
-- **Backlog (v0.2+):** 2/6 Complete (33%)
+- **Backlog (v0.2+):** 2/8 Complete (25%) - 2 embedding model items complete, 6 session auto-summarization items deferred
+
+**Key Unblocking Events (Today - March 7, 2026):**
+- ✅ **CT-REQ-003 (Dashboard Foundation) Complete** → **UNBLOCKS KBP-ACC-002 dashboard** (promotion history visibility now ready to implement in Phase 6.2)
+- ✅ **All Learning/Backpropagation core infrastructure complete** (LM-REQ-001 through LM-NFR-002, KBP-REQ-001 through KBP-NFR-002) → 6 new backlog items created for v0.2+ capturing auto-summarization and observability gaps
+- ✅ **Agent execution session tracking complete** (AST-REQ-001) → Foundation for BACKLOG-01 (auto-summarization), BACKLOG-03 (key fact extraction)
 
 **Recent Completions (Last 7 Days):**
 - CT-REQ-006: Agent activity dashboard + system resource metrics (CPU/memory/disk) + resource alerts + dual MAUI view + CLI subcommands
@@ -385,3 +411,4 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 - KBP-NFR-002: Provenance storage for promotions
 - KLC-REQ-007: HTML parsing library (AngleSharp)
 - WFC-REQ-001: Web fetch single URL
+- **NEW:** 6 backlog requirements documented referencing completed Phase 5 infrastructure
