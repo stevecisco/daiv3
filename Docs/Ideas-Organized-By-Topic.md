@@ -19,6 +19,7 @@
 **Core Concept:** Connect to external platforms, marketplaces, and services for content consumption and creation.
 
 - **Content Platforms:** Medium (read saved articles, organize, follow authors, track updates), LinkedIn (read profiles, connections, news feeds, create articles), Blog Posts (read & write)
+- **Audio/Video Platforms:** Podcasts, YouTube, Vimeo, recorded meetings, voice notes, and local media files with automatic transcription when no transcript exists
 - **Marketplace Scanning:** Shopify scanner for product ideas, eBay scanner (general + infrastructure expansion ideas)
 - **File & Web Management:** Web scraper for manual/automatic knowledge capture ("Send to Daiv3"), web crawler with reasonable timeouts
 - **Communication:** Email processing with automatic reading and approval workflow, secure remote communication (better than OpenClaw)
@@ -79,6 +80,8 @@
 **Core Concept:** Ingest, organize, summarize, and retrieve knowledge with embedding-based search.
 
 - Web crawling and content indexing with JavaScript handling and recursion prevention
+- Audio/video ingestion pipeline: extract audio, transcribe, diarize speakers, summarize, and index into vector + keyword stores
+- OCR ingestion pipeline for scanned books, magazines, and paper documents (overhead scanner workflows + image quality checks + page-order validation)
 - Two-level summarization (content summary + context summary)
 - File/directory inclusion/exclusion rules for selective indexing
 - Display list of indexed files and directories
@@ -93,6 +96,188 @@
 - NuGet package documentation and dependencies knowledge base
 - Notebook-style summaries and collections (like OneNote/Notion hybrid)
 - Mind mapping for related information visualization
+
+**Knowledge Source Taxonomy (proposed):**
+
+- `web`: crawled pages, saved links, RSS, topic indexes
+- `articles`: Medium, Substack, newsletters, blogs
+- `audio`: podcasts, interviews, voice notes, meeting recordings
+- `video`: lectures, tutorials, conference talks, webinars
+- `documents`: PDFs, DOCX, PPTX, spreadsheets, manuals
+- `books-magazines`: scanned pages + OCR text + chapter/issue metadata
+- `code-repos`: GitHub/GitLab repos, package docs, API references
+- `reference-indexes`: library/government/open-data catalogs
+- `personal-notes`: user-authored notes, annotations, highlights
+
+**Knowledge Folder Structure (proposed):**
+
+```text
+knowledge/
+  _catalog/
+    sources.json                # source registry and sync state
+    taxonomy.json               # canonical source categories/tags
+    ingestion-jobs.json         # queue and job status
+  raw/
+    web/
+    articles/
+    audio/
+    video/
+    documents/
+    books-magazines/
+    code-repos/
+    reference-indexes/
+    personal-notes/
+  processed/
+    ocr-text/
+    transcripts/
+    cleaned-markdown/
+    chunks/
+  summaries/
+    per-item/
+    per-topic/
+    per-source/
+  embeddings/
+    vectors/
+    metadata/
+  index/
+    lexical/
+    graph/
+  attachments/
+    images/
+    figures/
+    tables/
+  policies/
+    retention/
+    privacy/
+    sharing/
+  logs/
+    ingestion/
+    transcription/
+    ocr/
+```
+
+**Project/Topic Organization Strategy (recommended):**
+
+- Do not fully duplicate the entire structure under each project/topic (avoids storage bloat and sync conflicts)
+- Keep one canonical content store by source/type, then organize virtually using metadata facets
+- Use mandatory tags on every item:
+  - `projectIds`: one or more projects
+  - `topicIds`: controlled topic taxonomy
+  - `workstream`: research, implementation, operations, learning, etc.
+  - `scope`: local-only, node-shareable, cloud-shareable
+- Build materialized views for fast navigation:
+  - `knowledge/views/by-project/<projectId>/`
+  - `knowledge/views/by-topic/<topicId>/`
+  - `knowledge/views/by-source/<sourceType>/`
+- Views should store references (IDs + metadata pointers), not duplicate raw/processed content
+
+**Suggested namespace extension:**
+
+```text
+knowledge/
+  _catalog/
+    items.jsonl                 # one record per knowledge item
+    topics.json                 # normalized topic taxonomy
+    projects.json               # project registry
+    item-project-map.jsonl      # many-to-many mapping
+    item-topic-map.jsonl        # many-to-many mapping
+  views/
+    by-project/
+    by-topic/
+    by-source/
+```
+
+**Portable transfer model (network, USB, cloud):**
+
+- Use content-addressable storage (`sha256` content IDs) so duplicates are automatically avoided across nodes
+- Package exports as `knowledge packs`:
+  - `pack-manifest.json` (item IDs, hashes, sizes, licenses, classifications)
+  - `pack-content/` (only missing blobs/chunks for target node)
+  - `pack-signature.sig` (integrity and trust verification)
+- Support three transport modes with same pack format:
+  - Network sync (peer-to-peer or shared path)
+  - USB sneaker-net (offline copy/import)
+  - Cloud staging (upload manifest + content, pull selectively)
+- Allow `partial pull` by project/topic/date/risk label so nodes download only what they need
+- Enforce policy on import: reject prohibited license classes, preserve privacy labels, quarantine untrusted packs
+- Maintain sync journal per node:
+  - last exported/imported pack
+  - item hash checkpoints
+  - conflict records (metadata merge decisions)
+
+**Replication policy guidance:**
+
+- Replicate metadata catalogs broadly (small, high value)
+- Replicate summaries/chunks by project/topic priority tiers
+- Replicate large binaries (audio/video/scans) on-demand or by explicit policy
+- Keep local node caches with eviction rules (LRU + pinned projects)
+
+**Hierarchy change detection and reindex rules:**
+
+- Track hierarchical lineage for each item: `parentId`, `ancestorIds`, `derivedFromIds`
+- Maintain `contentVersion` and `structureVersion` for each node and subtree
+- Trigger reindex when any of these change on ancestor/parent/grandparent:
+  - source content hash
+  - metadata affecting retrieval (title, tags, project/topic binding, privacy scope)
+  - chunking strategy or model version
+- Use incremental cascade strategy:
+  - mark impacted descendants as `stale`
+  - queue reprocessing by priority (`hot topics` first)
+  - rebuild only affected summaries/chunks/embeddings (not full corpus)
+- Expose stale state in UI/CLI so user can see "needs refresh" before search results are trusted
+
+**Dependency-aware delete, eviction, and recovery:**
+
+- Deleting or evicting an item should run a dependency preflight:
+  - inbound references (who cites/depends on it)
+  - outbound references (what it needs)
+  - graph centrality/risk score (how many topics/projects are impacted)
+- Hard delete policy:
+  - block by default when inbound references exist
+  - offer "relink", "replace", or "archive tombstone" options
+- Cache eviction policy:
+  - remove local blobs only, keep metadata + dependency edges
+  - keep reversible tombstone with manifest so item can be rehydrated from node/cloud/USB pack
+- Recovery behavior:
+  - if search hits missing local content, show "available remotely" indicator and pull options
+  - one-click rehydrate from known source (peer node, cloud pack, USB import)
+- Provide impact report before delete: list dependent projects/topics/items and estimated search quality degradation
+
+**Knowledge graph and mind map exploration (intent):**
+
+- Maintain explicit edge types: `cites`, `summarizes`, `derived-from`, `contradicts`, `related-to`, `same-topic`
+- Support "follow the node" traversal:
+  - upstream provenance (where this idea came from)
+  - downstream influence (what this idea shaped)
+  - lateral neighbors (related concepts across projects)
+- Provide multiple views on same graph:
+  - hierarchy tree (project/topic/subtopic)
+  - dependency map (critical references and potential breakpoints)
+  - semantic constellation (vector-near clusters with weighted edges)
+- Keep 2D-first UI for usability, with optional 3D exploration mode for dense clusters
+- Add timeline replay for node evolution (`version-to-version`) so user can see how ideas merged over time
+
+**Per-item metadata to persist:**
+
+- Source type, source URL/URI, author/publisher, language, created/published/ingested timestamps
+- Rights/license flags (public domain, personal use, commercial restricted, unknown)
+- Processing lineage (raw hash, OCR engine version, ASR model version, summarizer version, chunking strategy)
+- Quality metrics (transcription confidence, OCR confidence, summary quality score)
+- Privacy/shareability labels (private, team-shareable, public-reference-only)
+- Topic tags, entities, people, projects, and citation links to original content
+
+**Additional high-value source indexes to consider:**
+
+- Library of Congress digital collections and catalog APIs
+- Internet Archive (books, audio, video, software archives)
+- Project Gutenberg and other public-domain book repositories
+- arXiv, PubMed, Crossref, OpenAlex for scholarly discovery and citation graphs
+- DOAJ and institutional repositories for open-access journals
+- Data.gov and city/state open-data portals for structured datasets
+- World Bank/UN/OECD data portals for macro indicators
+- Standards and regulations portals (NIST, ISO summaries, CFR/Federal Register where applicable)
+- Patent/trademark sources (USPTO, Google Patents) for prior-art research
+- Court opinion/legal document repositories for legal research use cases
 
 ## 6. Project & Task Orchestration
 
@@ -133,7 +318,52 @@
 - Capacity planning based on profitability metrics
 - Business entity treatment of each agent with separate P&L tracking
 
-## 8. User Interface & Dashboards
+## 8. Personal Inventory & Shopping Management
+
+**Core Concept:** Track owned items, wish lists, shopping goals, and deal opportunities with automated price monitoring and creative usage suggestions.
+
+- **Shopping Lists & Wish Lists:** Christmas lists, birthday lists, project-specific shopping needs, general want lists
+- **Personal Inventory Tracking:** Items owned with full metadata capture
+  - Catalog source (retailer, manufacturer, used marketplace)
+  - Website/product URL for reference and repurchase
+  - Part number, model number, serial number, SKU
+  - Purchase date, price paid, warranty expiration
+  - Location in home/storage (room, shelf, bin, drawer)
+  - Condition tracking (new, like-new, worn, needs-repair)
+  - Photos and documentation attachments
+- **Receipt Scanning & Entry:** OCR-based receipt ingestion with manual detail enhancement
+  - Extract merchant, date, items, prices, payment method
+  - Link receipts to inventory items and budget categories
+  - Support warranty/return period tracking
+  - Tax-deductible item flagging for business expense tracking
+- **Deal Searching & Price Monitoring:**
+  - Automated price watch for wish list items (daily/weekly checks)
+  - Multi-marketplace price comparison (Amazon, eBay, Walmart, local retailers, specialty sites)
+  - Price history trending (up/down over time, seasonal patterns)
+  - Best place to buy recommendations with shipping/tax considerations
+  - Deal alert thresholds (notify when price drops below target)
+  - Coupon/promo code tracking and application
+  - Stock availability monitoring (out-of-stock alert, restock notifications)
+- **Creative Usage & Income Generation:**
+  - Query existing inventory for creative repurposing ideas
+  - Search for DIY projects using owned materials
+  - Identify sellable items with current market value estimates
+  - Generate income suggestions from underutilized assets (rent, resell, upcycle)
+  - Cross-reference with current projects/needs to avoid redundant purchases
+- **Catalog & Collection Management:**
+  - Organize items by category, collection, project, room, or custom tags
+  - Track sets and bundled items (keep track of what's complete vs. missing pieces)
+  - Version/generation tracking for tech products (upgrade opportunities)
+  - Maintenance schedules and service history for tools/equipment/vehicles
+  - Insurance documentation and replacement value tracking
+- **Integration with External Marketplaces:**
+  - eBay watch list sync and bid tracking
+  - Amazon wish list import and price monitoring
+  - Shopify product idea scanner for business opportunities
+  - Craigslist/Facebook Marketplace deal alerts by search criteria
+  - Library of Things and tool-sharing services integration
+
+## 9. User Interface & Dashboards
 
 **Core Concept:** Multi-faceted visual interfaces for different user roles and needs.
 
@@ -152,7 +382,7 @@
 - **Async/Dispatch Patterns:** Keep UI responsive with proper threading and cancellation
 - **Status Reports:** Multiple formats and role-specific views
 
-## 9. Content & Communication
+## 10. Content & Communication
 
 **Core Concept:** Capture, style, and communicate ideas and responses appropriately.
 
@@ -170,7 +400,7 @@
 - Review queues by project and priority (top 3 things overall + by project)
 - Deadline tracking and reminder system for upcoming responses/deliverables
 
-## 10. Background Processing & System Administration
+## 11. Background Processing & System Administration
 
 **Core Concept:** Manage background services, isolation, monitoring, and system health.
 
@@ -191,7 +421,7 @@
 - Job completion tracking through status files and master task management datastore
 - Logging of processing decisions and thinking for transparency
 
-## 11. Business & Operations Management
+## 12. Business & Operations Management
 
 **Core Concept:** Treat each agent and idea as a business entity with planning and operations.
 
@@ -208,7 +438,7 @@
 - Learning and feedback integration into standard procedures
 - Branding and market positioning
 
-## 12. Learning & Development
+## 13. Learning & Development
 
 **Core Concept:** Continuous expertise development across technical and domain areas.
 
@@ -225,7 +455,7 @@
 - Knowledge specialization: large knowledge base + small isolated skills with knowledge references
 - Master Organizer skill for content curation and findability
 
-## 13. Offline & Distributed Work
+## 14. Offline & Distributed Work
 
 **Core Concept:** Enable productive work with intermittent connectivity and resource constraints.
 
@@ -241,7 +471,7 @@
 - Cached model availability for offline inference
 - Context reduction for mobile constraints
 
-## 14. Monitoring, Logging & Analysis
+## 15. Monitoring, Logging & Analysis
 
 **Core Concept:** Transparency and continuous improvement through comprehensive logging and analysis.
 
@@ -258,7 +488,7 @@
 - Lessons learned capture from completed projects
 - Transparency for human oversight of agent activities
 
-## 15. Autonomous Requirements & Work Management
+## 16. Autonomous Requirements & Work Management
 
 **Core Concept:** Daiv3 acts as its own project requirements tracker and execution coordinator, turning requirements into managed work that can be planned, queued, built, tested, and verified.
 
