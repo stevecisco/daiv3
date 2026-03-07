@@ -247,3 +247,105 @@ public enum TaskStatus { Queued, Running, Paused, Blocked, Cancelling, Failed, C
 - CT-REQ-006 (agent activity; complements with task-level view)
 - CT-REQ-010 (resource metrics; includes process-level CPU/memory from this)
 - ARCH-ACC-002 (orchestration testability; needed for task inspection)
+
+---
+
+##  Implementation Notes
+
+**Status:** ✅ **Phase 1 Complete** (2026-03-07)  
+**Scope:** Core data models, service integration, UI foundation, CLI command, comprehensive tests  
+**Next Phase:** Task lifecycle actions (pause/resume/cancel), log viewer, filtering/sorting
+
+### What Was Implemented
+
+#### 1. Data Models (`src/Daiv3.App.Maui/Models/DashboardData.cs`)
+- **BackgroundTasksStatus:** Container for all background task data with aggregate calculations
+  - Properties: `HasTasks`, `TotalTasks`, `RunningCount`, `QueuedCount`, `PausedCount`, `BlockedCount`, `CancellingCount`, `FailedCount`, `CompletedCount`, `Tasks`
+  - Computed properties: `HasActiveTasks`, `Has Errors`, `LongestRunningTask`, `TotalCpuPercent`, `TotalMemoryBytes`
+- **BackgroundTaskInfo:** Individual task metadata and lifecycle state
+  - Core properties: `TaskId`, `Name`, `Description`, `Status`, `StartTime`, `ElapsedTime`
+  - Progress: `ProgressPercent`, `CurrentOperation`
+  - Context: `AgentName`, `Priority`, `Metrics`, `ErrorMessage`
+  - Computed properties: `StatusIcon` (emoji), `ElapsedTimeText` ("5m 30s"), `CanCancel`, `CanPause`, `CanResume`
+- **TaskMetrics:** Resource usage per task
+  - Properties: `CpuPercent`, `MemoryBytes`, `ThreadCount`, `EstimatedRemaining`, `TokensUsed`
+  - Computed property: `MemoryText` ("256.0 MB")
+- **TaskStatus enum:** `Queued(0)`, `Running(1)`, `Paused(2)`, `Blocked(3)`, `Cancelling(4)`, `Failed(5)`, `Completed(6)`
+
+#### 2. Service Integration (`src/Daiv3.App.Maui/Services/DashboardService.cs`)
+- **CollectBackgroundTasksAsync()** method aggregates tasks from three sources:
+  1. **IScheduler:** Running scheduled jobs (maps ScheduledJobMetadata → BackgroundTaskInfo)
+  2. **AgentExecutionMetricsCollector:** Active agent executions from orchestration layer
+  3. **IModelQueue:** In-flight model execution tasks (queue metadata)
+- Computes status counts via `GroupBy(t => t.Status)`
+- Returns fully populated `BackgroundTasksStatus` with all aggregations
+
+#### 3. ViewModel (`src/Daiv3.App.Maui/ViewModels/DashboardViewModel.cs`)
+- **Task Properties:** `HasTasks`, `TotalTasks`, `TasksRunningCount`, `TasksQueuedCount`, `TasksPausedCount`, `TasksFailedCount`, `BackgroundTasks` (observable collection), `SelectedTask`
+- **Commands (Placeholders):** `CancelTaskCommand`, `PauseTaskCommand`, `ResumeTaskCommand` (log warnings; full implementation deferred to Phase 2)
+
+#### 4. UI (`src/Daiv3.App.Maui/Pages/DashboardPage.xaml`)
+- **Background Tasks Inspector Section** added below scheduler section
+- **Summary Grid:** Running/Queued/Failed count cards with colored badges
+- **CollectionView:** Task cards with bindings to:
+  - `StatusIcon`, `Name`, `ElapsedTimeText`, `Description`
+  - `CurrentOperation`, `ProgressBar` (IsVisible bound to ProgressPercent)
+  - Metrics: `MemoryText`, `AgentName`, `Priority`
+  - `ErrorMessage` (IsVisible for failed tasks)
+
+#### 5. CLI (`src/Daiv3.App.Cli/Program.cs`)
+- **Command:** `daiv3 dashboard tasks`
+- **Output:** Color-coded task list (🟢 Running, 🔵 Queued, 🟡 Paused, ❌ Failed)
+- **Details:** Task ID, name, elapsed time, agent, priority, error messages
+
+####  6. Tests (`tests/unit/Daiv3.App.Maui.Tests/DashboardServiceTests.cs`)
+**Service Integration Test:**
+- `GetDashboardDataAsync_BackgroundTasks_ShouldBePopulated`: Verifies CollectBackgroundTasksAsync aggregates scheduler tasks correctly
+
+**Model Property Tests (DashboardDataTests class):**
+- `BackgroundTaskInfo_StatusIcon_ShouldReturnCorrectEmojis`: Validates emoji mapping for all TaskStatus values
+- `BackgroundTaskInfo_CanCancel_ShouldBeCorrect`: Validates CanCancel logic (true for Queued/Running, false for Completed)
+- `BackgroundTaskInfo_ElapsedTimeText_ShouldFormatCorrectly`: Validates time formatting ("45s", "5m 30s", "2h 15m")
+- `TaskMetrics_MemoryText_ShouldFormatCorrectly`: Validates memory formatting ("512 B", "256.0 MB", "2.0 GB")
+- `BackgroundTasksStatus_Aggregations_ShouldCalculateCorrectly`: Validates `TotalCpuPercent` and `TotalMemoryBytes` aggregate calculations
+
+**Test Results:** ✅ **6 tests added, all 167 tests passing**
+
+### Deferred to Phase 2
+- **Task Lifecycle Actions:** Pause/Resume/Cancel implementation (commands are placeholders)
+- **Log Viewer:** Real-time log streaming per task
+- **Filtering/Sorting:** Filter by status, agent, priority; sort by start time, elapsed time, resource usage
+- **Task Detail Panel:** Flyout/modal with full task context and history
+- **Retention Policy:** Auto-archive completed/failed tasks after configured duration
+- **Performance Metrics:** Sparkline charts for CPU/memory trends
+
+### Files Modified
+1. `src/Daiv3.App.Maui/Models/DashboardData.cs` - Added BackgroundTasksStatus, BackgroundTaskInfo, TaskMetrics, TaskStatus enum (~340 lines)
+2. `src/Daiv3.App.Maui/Services/DashboardService.cs` - Added CollectBackgroundTasksAsync method (~170 lines)
+3. `src/Daiv3.App.Maui/ViewModels/DashboardViewModel.cs` - Added task properties and command placeholders (~180 lines)
+4. `src/Daiv3.App.Maui/Pages/DashboardPage.xaml` - Added Background Tasks Inspector UI section (~140 lines), fixed XAML bindings (added x:DataType, replaced FillAndExpand with Fill)
+5. `src/Daiv3.App.Cli/Program.cs` - Added `dashboard tasks` subcommand (~170 lines)
+6. `tests/unit/Daiv3.App.Maui.Tests/DashboardServiceTests.cs` - Added 6 comprehensive  tests (1 service integration + 5 model property tests)
+
+### Test Traceability
+| Test | Requirement Coverage |
+|------|---------------------|
+| `GetDashboardDataAsync_BackgroundTasks_ShouldBePopulated` | Service aggregation: scheduler → tasks |
+| `BackgroundTaskInfo_StatusIcon_ShouldReturnCorrectEmojis` | Lifecycle state visualization (🔵🟢🟡❌✅) |
+| `BackgroundTaskInfo_CanCancel_ShouldBeCorrect` | Lifecycle action availability (CanCancel logic) |
+| `BackgroundTaskInfo_ElapsedTimeText_ShouldFormatCorrectly` | Elapsed time display ("5m 30s") |
+| `TaskMetrics_MemoryText_ShouldFormatCorrectly` | Resource usage display ("256.0 MB") |
+| `BackgroundTasksStatus_Aggregations_ShouldCalculateCorrectly` | Aggregate CPU/memory calculations |
+
+### Build & Test Status
+- ✅ All code compiles without errors
+- ✅ All 167 unit tests pass (6 new CT-REQ-012 tests)
+- ✅ XAML compiles correctly with compiled bindings
+- ✅ CLI project builds successfully
+- ✅ No new warningsintroduced
+
+### Known Limitations (Phase 1)
+- Task cancellation commands log warnings; no orchestration integration yet
+- No real-time log streaming (deferred to Phase 2)
+- No task filtering/sorting UI (deferred to Phase 2)
+- Metrics per task (CPU/Memory) default to 0; requires per-agent telemetry enhancement

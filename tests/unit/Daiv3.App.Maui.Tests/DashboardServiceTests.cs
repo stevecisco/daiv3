@@ -543,6 +543,44 @@ public class DashboardServiceTests
         Assert.False(data.ScheduledJobs.HasScheduledJobs);
         Assert.Equal(0, data.ScheduledJobs.TotalJobs);
     }
+
+    // ── CT-REQ-012: Background Tasks Tests ─────────────────────────────
+
+    [Fact]
+    public async Task GetDashboardDataAsync_BackgroundTasks_ShouldBePopulated()
+    {
+        // Arrange
+        var mockScheduler = new Mock<IScheduler>();
+        var runningJob = new ScheduledJobMetadata
+        {
+            JobId = "test-job-1",
+            JobName = "Test Running Job",
+            Status = ScheduledJobStatus.Running,
+            ScheduleType = ScheduleType.OneTime,
+            LastStartedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            ExecutionCount = 1
+        };
+        mockScheduler.Setup(s => s.GetAllJobsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ScheduledJobMetadata> { runningJob });
+
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, mockScheduler.Object);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.BackgroundTasks);
+        Assert.True(data.BackgroundTasks.HasTasks);
+        Assert.Equal(1, data.BackgroundTasks.TotalTasks);
+        Assert.Equal(1, data.BackgroundTasks.RunningCount);
+        Assert.Single(data.BackgroundTasks.Tasks);
+        
+        var task = data.BackgroundTasks.Tasks[0];
+        Assert.Equal("test-job-1", task.TaskId);
+        Assert.Equal("Test Running Job", task.Name);
+        Assert.Equal(Models.TaskStatus.Running, task.Status);
+        Assert.Equal("Scheduler", task.AgentName);
+    }
 }
 
 /// <summary>
@@ -880,5 +918,103 @@ public class DashboardDataTests
 
         // Assert
         Assert.True(hasError);
+    }
+
+    // ── CT-REQ-012: Background Task Model Tests ───────────────────────
+
+    [Fact]
+    public void BackgroundTaskInfo_StatusIcon_ShouldReturnCorrectEmojis()
+    {
+        // Arrange & Act & Assert
+        var queuedTask = new BackgroundTaskInfo { Status = Models.TaskStatus.Queued };
+        Assert.Equal("🔵", queuedTask.StatusIcon);
+
+        var runningTask = new BackgroundTaskInfo { Status = Models.TaskStatus.Running };
+        Assert.Equal("🟢", runningTask.StatusIcon);
+
+        var failedTask = new BackgroundTaskInfo { Status = Models.TaskStatus.Failed };
+        Assert.Equal("❌", failedTask.StatusIcon);
+
+        var completedTask = new BackgroundTaskInfo { Status = Models.TaskStatus.Completed };
+        Assert.Equal("✅", completedTask.StatusIcon);
+    }
+
+    [Fact]
+    public void BackgroundTaskInfo_CanCancel_ShouldBeCorrect()
+    {
+        // Arrange
+        var queuedTask = new BackgroundTaskInfo { Status = Models.TaskStatus.Queued };
+        var runningTask = new BackgroundTaskInfo { Status = Models.TaskStatus.Running };
+        var completedTask = new BackgroundTaskInfo { Status = Models.TaskStatus.Completed };
+
+        // Act & Assert
+        Assert.True(queuedTask.CanCancel);
+        Assert.True(runningTask.CanCancel);
+        Assert.False(completedTask.CanCancel);
+    }
+
+    [Fact]
+    public void BackgroundTaskInfo_ElapsedTimeText_ShouldFormatCorrectly()
+    {
+        // Arrange
+        var task1 = new BackgroundTaskInfo { ElapsedTime = TimeSpan.FromSeconds(45) };
+        var task2 = new BackgroundTaskInfo { ElapsedTime = TimeSpan.FromMinutes(5).Add(TimeSpan.FromSeconds(30)) };
+        var task3 = new BackgroundTaskInfo { ElapsedTime = TimeSpan.FromHours(2).Add(TimeSpan.FromMinutes(15)) };
+
+        // Act & Assert
+        Assert.Equal("45s", task1.ElapsedTimeText);
+        Assert.Equal("5m 30s", task2.ElapsedTimeText);
+        Assert.Equal("2h 15m", task3.ElapsedTimeText);
+    }
+
+    [Fact]
+    public void TaskMetrics_MemoryText_ShouldFormatCorrectly()
+    {
+        // Arrange
+        var metrics1 = new TaskMetrics { MemoryBytes = 512 };
+        var metrics2 = new TaskMetrics { MemoryBytes = 256 * 1024 * 1024 };
+        var metrics3 = new TaskMetrics { MemoryBytes = 2L * 1024 * 1024 * 1024 };
+
+        // Act & Assert
+        Assert.Equal("512 B", metrics1.MemoryText);
+        Assert.Equal("256.0 MB", metrics2.MemoryText);
+        Assert.Equal("2.0 GB", metrics3.MemoryText);
+    }
+
+    [Fact]
+    public void BackgroundTasksStatus_Aggregations_ShouldCalculateCorrectly()
+    {
+        // Arrange
+        var status = new BackgroundTasksStatus
+        {
+            Tasks = new List<BackgroundTaskInfo>
+            {
+                new BackgroundTaskInfo
+                {
+                    Status = Models.TaskStatus.Running,
+                    Metrics = new TaskMetrics { CpuPercent = 25.0, MemoryBytes = 100 * 1024 * 1024 }
+                },
+                new BackgroundTaskInfo
+                {
+                    Status = Models.TaskStatus.Running,
+                    Metrics = new TaskMetrics { CpuPercent = 15.0, MemoryBytes = 50 * 1024 * 1024 }
+                },
+                new BackgroundTaskInfo
+                {
+                    Status = Models.TaskStatus.Completed,
+                    Metrics = new TaskMetrics { CpuPercent = 0, MemoryBytes = 0 }
+                }
+            },
+            RunningCount = 2,
+            CompletedCount = 1
+        };
+
+        // Act
+        var totalCpu = status.TotalCpuPercent;
+        var totalMemory = status.TotalMemoryBytes;
+
+        // Assert
+        Assert.Equal(40.0, totalCpu); // 25 + 15 (completed task excluded)
+        Assert.Equal(150 * 1024 * 1024, totalMemory); // 100MB + 50MB
     }
 }

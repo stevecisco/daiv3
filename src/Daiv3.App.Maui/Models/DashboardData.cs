@@ -53,6 +53,11 @@ public class DashboardData
     public ScheduledJobsStatus ScheduledJobs { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets background task lifecycle, resource usage, and cancellation (CT-REQ-012).
+    /// </summary>
+    public BackgroundTasksStatus BackgroundTasks { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets any error messages encountered during data collection.
     /// Null means no errors.
     /// </summary>
@@ -898,3 +903,313 @@ public class ScheduledJobSummary
         }
     }
 }
+
+/// <summary>
+/// Background tasks status and inspection (CT-REQ-012 data).
+/// Displays currently running tasks, their lifecycle, resource usage, and cancellation capabilities.
+/// </summary>
+public class BackgroundTasksStatus
+{
+    /// <summary>
+    /// Whether any background tasks exist in the system.
+    /// </summary>
+    public bool HasTasks { get; set; }
+
+    /// <summary>
+    /// Total count of tasks across all states.
+    /// </summary>
+    public int TotalTasks { get; set; }
+
+    /// <summary>
+    /// Count of tasks currently running.
+    /// </summary>
+    public int RunningCount { get; set; }
+
+    /// <summary>
+    /// Count of tasks queued (waiting to start).
+    /// </summary>
+    public int QueuedCount { get; set; }
+
+    /// <summary>
+    /// Count of tasks that are paused.
+    /// </summary>
+    public int PausedCount { get; set; }
+
+    /// <summary>
+    /// Count of tasks blocked (waiting for external resource).
+    /// </summary>
+    public int BlockedCount { get; set; }
+
+    /// <summary>
+    /// Count of tasks currently being cancelled.
+    /// </summary>
+    public int CancellingCount { get; set; }
+
+    /// <summary>
+    /// Count of tasks that have failed.
+    /// </summary>
+    public int FailedCount { get; set; }
+
+    /// <summary>
+    /// Count of tasks that completed successfully (retained for recent history).
+    /// </summary>
+    public int CompletedCount { get; set; }
+
+    /// <summary>
+    /// List of all background tasks with metadata.
+    /// </summary>
+    public List<BackgroundTaskInfo> Tasks { get; set; } = [];
+
+    /// <summary>
+    /// Gets whether any tasks are actively running or queued.
+    /// </summary>
+    public bool HasActiveTasks => RunningCount > 0 || QueuedCount > 0;
+
+    /// <summary>
+    /// Gets whether there are any tasks in error state.
+    /// </summary>
+    public bool HasErrors => FailedCount > 0;
+
+    /// <summary>
+    /// Gets the longest running task (highest elapsed time).
+    /// </summary>
+    public BackgroundTaskInfo? LongestRunningTask =>
+        Tasks.Where(t => t.Status == TaskStatus.Running)
+             .OrderByDescending(t => t.ElapsedTime)
+             .FirstOrDefault();
+
+    /// <summary>
+    /// Gets aggregate CPU utilization across all running tasks.
+    /// </summary>
+    public double TotalCpuPercent => Tasks
+        .Where(t => t.Status == TaskStatus.Running)
+        .Sum(t => t.Metrics.CpuPercent);
+
+    /// <summary>
+    /// Gets aggregate memory usage across all running tasks (bytes).
+    /// </summary>
+    public long TotalMemoryBytes => Tasks
+        .Where(t => t.Status == TaskStatus.Running)
+        .Sum(t => t.Metrics.MemoryBytes);
+}
+
+/// <summary>
+/// Information about a single background task (CT-REQ-012).
+/// </summary>
+public class BackgroundTaskInfo
+{
+    /// <summary>
+    /// Unique task identifier.
+    /// </summary>
+    public string TaskId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Human-readable task name.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Detailed description of what the task does.
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Current lifecycle status of the task.
+    /// </summary>
+    public TaskStatus Status { get; set; }
+
+    /// <summary>
+    /// When the task started execution (UTC).
+    /// </summary>
+    public DateTime StartTime { get; set; }
+
+    /// <summary>
+    /// Total elapsed time since task started.
+    /// </summary>
+    public TimeSpan ElapsedTime { get; set; }
+
+    /// <summary>
+    /// Progress percentage (0-100) for tasks with known progress.
+    /// </summary>
+    public double? ProgressPercent { get; set; }
+
+    /// <summary>
+    /// Current operation description (e.g., "Processing document 45/100").
+    /// </summary>
+    public string? CurrentOperation { get; set; }
+
+    /// <summary>
+    /// Agent or service responsible for this task (e.g., "Orchestrator", "Scheduler", "Knowledge").
+    /// </summary>
+    public string? AgentName { get; set; }
+
+    /// <summary>
+    /// Task priority: Critical/High/Normal/Low.
+    /// </summary>
+    public string Priority { get; set; } = "Normal";
+
+    /// <summary>
+    /// Resource usage metrics for this task.
+    /// </summary>
+    public TaskMetrics Metrics { get; set; } = new();
+
+    /// <summary>
+    /// Error message if task failed.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Gets formatted elapsed time string (e.g., "5m 23s").
+    /// </summary>
+    public string ElapsedTimeText
+    {
+        get
+        {
+            var t = ElapsedTime;
+            if (t.TotalHours >= 1)
+                return $"{(int)t.TotalHours}h {t.Minutes}m";
+            if (t.TotalMinutes >= 1)
+                return $"{(int)t.TotalMinutes}m {t.Seconds}s";
+            return $"{t.Seconds}s";
+        }
+    }
+
+    /// <summary>
+    /// Gets formatted estimated completion time (e.g., "~8 minutes remaining").
+    /// </summary>
+    public string? EstimatedCompletionText
+    {
+        get
+        {
+            if (!Metrics.EstimatedRemaining.HasValue)
+                return null;
+
+            var t = Metrics.EstimatedRemaining.Value;
+            if (t.TotalHours >= 1)
+                return $"~{(int)t.TotalHours}h {t.Minutes}m remaining";
+            if (t.TotalMinutes >= 1)
+                return $"~{(int)t.TotalMinutes}m remaining";
+            return $"~{t.Seconds}s remaining";
+        }
+    }
+
+    /// <summary>
+    /// Gets status emoji/icon for UI display.
+    /// </summary>
+    public string StatusIcon => Status switch
+    {
+        TaskStatus.Queued => "🔵",
+        TaskStatus.Running => "🟢",
+        TaskStatus.Paused => "🟡",
+        TaskStatus.Blocked => "⏸️",
+        TaskStatus.Cancelling => "🔄",
+        TaskStatus.Failed => "❌",
+        TaskStatus.Completed => "✅",
+        _ => "⚪"
+    };
+
+    /// <summary>
+    /// Gets whether this task can be cancelled.
+    /// </summary>
+    public bool CanCancel => Status is TaskStatus.Queued or TaskStatus.Running or TaskStatus.Paused;
+
+    /// <summary>
+    /// Gets whether this task can be paused.
+    /// </summary>
+    public bool CanPause => Status == TaskStatus.Running;
+
+    /// <summary>
+    /// Gets whether this task can be resumed.
+    /// </summary>
+    public bool CanResume => Status == TaskStatus.Paused;
+}
+
+/// <summary>
+/// Resource usage metrics for a background task (CT-REQ-012).
+/// </summary>
+public class TaskMetrics
+{
+    /// <summary>
+    /// CPU utilization percentage for this task (0-100).
+    /// </summary>
+    public double CpuPercent { get; set; }
+
+    /// <summary>
+    /// Memory used by this task (bytes).
+    /// </summary>
+    public long MemoryBytes { get; set; }
+
+    /// <summary>
+    /// Number of active threads for this task.
+    /// </summary>
+    public int ThreadCount { get; set; }
+
+    /// <summary>
+    /// Estimated time remaining until task completion.
+    /// </summary>
+    public TimeSpan? EstimatedRemaining { get; set; }
+
+    /// <summary>
+    /// Tokens consumed so far (for model-based tasks).
+    /// </summary>
+    public long TokensUsed { get; set; }
+
+    /// <summary>
+    /// Gets formatted memory usage (e.g., "128.5 MB").
+    /// </summary>
+    public string MemoryText
+    {
+        get
+        {
+            if (MemoryBytes >= 1_073_741_824) // 1 GB
+                return $"{MemoryBytes / 1_073_741_824.0:F1} GB";
+            if (MemoryBytes >= 1_048_576) // 1 MB
+                return $"{MemoryBytes / 1_048_576.0:F1} MB";
+            if (MemoryBytes >= 1024) // 1 KB
+                return $"{MemoryBytes / 1024.0:F1} KB";
+            return $"{MemoryBytes} B";
+        }
+    }
+}
+
+/// <summary>
+/// Task lifecycle status enumeration (CT-REQ-012).
+/// </summary>
+public enum TaskStatus
+{
+    /// <summary>
+    /// Task is queued, waiting to start.
+    /// </summary>
+    Queued = 0,
+
+    /// <summary>
+    /// Task is currently executing.
+    /// </summary>
+    Running = 1,
+
+    /// <summary>
+    /// Task is paused (can be resumed).
+    /// </summary>
+    Paused = 2,
+
+    /// <summary>
+    /// Task is blocked (waiting for external input or resource).
+    /// </summary>
+    Blocked = 3,
+
+    /// <summary>
+    /// Cancellation requested, task is cleaning up.
+    /// </summary>
+    Cancelling = 4,
+
+    /// <summary>
+    /// Task failed with error.
+    /// </summary>
+    Failed = 5,
+
+    /// <summary>
+    /// Task completed successfully.
+    /// </summary>
+    Completed = 6
+}
+

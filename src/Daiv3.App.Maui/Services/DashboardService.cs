@@ -235,6 +235,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
         data.Queue = await CollectQueueStatusAsync(cancellationToken).ConfigureAwait(false);
         data.OnlineUsage = await CollectOnlineProviderUsageAsync(cancellationToken).ConfigureAwait(false);
         data.ScheduledJobs = await CollectScheduledJobsStatusAsync(cancellationToken).ConfigureAwait(false);
+        data.BackgroundTasks = await CollectBackgroundTasksAsync(cancellationToken).ConfigureAwait(false);
         data.Indexing = await CollectIndexingStatusAsync(cancellationToken).ConfigureAwait(false);
         data.Agent = await CollectAgentStatusAsync(cancellationToken).ConfigureAwait(false);
         data.SystemResources = CollectSystemResourceMetrics();
@@ -718,6 +719,188 @@ public sealed class DashboardService : IDashboardService, IDisposable
                 Jobs = []
             };
         }
+    }
+
+    /// <summary>
+    /// Collects background tasks status and lifecycle for the service inspector.
+    /// Implements CT-REQ-012: The system SHALL provide a Background Service Inspector.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Background tasks status with all task metadata.</returns>
+    private async Task<BackgroundTasksStatus> CollectBackgroundTasksAsync(CancellationToken cancellationToken)
+    {
+       // For Phase 1 implementation, return placeholder data
+        // Future: Query IScheduler for running scheduled jobs, ITaskOrchestrator for active tasks,
+        // and IModelQueue for pending/in-flight model executions
+
+        await Task.CompletedTask; // Async method placeholder
+
+        var tasks = new List<BackgroundTaskInfo>();
+
+        // Collect scheduler jobs (if available)
+        if (_scheduler != null)
+        {
+            try
+            {
+                var runningJobs = await _scheduler.GetAllJobsAsync(cancellationToken).ConfigureAwait(false);
+                
+                foreach (var job in runningJobs.Where(j => j.Status == ScheduledJobStatus.Running))
+                {
+                    var taskStatus = job.Status switch
+                    {
+                        ScheduledJobStatus.Pending => Models.TaskStatus.Queued,
+                        ScheduledJobStatus.Running => Models.TaskStatus.Running,
+                        ScheduledJobStatus.Paused => Models.TaskStatus.Paused,
+                        ScheduledJobStatus.Failed => Models.TaskStatus.Failed,
+                        ScheduledJobStatus.Completed => Models.TaskStatus.Completed,
+                        ScheduledJobStatus.Cancelled => Models.TaskStatus.Failed, // Map cancelled to failed
+                        _ => Models.TaskStatus.Queued
+                    };
+
+                    var elapsedTime = job.LastStartedAtUtc.HasValue
+                        ? DateTime.UtcNow - job.LastStartedAtUtc.Value
+                        : TimeSpan.Zero;
+
+                    tasks.Add(new BackgroundTaskInfo
+                    {
+                        TaskId = job.JobId,
+                        Name = job.JobName,
+                        Description = $"{job.ScheduleType} job",
+                        Status = taskStatus,
+                        StartTime = job.LastStartedAtUtc ?? DateTime.UtcNow,
+                        ElapsedTime = elapsedTime,
+                        ProgressPercent = null, // Jobs don't report progress currently
+                        CurrentOperation = job.Status == ScheduledJobStatus.Running ? "Executing" : job.Status.ToString(),
+                        AgentName = "Scheduler",
+                        Priority = "Normal",
+                        Metrics = new TaskMetrics
+                        {
+                            CpuPercent = 0, // Not tracked per-job yet
+                            MemoryBytes = 0, // Not tracked per-job yet
+                            ThreadCount = 0,
+                            EstimatedRemaining = null,
+                            TokensUsed = 0
+                        },
+                        ErrorMessage = job.LastErrorMessage
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error collecting background tasks from scheduler");
+            }
+        }
+
+        // Collect active agent executions (if available) via AgentExecutionMetricsCollector
+        if (_metricsCollector != null && _scopeFactory != null)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var agentManager = scope.ServiceProvider.GetService<IAgentManager>();
+
+                if (agentManager != null)
+                {
+                    var activeExecutions = agentManager.GetActiveExecutions();
+
+                    foreach (var executionControl in activeExecutions)
+                    {
+                        var snapshot = _metricsCollector.GetMetricsSnapshot(executionControl.ExecutionId);
+
+                        if (snapshot != null)
+                        {
+                            var taskStatus = executionControl.IsStopped ? Models.TaskStatus.Completed
+                                           : executionControl.IsPaused ? Models.TaskStatus.Paused
+                                           : Models.TaskStatus.Running;
+
+                            var shortId = executionControl.AgentId.ToString("N")[..8];
+
+                            tasks.Add(new BackgroundTaskInfo
+                            {
+                                TaskId = executionControl.ExecutionId.ToString(),
+                                Name = $"Agent-{shortId}",
+                                Description = "Agent execution",
+                                Status = taskStatus,
+                                StartTime = snapshot.StartedAt.DateTime,
+                                ElapsedTime = snapshot.TotalDuration,
+                                ProgressPercent = null,
+                                CurrentOperation = $"Iteration {snapshot.TotalIterations}",
+                                AgentName = "Orchestrator",
+                                Priority = "Normal",
+                                Metrics = new TaskMetrics
+                                {
+                                    CpuPercent = 0, // Not tracked per-agent yet
+                                    MemoryBytes = 0, // Not tracked per-agent yet
+                                    ThreadCount = 0,
+                                    EstimatedRemaining = null,
+                                    TokensUsed = snapshot.TotalTokensConsumed
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error collecting background tasks from agent manager");
+            }
+        }
+
+        // Collect model queue in-flight executions (if available)
+        if (_modelQueue != null)
+        {
+            try
+            {
+                var metrics = await _modelQueue.GetMetricsAsync().ConfigureAwait(false);
+                
+                // Add summary task for in-flight model executions
+                if (metrics?.InFlightExecutions > 0)
+                {
+                    tasks.Add(new BackgroundTaskInfo
+                    {
+                        TaskId = "model-queue-aggregate",
+                        Name = "Model Executions",
+                        Description = $"{metrics.InFlightExecutions} in-flight model execution(s)",
+                        Status = Models.TaskStatus.Running,
+                        StartTime = DateTime.UtcNow, // Placeholder, actual start time not tracked
+                        ElapsedTime = TimeSpan.Zero,
+                        ProgressPercent = null,
+                        CurrentOperation = $"{metrics.InFlightExecutions} executing",
+                        AgentName = "ModelQueue",
+                        Priority = "Normal",
+                        Metrics = new TaskMetrics
+                        {
+                            CpuPercent = 0,
+                            MemoryBytes = 0,
+                            ThreadCount = (int)metrics.InFlightExecutions,
+                            EstimatedRemaining = null,
+                            TokensUsed = 0
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error collecting background tasks from model queue");
+            }
+        }
+
+        // Compute status counts
+        var statusGroups = tasks.GroupBy(t => t.Status).ToDictionary(g => g.Key, g => g.Count());
+
+        return new BackgroundTasksStatus
+        {
+            HasTasks = tasks.Count > 0,
+            TotalTasks = tasks.Count,
+            RunningCount = statusGroups.GetValueOrDefault(Models.TaskStatus.Running, 0),
+            QueuedCount = statusGroups.GetValueOrDefault(Models.TaskStatus.Queued, 0),
+            PausedCount = statusGroups.GetValueOrDefault(Models.TaskStatus.Paused, 0),
+            BlockedCount = statusGroups.GetValueOrDefault(Models.TaskStatus.Blocked, 0),
+            CancellingCount = statusGroups.GetValueOrDefault(Models.TaskStatus.Cancelling, 0),
+            FailedCount = statusGroups.GetValueOrDefault(Models.TaskStatus.Failed, 0),
+            CompletedCount = statusGroups.GetValueOrDefault(Models.TaskStatus.Completed, 0),
+            Tasks = tasks
+        };
     }
 
     private DashboardData CreateErrorData(string errorMessage)

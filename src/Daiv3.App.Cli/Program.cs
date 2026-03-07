@@ -104,6 +104,16 @@ public class Program
         });
         dashboardCommand.AddCommand(dashboardScheduledCommand);
 
+        // dashboard tasks subcommand (CT-REQ-012: Background tasks inspector)
+        var dashboardTasksCommand = new Command("tasks", "Show background tasks status and lifecycle");
+        dashboardTasksCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await DashboardTasksCommand(host);
+            Environment.Exit(exitCode);
+        });
+        dashboardCommand.AddCommand(dashboardTasksCommand);
+
         // dashboard admin subcommand (CT-REQ-010: System admin dashboard)
         var dashboardAdminCommand = new Command("admin", "Show system admin dashboard metrics");
         var adminJsonOption = new Option<bool>(
@@ -1908,6 +1918,174 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to display scheduled jobs: {ex.Message}");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Dashboard tasks command: Display background tasks status and lifecycle.
+    /// Implements CT-REQ-012: Background Service Inspector.
+    /// </summary>
+    private static async Task<int> DashboardTasksCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying background tasks status");
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("      BACKGROUND TASKS STATUS (CT-REQ-012)                ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            // Note: Full task inspection requires IScheduler, ITaskOrchestrator, and IModelQueue integration
+            // This is a Phase 1 implementation showing scheduled jobs as tasks
+            var scheduler = host.Services.GetService<IScheduler>();
+            if (scheduler == null)
+            {
+                Console.WriteLine("✗ Scheduler not available.");
+                Console.WriteLine("Background task tracking requires scheduler service.");
+                return 1;
+            }
+
+            var allJobs = await scheduler.GetAllJobsAsync().ConfigureAwait(false);
+            var runningJobs = allJobs.Where(j => j.Status == ScheduledJobStatus.Running).ToList();
+            var queuedJobs = allJobs.Where(j => j.Status == ScheduledJobStatus.Pending || j.Status == ScheduledJobStatus.Scheduled).ToList();
+            var pausedJobs = allJobs.Where(j => j.Status == ScheduledJobStatus.Paused).ToList();
+            var failedJobs = allJobs.Where(j => j.Status == ScheduledJobStatus.Failed).ToList();
+
+            var totalTasks = runningJobs.Count + queuedJobs.Count + pausedJobs.Count;
+
+            if (totalTasks == 0)
+            {
+                Console.WriteLine("No background tasks currently active.");
+                Console.WriteLine();
+                Console.WriteLine("Tasks are tracked from:");
+                Console.WriteLine("  - Scheduled jobs (running, pending, or paused)");
+                Console.WriteLine("  - Active agent executions (future)");
+                Console.WriteLine("  - Model queue in-flight executions (future)");
+                return 0;
+            }
+
+            // Summary
+            Console.WriteLine($"TOTAL ACTIVE TASKS: {totalTasks}");
+            Console.WriteLine();
+            Console.WriteLine($"Status Summary:");
+            Console.WriteLine($"  🟢 Running:  {runningJobs.Count}");
+            Console.WriteLine($"  🔵 Queued:   {queuedJobs.Count}");
+            Console.WriteLine($"  🟡 Paused:   {pausedJobs.Count}");
+            Console.WriteLine($"  ❌ Failed:   {failedJobs.Count}");
+            Console.WriteLine();
+
+            // Running tasks
+            if (runningJobs.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("═══════════════════════════════════════════════════════════");
+                Console.WriteLine("RUNNING TASKS:");
+                Console.ResetColor();
+                Console.WriteLine();
+
+                foreach (var job in runningJobs)
+                {
+                    var elapsed = job.LastStartedAtUtc.HasValue
+                        ? DateTime.UtcNow - job.LastStartedAtUtc.Value
+                        : TimeSpan.Zero;
+
+                    var elapsedText = elapsed.TotalHours >= 1
+                        ? $"{(int)elapsed.TotalHours}h {elapsed.Minutes}m"
+                        : elapsed.TotalMinutes >= 1
+                        ? $"{(int)elapsed.TotalMinutes}m {elapsed.Seconds}s"
+                        : $"{elapsed.Seconds}s";
+
+                    Console.WriteLine($"  🟢 {job.JobName}");
+                    Console.WriteLine($"     Task ID:     {job.JobId}");
+                    Console.WriteLine($"     Agent:       Scheduler");
+                    Console.WriteLine($"     Priority:    Normal");
+                    Console.WriteLine($"     Elapsed:     {elapsedText}");
+                    Console.WriteLine($"     Started:     {job.LastStartedAtUtc?.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+                    if (job.ExecutionCount > 0)
+                        Console.WriteLine($"     Executions:  {job.ExecutionCount}");
+                    Console.WriteLine();
+                }
+            }
+
+            // Queued tasks
+            if (queuedJobs.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("═══════════════════════════════════════════════════════════");
+                Console.WriteLine("QUEUED TASKS:");
+                Console.ResetColor();
+                Console.WriteLine();
+
+                foreach (var job in queuedJobs.OrderBy(j => j.ScheduledAtUtc))
+                {
+                    var nextRun = job.ScheduledAtUtc?.ToLocalTime();
+                    var timeUntil = job.ScheduledAtUtc.HasValue
+                        ? job.ScheduledAtUtc.Value - DateTime.UtcNow
+                        : TimeSpan.Zero;
+
+                    var waitText = timeUntil.TotalSeconds < 0 ? "overdue"
+                        : timeUntil.TotalMinutes < 1 ? "starting soon"
+                        : timeUntil.TotalMinutes < 60 ? $"starts in {timeUntil.TotalMinutes:F0} min"
+                        : $"starts in {timeUntil.TotalHours:F1} hrs";
+
+                    Console.WriteLine($"  🔵 {job.JobName}");
+                    Console.WriteLine($"     Task ID:     {job.JobId}");
+                    Console.WriteLine($"     Agent:       Scheduler");
+                    Console.WriteLine($"     Status:      {waitText}");
+                    if (nextRun.HasValue)
+                        Console.WriteLine($"     Next Run:    {nextRun:yyyy-MM-dd HH:mm:ss}");
+                    Console.WriteLine();
+                }
+            }
+
+            // Failed tasks
+            if (failedJobs.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("═══════════════════════════════════════════════════════════");
+                Console.WriteLine("FAILED TASKS:");
+                Console.ResetColor();
+                Console.WriteLine();
+
+                foreach (var job in failedJobs)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"  ❌ {job.JobName}");
+                    Console.ResetColor();
+                    Console.WriteLine($"     Task ID:     {job.JobId}");
+                    Console.WriteLine($"     Agent:       Scheduler");
+                    if (!string.IsNullOrEmpty(job.LastErrorMessage))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"     Error:       {job.LastErrorMessage}");
+                        Console.ResetColor();
+                    }
+                    if (job.LastStartedAtUtc.HasValue)
+                        Console.WriteLine($"     Failed At:   {job.LastStartedAtUtc.Value.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+                    Console.WriteLine();
+                }
+            }
+
+            // Alert summary
+            if (failedJobs.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"⚠ WARNING: {failedJobs.Count} task(s) have failed.");
+                Console.ResetColor();
+                Console.WriteLine();
+            }
+
+            Console.WriteLine("Use 'daiv3 dashboard scheduled' for full job scheduler view.");
+            Console.WriteLine();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display background tasks: {ex.Message}");
             return 1;
         }
     }

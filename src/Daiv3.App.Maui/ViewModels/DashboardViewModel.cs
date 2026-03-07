@@ -489,6 +489,82 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
     /// <summary>Whether there are any jobs with errors.</summary>
     public bool HasJobErrors => FailedCount > 0;
 
+    // ── Background Tasks Properties (CT-REQ-012) ──────────────────────
+
+    private bool _hasTasks;
+    private int _totalTasks;
+    private int _tasksRunningCount;
+    private int _tasksQueuedCount;
+    private int _tasksPausedCount;
+    private int _tasksFailedCount;
+    private List<BackgroundTaskInfo> _backgroundTasks = [];
+    private BackgroundTaskInfo? _selectedTask;
+
+    /// <summary>Whether any background tasks exist.</summary>
+    public bool HasTasks
+    {
+        get => _hasTasks;
+        set => SetProperty(ref _hasTasks, value);
+    }
+
+    /// <summary>Total count of all tasks.</summary>
+    public int TotalTasks
+    {
+        get => _totalTasks;
+        set => SetProperty(ref _totalTasks, value);
+    }
+
+    /// <summary>Count of tasks currently running.</summary>
+    public int TasksRunningCount
+    {
+        get => _tasksRunningCount;
+        set => SetProperty(ref _tasksRunningCount, value);
+    }
+
+    /// <summary>Count of tasks queued (waiting to start).</summary>
+    public int TasksQueuedCount
+    {
+        get => _tasksQueuedCount;
+        set => SetProperty(ref _tasksQueuedCount, value);
+    }
+
+    /// <summary>Count of tasks that are paused.</summary>
+    public int TasksPausedCount
+    {
+        get => _tasksPausedCount;
+        set => SetProperty(ref _tasksPausedCount, value);
+    }
+
+    /// <summary>Count of tasks that have failed.</summary>
+    public int TasksFailedCount
+    {
+        get => _tasksFailedCount;
+        set => SetProperty(ref _tasksFailedCount, value);
+    }
+
+    /// <summary>List of all background tasks.</summary>
+    public List<BackgroundTaskInfo> BackgroundTasks
+    {
+        get => _backgroundTasks;
+        set => SetProperty(ref _backgroundTasks, value);
+    }
+
+    /// <summary>Currently selected task for detail view.</summary>
+    public BackgroundTaskInfo? SelectedTask
+    {
+        get => _selectedTask;
+        set => SetProperty(ref _selectedTask, value);
+    }
+
+    /// <summary>Formatted running tasks count.</summary>
+    public string RunningTasksText => $"{TasksRunningCount} running";
+
+    /// <summary>Whether there are any tasks in error state.</summary>
+    public bool HasTaskErrors => TasksFailedCount > 0;
+
+    /// <summary>Whether there are any active tasks (running or queued).</summary>
+    public bool HasActiveTasks => TasksRunningCount > 0 ||TasksQueuedCount > 0;
+
     // ── View Toggle Properties (CT-REQ-006 Dual Layout) ───────────────
 
     /// <summary>When true, the Agent Activity panel is visible.</summary>
@@ -520,6 +596,108 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
             ShowAgentView = false;
             ShowSystemView = true;
         });
+
+    // ── Task Control Commands (CT-REQ-012) ────────────────────────────
+
+    private Command<BackgroundTaskInfo>? _cancelTaskCommand;
+    private Command<BackgroundTaskInfo>? _pauseTaskCommand;
+    private Command<BackgroundTaskInfo>? _resumeTaskCommand;
+
+    /// <summary>Cancels a background task (CT-REQ-012).</summary>
+    public Command<BackgroundTaskInfo> CancelTaskCommand =>
+        _cancelTaskCommand ??= new Command<BackgroundTaskInfo>(
+            execute: async (task) => await CancelTaskAsync(task).ConfigureAwait(false),
+            canExecute: (task) => task?.CanCancel ?? false);
+
+    /// <summary>Pauses a background task (CT-REQ-012).</summary>
+    public Command<BackgroundTaskInfo> PauseTaskCommand =>
+        _pauseTaskCommand ??= new Command<BackgroundTaskInfo>(
+            execute: async (task) => await PauseTaskAsync(task).ConfigureAwait(false),
+            canExecute: (task) => task?.CanPause ?? false);
+
+    /// <summary>Resumes a paused background task (CT-REQ-012).</summary>
+    public Command<BackgroundTaskInfo> ResumeTaskCommand =>
+        _resumeTaskCommand ??= new Command<BackgroundTaskInfo>(
+            execute: async (task) => await ResumeTaskAsync(task).ConfigureAwait(false),
+            canExecute: (task) => task?.CanResume ?? false);
+
+    private async Task CancelTaskAsync(BackgroundTaskInfo task)
+    {
+        if (task == null)
+            return;
+
+        _logger.LogInformation("Cancelling task {TaskId}: {TaskName}", task.TaskId, task.Name);
+
+        try
+        {
+            // Future: Call IScheduler.CancelJobAsync or orchestrator task cancellation
+            //if (_scheduler != null && task.AgentName == "Scheduler")
+            //{
+            //    await _scheduler.CancelJobAsync(task.TaskId, CancellationToken.None);
+            //}
+            
+            // For now, log the cancellation request
+            _logger.LogWarning("Task cancellation not yet fully implemented for task {TaskId}", task.TaskId);
+            
+            // Refresh dashboard to show updated status
+            if (_viewLifetimeCts?.Token is { IsCancellationRequested: false } ct)
+            {
+                await RefreshDashboardDataAsync(ct).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling task {TaskId}", task.TaskId);
+        }
+    }
+
+    private async Task PauseTaskAsync(BackgroundTaskInfo task)
+    {
+        if (task == null)
+            return;
+
+        _logger.LogInformation("Pausing task {TaskId}: {TaskName}", task.TaskId, task.Name);
+
+        try
+        {
+            // Future: Call orchestrator to pause agent execution
+            _logger.LogWarning("Task pause not yet fully implemented for task {TaskId}", task.TaskId);
+            
+            // Refresh dashboard
+            if (_viewLifetimeCts?.Token is { IsCancellationRequested: false } ct)
+            {
+                await RefreshDashboardDataAsync(ct).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error pausing task {TaskId}", task.TaskId);
+        }
+    }
+
+    private async Task ResumeTaskAsync(BackgroundTaskInfo task)
+    {
+        if (task == null)
+            return;
+
+        _logger.LogInformation("Resuming task {TaskId}: {TaskName}", task.TaskId, task.Name);
+
+        try
+        {
+            // Future: Call orchestrator to resume agent execution
+            _logger.LogWarning("Task resume not yet fully implemented for task {TaskId}", task.TaskId);
+            
+            // Refresh dashboard
+            if (_viewLifetimeCts?.Token is { IsCancellationRequested: false } ct)
+            {
+                await RefreshDashboardDataAsync(ct).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resuming task {TaskId}", task.TaskId);
+        }
+    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────
 
@@ -713,6 +891,18 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
         NextJob = data.ScheduledJobs.NextJob;
         OnPropertyChanged(nameof(ActiveJobsText));
         OnPropertyChanged(nameof(HasJobErrors));
+
+        // Background Tasks (CT-REQ-012)
+        HasTasks = data.BackgroundTasks.HasTasks;
+        TotalTasks = data.BackgroundTasks.TotalTasks;
+        TasksRunningCount = data.BackgroundTasks.RunningCount;
+        TasksQueuedCount = data.BackgroundTasks.QueuedCount;
+        TasksPausedCount = data.BackgroundTasks.PausedCount;
+        TasksFailedCount = data.BackgroundTasks.FailedCount;
+        BackgroundTasks = new List<BackgroundTaskInfo>(data.BackgroundTasks.Tasks);
+        OnPropertyChanged(nameof(RunningTasksText));
+        OnPropertyChanged(nameof(HasTaskErrors));
+        OnPropertyChanged(nameof(HasActiveTasks));
 
         // Status
         CurrentActivity = data.IsValid ? "Monitoring active" : $"Error: {data.CollectionError}";

@@ -838,6 +838,132 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Background Tasks Inspector (CT-REQ-012) -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0"
+                    IsVisible="{Binding HasTasks}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Background Tasks"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+
+                    <!-- Task Summary -->
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                            <Label Text="{Binding TasksRunningCount}"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="#10B981" />
+                            <Label Text="Running"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                            <Label Text="{Binding TasksQueuedCount}"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="#3B82F6" />
+                            <Label Text="Queued"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Column="2" Spacing="2">
+                            <Label Text="{Binding TasksFailedCount}"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="#EF4444" />
+                            <Label Text="Failed"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- Tasks List -->
+                    <CollectionView ItemsSource="{Binding BackgroundTasks}"
+                                    SelectionMode="None">
+                        <CollectionView.EmptyView>
+                            <Label Text="No background tasks currently running"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                   HorizontalOptions="Center"
+                                   Margin="0,10" />
+                        </CollectionView.EmptyView>
+
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="local:BackgroundTaskInfo">
+                                <Border BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1E293B}"
+                                        Padding="10"
+                                        Margin="0,5"
+                                        StrokeShape="RoundRectangle 6"
+                                        StrokeThickness="0">
+                                    <VerticalStackLayout Spacing="6">
+                                        <!-- Task Header -->
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Label Text="{Binding StatusIcon}"
+                                                   FontSize="16" />
+                                            <Label Text="{Binding Name}"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center"
+                                                   HorizontalOptions="Fill" />
+                                            <Label Text="{Binding ElapsedTimeText}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                   VerticalOptions="Center" />
+                                        </HorizontalStackLayout>
+
+                                        <!-- Task Details -->
+                                        <Label Text="{Binding Description}"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+
+                                        <!-- Current Operation -->
+                                        <Label Text="{Binding CurrentOperation}"
+                                               FontSize="11"
+                                               TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}"
+                                               IsVisible="{Binding CurrentOperation, Converter={StaticResource IsNotNullOrEmptyConverter}}" />
+
+                                        <!-- Progress Bar (if available) -->
+                                        <ProgressBar Progress="{Binding ProgressPercent, Converter={StaticResource PercentToProgressConverter}}"
+                                                     ProgressColor="{StaticResource Primary}"
+                                                     IsVisible="{Binding ProgressPercent, Converter={StaticResource IsNotNullConverter}}"
+                                                     HeightRequest="4" />
+
+                                        <!-- Metrics -->
+                                        <HorizontalStackLayout Spacing="15">
+                                            <Label Text="{Binding Metrics.MemoryText}"
+                                                   FontSize="10"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                   IsVisible="{Binding Metrics.MemoryBytes, Converter={StaticResource IsGreaterThanZeroConverter}}" />
+                                            <Label Text="{Binding AgentName, StringFormat='Agent: {0}'}"
+                                                   FontSize="10"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                            <Label Text="{Binding Priority, StringFormat='Priority: {0}'}"
+                                                   FontSize="10"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        </HorizontalStackLayout>
+
+                                        <!-- Error Message (if failed) -->
+                                        <Label Text="{Binding ErrorMessage}"
+                                               FontSize="11"
+                                               TextColor="#EF4444"
+                                               LineBreakMode="WordWrap"
+                                               MaxLines="2"
+                                               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullOrEmptyConverter}}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Loading Indicator -->
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                               IsVisible="{Binding IsBusy}"
