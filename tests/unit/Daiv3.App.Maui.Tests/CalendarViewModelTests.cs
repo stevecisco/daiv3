@@ -11,7 +11,7 @@ namespace Daiv3.App.Maui.Tests;
 /// Unit tests for CalendarViewModel.
 /// Tests CT-REQ-014: Calendar and Reminders Dashboard.
 /// </summary>
-public class CalendarViewModelTests
+public sealed class CalendarViewModelTests : IDisposable
 {
     private readonly Mock<ICalendarService> _mockCalendarService;
     private readonly Mock<ILogger<CalendarViewModel>> _mockLogger;
@@ -25,6 +25,11 @@ public class CalendarViewModelTests
         _viewModel = new CalendarViewModel(
             _mockCalendarService.Object,
             _mockLogger.Object);
+    }
+
+    public void Dispose()
+    {
+        _viewModel.Dispose();
     }
 
     [Fact]

@@ -42,10 +42,8 @@ public class DashboardServiceTests
     public void Constructor_WithNullLogger_ShouldThrow()
     {
         // Act & Assert
-#pragma warning disable IDISP005 // Test validates exception throwing, instance not actually created
         Assert.Throws<ArgumentNullException>(() =>
-            new DashboardService(null!, null, new DashboardConfiguration()));
-#pragma warning restore IDISP005
+            new DashboardService(null!, null, new DashboardConfiguration()).Dispose());
     }
 
     [Fact]

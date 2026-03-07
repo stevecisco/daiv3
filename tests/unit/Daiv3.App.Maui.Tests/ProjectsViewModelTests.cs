@@ -13,7 +13,7 @@ namespace Daiv3.App.Maui.Tests;
 /// <summary>
 /// Unit tests for ProjectsViewModel (CT-REQ-011).
 /// </summary>
-public class ProjectsViewModelTests : IDisposable
+public sealed class ProjectsViewModelTests : IDisposable
 {
     private readonly Mock<ILogger<ProjectsViewModel>> _mockLogger;
     private readonly Mock<ILogger<ProjectRepository>> _mockRepoLogger;

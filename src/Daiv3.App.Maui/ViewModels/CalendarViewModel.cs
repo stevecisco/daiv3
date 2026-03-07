@@ -9,11 +9,12 @@ namespace Daiv3.App.Maui.ViewModels;
 /// ViewModel for the Calendar and Reminders page.
 /// Implements CT-REQ-014: Calendar and Reminders Dashboard.
 /// </summary>
-public partial class CalendarViewModel : BaseViewModel
+public sealed partial class CalendarViewModel : BaseViewModel, IDisposable
 {
     private readonly ICalendarService _calendarService;
     private readonly ILogger<CalendarViewModel> _logger;
     private CancellationTokenSource? _refreshCts;
+    private bool _disposed;
 
     public CalendarViewModel(
         ICalendarService calendarService,
@@ -143,12 +144,17 @@ public partial class CalendarViewModel : BaseViewModel
     /// </summary>
     public async Task RefreshDataAsync()
     {
-        if (IsRefreshing)
+        if (IsRefreshing || _disposed)
         {
             return;
         }
 
-        _refreshCts?.Cancel();
+        if (_refreshCts != null)
+        {
+            _refreshCts.Cancel();
+            _refreshCts.Dispose();
+        }
+
         _refreshCts = new CancellationTokenSource();
 
         try
@@ -314,6 +320,19 @@ public partial class CalendarViewModel : BaseViewModel
             ),
             _ => (DateTime.MinValue, DateTime.MaxValue)
         };
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _refreshCts?.Cancel();
+        _refreshCts?.Dispose();
+        _refreshCts = null;
     }
 }
 

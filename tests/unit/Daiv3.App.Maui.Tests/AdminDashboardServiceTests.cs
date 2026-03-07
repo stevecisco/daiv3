@@ -12,7 +12,7 @@ namespace Daiv3.App.Maui.Tests;
 /// Unit tests for AdminDashboardService.
 /// Tests CT-REQ-010: System Admin Dashboard.
 /// </summary>
-public class AdminDashboardServiceTests : IDisposable
+public sealed class AdminDashboardServiceTests : IDisposable
 {
     private readonly Mock<ISystemMetricsService> _mockSystemMetrics;
     private readonly Mock<IHardwareDetectionProvider> _mockHardwareDetection;
