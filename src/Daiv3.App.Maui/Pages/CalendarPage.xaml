@@ -12,45 +12,60 @@
         <Grid Grid.Row="0" ColumnDefinitions="*,*,*,*,Auto" ColumnSpacing="15" Margin="0,0,0,20">
             
             <!-- Upcoming Count -->
-            <Frame Grid.Column="0" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#e3f2fd">
+            <Border Grid.Column="0" Padding="15" Background="#e3f2fd">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
                 <VerticalStackLayout Spacing="5">
                     <Label Text="Upcoming (7d)" FontSize="12" TextColor="#1976d2" FontAttributes="Bold"/>
                     <Label Text="{Binding UpcomingCount}" FontSize="24" FontAttributes="Bold" TextColor="#1976d2"/>
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <!-- Overdue Count -->
-            <Frame Grid.Column="1" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#ffebee">
+            <Border Grid.Column="1" Padding="15" Background="#ffebee">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
                 <VerticalStackLayout Spacing="5">
                     <Label Text="Overdue" FontSize="12" TextColor="#d32f2f" FontAttributes="Bold"/>
                     <Label Text="{Binding OverdueCount}" FontSize="24" FontAttributes="Bold" TextColor="#d32f2f"/>
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <!-- At Risk Count -->
-            <Frame Grid.Column="2" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#fff3e0">
+            <Border Grid.Column="2" Padding="15" Background="#fff3e0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
                 <VerticalStackLayout Spacing="5">
                     <Label Text="At Risk" FontSize="12" TextColor="#f57c00" FontAttributes="Bold"/>
                     <Label Text="{Binding AtRiskCount}" FontSize="24" FontAttributes="Bold" TextColor="#f57c00"/>
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <!-- Milestones Count -->
-            <Frame Grid.Column="3" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#f3e5f5">
+            <Border Grid.Column="3" Padding="15" Background="#f3e5f5">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
                 <VerticalStackLayout Spacing="5">
                     <Label Text="Milestones" FontSize="12" TextColor="#7b1fa2" FontAttributes="Bold"/>
                     <Label Text="{Binding MilestoneCount}" FontSize="24" FontAttributes="Bold" TextColor="#7b1fa2"/>
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <!-- Reminders Badge -->
-            <Frame Grid.Column="4" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#e8f5e9"
+            <Border Grid.Column="4" Padding="15" Background="#e8f5e9"
                    IsVisible="{Binding UnreadReminderCount, Converter={StaticResource IsGreaterThanZeroConverter}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
                 <VerticalStackLayout Spacing="5">
                     <Label Text="Reminders" FontSize="12" TextColor="#388e3c" FontAttributes="Bold"/>
                     <Label Text="{Binding UnreadReminderCount}" FontSize="24" FontAttributes="Bold" TextColor="#388e3c"/>
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
         </Grid>
 
         <!-- Main Content Area -->
@@ -90,7 +105,10 @@
                         <CollectionView ItemsSource="{Binding ScheduledItems}">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ScheduledItemViewModel">
-                                    <Frame Padding="15" Margin="0,0,0,10" CornerRadius="8" BorderColor="#ddd" HasShadow="False">
+                                    <Border Padding="15" Margin="0,0,0,10" Stroke="#ddd" StrokeThickness="1">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="8"/>
+                                        </Border.StrokeShape>
                                         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="5">
                                             
                                             <!-- Item Name -->
@@ -100,17 +118,17 @@
                                                    FontAttributes="Bold"/>
 
                                             <!-- Status Badge -->
-                                            <Frame Grid.Row="0" Grid.Column="1" 
+                                            <Border Grid.Row="0" Grid.Column="1" 
                                                    Padding="8,4"
-                                                   CornerRadius="4"
-                                                   BorderColor="Transparent"
-                                                   BackgroundColor="{Binding StatusColor}"
-                                                   HasShadow="False">
+                                                   Background="{Binding StatusColor}">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="4"/>
+                                                </Border.StrokeShape>
                                                 <Label Text="{Binding StatusDisplay}" 
                                                        TextColor="White"
                                                        FontSize="12"
                                                        FontAttributes="Bold"/>
-                                            </Frame>
+                                            </Border>
 
                                             <!-- Type and Deadline -->
                                             <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
@@ -146,7 +164,7 @@
                                                 </Label>
                                             </HorizontalStackLayout>
                                         </Grid>
-                                    </Frame>
+                                    </Border>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
@@ -173,7 +191,10 @@
                         <CollectionView ItemsSource="{Binding UpcomingDeadlines}">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:DeadlineItemViewModel">
-                                    <Frame Padding="12" Margin="0,0,0,8" CornerRadius="6" BorderColor="#ddd" HasShadow="False">
+                                    <Border Padding="12" Margin="0,0,0,8" Stroke="#ddd" StrokeThickness="1">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="6"/>
+                                        </Border.StrokeShape>
                                         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
                                             
                                             <!-- Name with Urgency -->
@@ -199,20 +220,20 @@
                                             </Label>
 
                                             <!-- Status -->
-                                            <Frame Grid.Row="2" 
+                                            <Border Grid.Row="2" 
                                                    Padding="6,3"
-                                                   CornerRadius="3"
-                                                   BorderColor="Transparent"
-                                                   BackgroundColor="{Binding StatusColor}"
-                                                   HorizontalOptions="Start"
-                                                   HasShadow="False">
+                                                   Background="{Binding StatusColor}"
+                                                   HorizontalOptions="Start">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="3"/>
+                                                </Border.StrokeShape>
                                                 <Label Text="{Binding StatusDisplay}" 
                                                        TextColor="White"
                                                        FontSize="11"
                                                        FontAttributes="Bold"/>
-                                            </Frame>
+                                            </Border>
                                         </Grid>
-                                    </Frame>
+                                    </Border>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
@@ -235,10 +256,13 @@
                         <CollectionView ItemsSource="{Binding ActiveReminders}">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ReminderItemViewModel">
-                                    <Frame Padding="12" Margin="0,0,0,8" CornerRadius="6" 
-                                           BorderColor="#ddd" 
-                                           BackgroundColor="{Binding IsRead, Converter={StaticResource BoolToBackgroundColorConverter}}"
-                                           HasShadow="False">
+                                    <Border Padding="12" Margin="0,0,0,8" 
+                                           Stroke="#ddd"
+                                           StrokeThickness="1"
+                                           Background="{Binding IsRead, Converter={StaticResource BoolToBackgroundColorConverter}}">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="6"/>
+                                        </Border.StrokeShape>
                                         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
                                             
                                             <!-- Reminder Type -->
@@ -278,7 +302,7 @@
                                                         IsVisible="{Binding IsRead, Converter={StaticResource InverseBoolConverter}}"/>
                                             </Grid>
                                         </Grid>
-                                    </Frame>
+                                    </Border>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
