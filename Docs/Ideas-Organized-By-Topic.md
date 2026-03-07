@@ -504,6 +504,53 @@ knowledge/
 - **Sync Between Structured Data and Docs:** Keep a live two-way sync between tracker data and human-readable documents (master tracker, requirement docs, implementation logs) to avoid drift
 - **Project Memory for Repeatability:** Persist reusable implementation recipes and checklists per requirement type (new API, UI feature, schema change, integration) so future work can be scaffolded automatically
 
+## 17. Accessibility & Assistive Features
+
+**Core Concept:** Enable users to interact with Daiv3 through multiple modalities including voice and audio for hands-free operation and accessibility.
+
+### Text-to-Speech (TTS) Reading
+- **Desktop & Mobile TTS:** Read aloud text, summaries, knowledge articles, task descriptions, and system responses on both Windows desktop (MAUI) and mobile applications
+- **Platform-Native TTS:** Use Windows Speech Platform API (SAPI) on desktop and platform-native TTS on mobile for natural voice output
+- **Reading Controls:** Pause, resume, skip forward/backward, adjust speed and voice selection
+- **Selective Reading:** User can select specific sections (summary only, full text, metadata, etc.) for audio output
+- **Background Reading:** Allow reading to continue while user navigates to other screens or minimizes app
+- **Reading Queue:** Queue multiple items for sequential reading (batch read knowledge articles, daily summaries, task lists)
+- **Voice Profiles:** Support multiple voice options (male/female, different accents/languages) based on user preference
+- **Reading Progress Tracking:** Remember position in long documents for resume capability
+
+### Voice Commands & Control
+- **Speech-to-Text (STT) Input:** Translate user voice into commands and queries that Daiv3 processes and acts upon
+- **Command Recognition:** Support natural language voice commands like "Show me today's tasks", "Read the latest summary", "Start working on project X", "What's the status of requirement Y"
+- **Wake Word/Push-to-Talk:** Two modes - always listening with wake word ("Hey Daiv3") or push-to-talk button activation
+- **Voice-Driven Navigation:** Navigate through UI, open projects, switch views, scroll content using voice commands
+- **Dictation Mode:** Allow dictation of notes, task descriptions, project requirements, and other text content
+- **Command Confirmation:** Provide audio and visual feedback confirming recognized commands before execution
+- **Disambiguation Prompts:** When voice input is ambiguous, prompt user for clarification ("Did you mean project Alpha or project Beta?")
+- **Offline Voice Processing:** Support basic local voice recognition for offline operation (limited vocabulary) with cloud STT as fallback for complex queries
+- **Accessibility Compliance:** Full keyboard-free navigation for vision-impaired users or hands-free scenarios
+
+### Smart Notifications & Interactive Voice Response (IVR)
+- **Context-Aware Notifications:** Deliver notifications on screen with optional voice prompts based on user availability (not in meetings, focus mode off)
+- **Meeting Detection:** Integrate with calendar to suppress audio notifications during scheduled meetings or focus time blocks
+- **Voice Notification Reading:** Automatically read notification content aloud with user preference controls
+- **Interactive Voice Response (IVR):** Provide touch-tone style voice menus for quick responses to notifications:
+  - "Press 1 to approve this task"
+  - "Press 2 to defer until tomorrow"
+  - "Press 3 to hear more details"
+  - "Say 'yes' to proceed or 'no' to cancel"
+- **Quick Response Templates:** Voice-activated quick responses ("Approve", "Deny", "Snooze", "Tell me more") for common notification actions
+- **Notification Categories with Smart Routing:**
+  - Task completion notifications ("Project X analysis is complete - would you like me to read the summary?")
+  - Scheduled reminders (calendar appointments, deadlines, follow-ups)
+  - Knowledge updates (new articles indexed, summaries generated, embedding refresh complete)
+  - System events (low disk space, model download complete, backup finished)
+  - Daily briefings (morning: what completed overnight + today's plan; evening: progress summary + tonight's work)
+  - Idea generation notifications ("I've identified 3 new opportunities - would you like to review them?")
+- **Priority-Based Interruption:** High priority items interrupt with audio, medium priority shows with optional audio on request, low priority silent until viewed
+- **Do Not Disturb Integration:** Honor system-level Do Not Disturb, Focus Assist, and custom quiet hours
+- **Voice Response Logging:** Log all voice interactions for audit, learning, and improving recognition accuracy
+- **Emergency Override:** Critical notifications (system errors, security alerts) can bypass silencing rules with distinct audio cues
+
 ---
 
 ## Cross-Cutting Themes
