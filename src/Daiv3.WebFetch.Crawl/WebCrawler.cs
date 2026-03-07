@@ -164,7 +164,7 @@ public class WebCrawler : IWebCrawler
             try
             {
                 var parsingBaseUrl = ResolveParsingBaseUri(fetchResult.ResolvedUrl, current.Url);
-                var document = await _htmlParser.ParseAsync(fetchResult.HtmlContent, cancellationToken);
+                using var document = await _htmlParser.ParseAsync(fetchResult.HtmlContent, cancellationToken);
                 discoveredLinks = ExtractNormalizedLinks(document, parsingBaseUrl);
             }
             catch (Exception ex)

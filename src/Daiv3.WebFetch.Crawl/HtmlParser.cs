@@ -66,7 +66,14 @@ public class HtmlParser : IHtmlParser
 
             _logger.LogDebug("Successfully parsed HTML document (Title: '{Title}')", document.Title ?? "(no title)");
 
-            return new AngleSharpHtmlDocument(document, context, _options);
+            return new AngleSharpHtmlDocument(
+                document,
+                _options,
+                () =>
+                {
+                    (document as IDisposable)?.Dispose();
+                    context.Dispose();
+                });
         }
         catch (OperationCanceledException ex)
         {
@@ -150,10 +157,10 @@ public class HtmlParser : IHtmlParser
 /// <summary>
 /// AngleSharp implementation of IHtmlDocument.
 /// </summary>
-internal class AngleSharpHtmlDocument : IHtmlDocument, IDisposable
+internal sealed class AngleSharpHtmlDocument : IHtmlDocument
 {
     private readonly AngleSharp.Dom.IDocument _document;
-    private readonly IBrowsingContext _context;
+    private readonly Action _disposeResources;
     private readonly HtmlParsingOptions _options;
     private readonly string _cachedTitle;
     private readonly string _cachedHtml;
@@ -168,11 +175,11 @@ internal class AngleSharpHtmlDocument : IHtmlDocument, IDisposable
 
     public string Html => _cachedHtml;
 
-    public AngleSharpHtmlDocument(AngleSharp.Dom.IDocument document, IBrowsingContext context, HtmlParsingOptions options)
+    public AngleSharpHtmlDocument(AngleSharp.Dom.IDocument document, HtmlParsingOptions options, Action disposeResources)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
-        _context = context ?? throw new ArgumentNullException(nameof(context));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _disposeResources = disposeResources ?? throw new ArgumentNullException(nameof(disposeResources));
         
         // Eagerly cache properties that may be accessed after document operations
         _cachedTitle = document.Title ?? string.Empty;
@@ -204,8 +211,7 @@ internal class AngleSharpHtmlDocument : IHtmlDocument, IDisposable
         if (_disposed)
             return;
 
-        (_document as IDisposable)?.Dispose();
-        _context?.Dispose();
+        _disposeResources();
         _disposed = true;
     }
 }

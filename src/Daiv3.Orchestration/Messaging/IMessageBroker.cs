@@ -4,7 +4,7 @@ namespace Daiv3.Orchestration.Messaging;
 /// Message broker for agent-to-agent communication using storage-based persistence.
 /// Supports publish/subscribe patterns with file system or blob storage backends.
 /// </summary>
-public interface IMessageBroker
+public interface IMessageBroker : IDisposable, IAsyncDisposable
 {
     /// <summary>
     /// Publishes a message to a specific topic.

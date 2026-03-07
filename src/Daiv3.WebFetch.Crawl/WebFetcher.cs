@@ -223,7 +223,7 @@ public class WebFetcher : IWebFetcher
 
             // Parse the HTML
             _logger.LogDebug("Parsing HTML content for deep extraction from {Url}", url);
-            var parsedDocument = await _htmlParser.ParseAsync(fetchResult.HtmlContent, cancellationToken);
+            using var parsedDocument = await _htmlParser.ParseAsync(fetchResult.HtmlContent, cancellationToken);
 
             // Extract meaningful text
             var extractedText = _htmlParser.ExtractText(parsedDocument);

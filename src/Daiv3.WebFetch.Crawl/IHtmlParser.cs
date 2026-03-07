@@ -39,7 +39,7 @@ public interface IHtmlParser
 /// <summary>
 /// Represents a parsed HTML document that can be queried and analyzed.
 /// </summary>
-public interface IHtmlDocument
+public interface IHtmlDocument : IDisposable
 {
     /// <summary>
     /// Gets the document title.
