@@ -12,6 +12,7 @@ using Daiv3.Orchestration;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Services;
 using Daiv3.FoundryLocal.Management;
+using Daiv3.Scheduler;
 
 namespace Daiv3.App.Maui;
 
@@ -108,6 +109,9 @@ public static class MauiProgram
 
         // Add model execution layer (Foundry Local integration)
         builder.Services.AddModelExecutionServices();
+
+        // Add scheduler services required by CalendarService (CT-REQ-014)
+        builder.Services.AddScheduler();
 
         var app = builder.Build();
 

@@ -63,15 +63,10 @@
                 <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
                     
                     <!-- View Mode Picker -->
-                    <Picker Grid.Column="0" SelectedItem="{Binding SelectedView}" WidthRequest="120">
-                        <Picker.ItemsSource>
-                            <x:Array Type="{x:Type vm:CalendarView}">
-                                <vm:CalendarView>Month</vm:CalendarView>
-                                <vm:CalendarView>Week</vm:CalendarView>
-                                <vm:CalendarView>Day</vm:CalendarView>
-                            </x:Array>
-                        </Picker.ItemsSource>
-                    </Picker>
+                    <Picker Grid.Column="0"
+                            ItemsSource="{Binding AvailableViews}"
+                            SelectedItem="{Binding SelectedView}"
+                            WidthRequest="120" />
 
                     <!-- Current Date Display -->
                     <Label Grid.Column="1" 

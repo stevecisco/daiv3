@@ -1,4 +1,5 @@
 using Daiv3.ModelExecution.Interfaces;
+using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -51,6 +52,11 @@ public static class PersistenceServiceExtensions
         services.AddScoped<ProjectRepository>();
         services.AddScoped<TaskRepository>();
         services.AddScoped<AgentRepository>();
+
+        // Register generic IRepository<T> interfaces for entities used in DI
+        // CT-REQ-014: CalendarService requires IRepository<Project> and IRepository<ProjectTask>
+        services.AddScoped<IRepository<Project>>(sp => sp.GetRequiredService<ProjectRepository>());
+        services.AddScoped<IRepository<ProjectTask>>(sp => sp.GetRequiredService<TaskRepository>());
 
         // LM-REQ-003: Learning repository for learning memory persistence
         services.AddScoped<LearningRepository>();

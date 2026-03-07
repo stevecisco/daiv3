@@ -66,6 +66,23 @@
       - `rg "x:Key=\"(KeyName)\"" src/Daiv3.App.Maui/App.xaml src/Daiv3.App.Maui/Resources/Styles/*.xaml`
       - `rg "Light:#|Dark:#|Light#|Dark#" src/Daiv3.App.Maui/**/*.xaml`
 
+9. **MAUI DI resolution for repository interfaces (CRITICAL)**
+   - **Issue Pattern:** MAUI services that depend on `IRepository<TEntity>` fail at runtime with "Unable to resolve service" if only concrete repository types are registered.
+   - **Root Cause:** DI container cannot resolve `IRepository<Project>` from just `ProjectRepository` registration—it needs explicit interface-to-implementation mapping.
+   - **Prevention Checklist:**
+      1. When creating a MAUI service (e.g., `CalendarService`, `TaskManagementService`) that requires repository access via `IRepository<Entity>`, verify the interface is registered in `src/Daiv3.Persistence/PersistenceServiceExtensions.cs`.
+      2. If the entity type's interface registration doesn't exist, add it:
+         ```csharp
+         // In PersistenceServiceExtensions.AddPersistence()
+         services.AddScoped<IRepository<EntityType>>(sp => sp.GetRequiredService<EntityTypeRepository>());
+         ```
+      3. Common entities needing interface registration: `Project`, `ProjectTask`, `Agent`, `Document`.
+      4. Test by running `run-maui.bat` and navigating to the feature page—DI resolution happens at page initialization; crashes indicate missing registration.
+   - **Validation Command (before completing MAUI feature):**
+      - `rg "IRepository<" src/Daiv3.App.Maui/**/*.cs` — list all repository dependencies
+      - `rg "IRepository<(EntityName)>" src/Daiv3.Persistence/PersistenceServiceExtensions.cs` — verify registration exists
+   - **Historical Reference:** CT-REQ-014 Calendar crash (March 2026) fixed by registering `IRepository<Project>` and `IRepository<ProjectTask>`.
+
 ### 2. Target Framework & Platform Configuration
 
 **Follow the established TFM (Target Framework Moniker) pattern used in existing projects.**

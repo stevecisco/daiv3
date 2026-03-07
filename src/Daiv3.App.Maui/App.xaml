@@ -20,6 +20,10 @@
             <converters:StatusIconConverter x:Key="StatusIconConverter" />
             <converters:PriorityColorConverter x:Key="PriorityColorConverter" />
             <converters:PercentToDecimalConverter x:Key="PercentToDecimalConverter" />
+            <converters:IsGreaterThanZeroConverter x:Key="IsGreaterThanZeroConverter" />
+            <converters:IsZeroConverter x:Key="IsZeroConverter" />
+            <converters:BoolToBackgroundColorConverter x:Key="BoolToBackgroundColorConverter" />
+            <converters:InvertedBoolConverter x:Key="InverseBoolConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

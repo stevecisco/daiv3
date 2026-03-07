@@ -31,6 +31,13 @@ public partial class CalendarViewModel : BaseViewModel
         _selectedDate = DateTime.Today;
     }
 
+    public IReadOnlyList<CalendarView> AvailableViews { get; } = new[]
+    {
+        CalendarView.Month,
+        CalendarView.Week,
+        CalendarView.Day
+    };
+
     // Observable Collections
     private ObservableCollection<ScheduledItemViewModel> _scheduledItems;
     public ObservableCollection<ScheduledItemViewModel> ScheduledItems
