@@ -325,4 +325,37 @@ public class DashboardViewModelTests
         Assert.True(propertyChangedCalled);
         Assert.Equal(nameof(viewModel.HardwareStatus), changedProperty);
     }
+
+    [Fact]
+    public void PendingPromotionProperties_WhenSet_ShouldUpdateValues()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        var proposals = new List<PendingPromotionSummary>
+        {
+            new()
+            {
+                ProposalId = "proposal-1",
+                LearningId = "learning-1",
+                ProposingAgent = "agent-alpha",
+                FromScope = "Agent",
+                SuggestedTargetScope = "Project",
+                ConfidenceScore = 0.91,
+                CreatedAtUtc = DateTimeOffset.UtcNow.AddHours(-2)
+            }
+        };
+
+        // Act
+        viewModel.PendingPromotionCount = 1;
+        viewModel.HighConfidencePromotionCount = 1;
+        viewModel.OldestPendingPromotionAge = "2h 0m ago";
+        viewModel.PendingPromotions = proposals;
+
+        // Assert
+        Assert.Equal(1, viewModel.PendingPromotionCount);
+        Assert.Equal(1, viewModel.HighConfidencePromotionCount);
+        Assert.Equal("2h 0m ago", viewModel.OldestPendingPromotionAge);
+        Assert.Single(viewModel.PendingPromotions);
+        Assert.True(viewModel.HasPendingPromotions);
+    }
 }

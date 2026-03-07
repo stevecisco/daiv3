@@ -48,6 +48,11 @@ public class DashboardData
     public OnlineProviderUsage OnlineUsage { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets pending knowledge promotions requiring user review (CT-REQ-009).
+    /// </summary>
+    public PendingKnowledgePromotionsStatus PendingKnowledgePromotions { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets scheduled jobs status and execution history (CT-REQ-008).
     /// </summary>
     public ScheduledJobsStatus ScheduledJobs { get; set; } = new();
@@ -705,6 +710,122 @@ public class ProviderUsageSummary
             if (IsOverBudget) return "Over Budget";
             if (IsNearBudget) return "Near Budget";
             return "OK";
+        }
+    }
+}
+
+/// <summary>
+/// Pending knowledge promotions status (CT-REQ-009 data).
+/// Displays pending agent-proposed promotions that require confirmation.
+/// </summary>
+public class PendingKnowledgePromotionsStatus
+{
+    /// <summary>
+    /// Count of pending promotion proposals.
+    /// </summary>
+    public int PendingCount { get; set; }
+
+    /// <summary>
+    /// Number of pending proposals with high confidence (&gt;= 0.8).
+    /// </summary>
+    public int HighConfidenceCount => Proposals.Count(p => p.ConfidenceScore >= 0.8);
+
+    /// <summary>
+    /// Pending proposals, newest first.
+    /// </summary>
+    public List<PendingPromotionSummary> Proposals { get; set; } = [];
+
+    /// <summary>
+    /// Gets whether there are pending proposals requiring user review.
+    /// </summary>
+    public bool HasPendingPromotions => PendingCount > 0;
+
+    /// <summary>
+    /// The oldest pending proposal in the queue.
+    /// </summary>
+    public PendingPromotionSummary? OldestPendingProposal =>
+        Proposals.OrderBy(p => p.CreatedAtUtc).FirstOrDefault();
+}
+
+/// <summary>
+/// Summary information for a pending promotion proposal.
+/// </summary>
+public class PendingPromotionSummary
+{
+    /// <summary>
+    /// Unique proposal ID.
+    /// </summary>
+    public string ProposalId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Learning ID targeted by this proposal.
+    /// </summary>
+    public string LearningId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Agent that proposed this promotion.
+    /// </summary>
+    public string ProposingAgent { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Source task ID associated with this proposal, if available.
+    /// </summary>
+    public string? SourceTaskId { get; set; }
+
+    /// <summary>
+    /// Current scope of the learning.
+    /// </summary>
+    public string FromScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Target scope proposed by the agent.
+    /// </summary>
+    public string SuggestedTargetScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Agent-provided justification for promotion.
+    /// </summary>
+    public string? Justification { get; set; }
+
+    /// <summary>
+    /// Confidence score from 0.0 to 1.0.
+    /// </summary>
+    public double ConfidenceScore { get; set; }
+
+    /// <summary>
+    /// When this proposal was created.
+    /// </summary>
+    public DateTimeOffset CreatedAtUtc { get; set; }
+
+    /// <summary>
+    /// Gets the confidence percentage text (for display).
+    /// </summary>
+    public string ConfidencePercentText => $"{ConfidenceScore * 100:F0}%";
+
+    /// <summary>
+    /// Gets whether this proposal is high confidence (&gt;= 0.8).
+    /// </summary>
+    public bool IsHighConfidence => ConfidenceScore >= 0.8;
+
+    /// <summary>
+    /// Gets the age of this proposal relative to now.
+    /// </summary>
+    public string AgeText
+    {
+        get
+        {
+            var age = DateTimeOffset.UtcNow - CreatedAtUtc;
+
+            if (age.TotalDays >= 1)
+                return $"{(int)age.TotalDays}d {age.Hours}h ago";
+
+            if (age.TotalHours >= 1)
+                return $"{(int)age.TotalHours}h {age.Minutes}m ago";
+
+            if (age.TotalMinutes >= 1)
+                return $"{(int)age.TotalMinutes}m ago";
+
+            return "just now";
         }
     }
 }

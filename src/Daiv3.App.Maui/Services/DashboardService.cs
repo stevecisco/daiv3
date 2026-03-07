@@ -5,6 +5,7 @@ using Daiv3.ModelExecution.Interfaces;
 using Daiv3.ModelExecution.Models;
 using Daiv3.Orchestration;
 using Daiv3.Orchestration.Interfaces;
+using Daiv3.Persistence.Repositories;
 using Daiv3.Scheduler;
 
 namespace Daiv3.App.Maui.Services;
@@ -26,6 +27,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
     private readonly ISystemMetricsService? _systemMetrics;
     private readonly IOnlineProviderRouter? _onlineProviderRouter;
     private readonly IScheduler? _scheduler;
+    private readonly IAgentPromotionProposalService? _promotionProposalService;
     private readonly DashboardConfiguration _configuration;
 
     private CancellationTokenSource? _monitoringCts;
@@ -46,6 +48,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
     /// <param name="systemMetrics">Optional system metrics service for real CPU/memory/disk data.</param>
     /// <param name="onlineProviderRouter">Optional online provider router for token usage tracking (CT-REQ-007).</param>
     /// <param name="scheduler">Optional scheduler for job status tracking (CT-REQ-008).</param>
+    /// <param name="promotionProposalService">Optional service for pending knowledge promotion proposals (CT-REQ-009).</param>
     public DashboardService(
         ILogger<DashboardService> logger,
         IModelQueue? modelQueue = null,
@@ -54,7 +57,8 @@ public sealed class DashboardService : IDashboardService, IDisposable
         AgentExecutionMetricsCollector? metricsCollector = null,
         ISystemMetricsService? systemMetrics = null,
         IOnlineProviderRouter? onlineProviderRouter = null,
-        IScheduler? scheduler = null)
+        IScheduler? scheduler = null,
+        IAgentPromotionProposalService? promotionProposalService = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _modelQueue = modelQueue;
@@ -65,6 +69,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
         _systemMetrics = systemMetrics;
         _onlineProviderRouter = onlineProviderRouter;
         _scheduler = scheduler;
+        _promotionProposalService = promotionProposalService;
 
         _logger.LogInformation(
             "DashboardService initialized: RefreshMs={RefreshMs}, AgentManager={HasAgent}, SystemMetrics={HasMetrics}, OnlineRouter={HasOnline}, Scheduler={HasScheduler}",
@@ -234,6 +239,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
         data.Hardware = CollectHardwareStatus();
         data.Queue = await CollectQueueStatusAsync(cancellationToken).ConfigureAwait(false);
         data.OnlineUsage = await CollectOnlineProviderUsageAsync(cancellationToken).ConfigureAwait(false);
+        data.PendingKnowledgePromotions = await CollectPendingKnowledgePromotionsAsync(cancellationToken).ConfigureAwait(false);
         data.ScheduledJobs = await CollectScheduledJobsStatusAsync(cancellationToken).ConfigureAwait(false);
         data.BackgroundTasks = await CollectBackgroundTasksAsync(cancellationToken).ConfigureAwait(false);
         data.TimeTracking = await CollectTimeTrackingStatusAsync(cancellationToken).ConfigureAwait(false);
@@ -615,6 +621,72 @@ public sealed class DashboardService : IDashboardService, IDisposable
             "anthropic" => "Claude (Anthropic)",
             _ => providerName ?? "Unknown"
         };
+    }
+
+    /// <summary>
+    /// Collects pending knowledge promotions requiring user confirmation.
+    /// Implements CT-REQ-009: The dashboard SHALL display pending knowledge promotions.
+    /// </summary>
+    private async Task<PendingKnowledgePromotionsStatus> CollectPendingKnowledgePromotionsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            IReadOnlyList<Daiv3.Persistence.Entities.AgentPromotionProposal>? proposals = null;
+
+            if (_promotionProposalService != null)
+            {
+                proposals = await _promotionProposalService.GetPendingProposalsAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else if (_scopeFactory != null)
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var proposalRepository = scope.ServiceProvider.GetService<AgentPromotionProposalRepository>();
+                if (proposalRepository != null)
+                {
+                    proposals = await proposalRepository.GetPendingProposalsAsync(cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            if (proposals == null || proposals.Count == 0)
+            {
+                return new PendingKnowledgePromotionsStatus
+                {
+                    PendingCount = 0,
+                    Proposals = []
+                };
+            }
+
+            var summaries = proposals
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new PendingPromotionSummary
+                {
+                    ProposalId = p.ProposalId,
+                    LearningId = p.LearningId,
+                    ProposingAgent = p.ProposingAgent,
+                    SourceTaskId = p.SourceTaskId,
+                    FromScope = p.FromScope,
+                    SuggestedTargetScope = p.SuggestedTargetScope,
+                    Justification = p.Justification,
+                    ConfidenceScore = p.ConfidenceScore,
+                    CreatedAtUtc = DateTimeOffset.FromUnixTimeSeconds(p.CreatedAt)
+                })
+                .ToList();
+
+            return new PendingKnowledgePromotionsStatus
+            {
+                PendingCount = summaries.Count,
+                Proposals = summaries
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error collecting pending knowledge promotions");
+            return new PendingKnowledgePromotionsStatus
+            {
+                PendingCount = 0,
+                Proposals = []
+            };
+        }
     }
 
     /// <summary>

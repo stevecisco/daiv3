@@ -1,6 +1,8 @@
 using Daiv3.App.Maui.Models;
 using Daiv3.App.Maui.Services;
 using Daiv3.ModelExecution.Interfaces;
+using Daiv3.Orchestration.Interfaces;
+using Daiv3.Persistence.Entities;
 using Daiv3.Scheduler;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -73,7 +75,80 @@ public class DashboardServiceTests
         Assert.NotNull(data.Indexing);
         Assert.NotNull(data.Agent);
         Assert.NotNull(data.SystemResources);
+        Assert.NotNull(data.PendingKnowledgePromotions);
         Assert.True(data.IsValid); // Should not have an error
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithPromotionProposalService_ShouldPopulatePendingPromotions()
+    {
+        // Arrange
+        var mockProposalService = new Mock<IAgentPromotionProposalService>();
+        var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        mockProposalService
+            .Setup(s => s.GetPendingProposalsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<AgentPromotionProposal>
+            {
+                new()
+                {
+                    ProposalId = "proposal-1",
+                    LearningId = "learning-1",
+                    ProposingAgent = "agent-alpha",
+                    FromScope = "Agent",
+                    SuggestedTargetScope = "Project",
+                    ConfidenceScore = 0.92,
+                    CreatedAt = nowUnix - 3600
+                },
+                new()
+                {
+                    ProposalId = "proposal-2",
+                    LearningId = "learning-2",
+                    ProposingAgent = "agent-beta",
+                    FromScope = "Project",
+                    SuggestedTargetScope = "Domain",
+                    ConfidenceScore = 0.65,
+                    CreatedAt = nowUnix - 120
+                }
+            });
+
+        using var service = new DashboardService(
+            _mockLogger.Object,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            mockProposalService.Object);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.PendingKnowledgePromotions);
+        Assert.Equal(2, data.PendingKnowledgePromotions.PendingCount);
+        Assert.True(data.PendingKnowledgePromotions.HasPendingPromotions);
+        Assert.Equal(1, data.PendingKnowledgePromotions.HighConfidenceCount);
+        Assert.Equal("proposal-2", data.PendingKnowledgePromotions.Proposals[0].ProposalId);
+        Assert.Equal("proposal-1", data.PendingKnowledgePromotions.OldestPendingProposal?.ProposalId);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithoutPromotionProposalService_ShouldReturnNoPendingPromotions()
+    {
+        // Arrange
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, null, null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.PendingKnowledgePromotions);
+        Assert.Equal(0, data.PendingKnowledgePromotions.PendingCount);
+        Assert.False(data.PendingKnowledgePromotions.HasPendingPromotions);
+        Assert.Empty(data.PendingKnowledgePromotions.Proposals);
     }
 
     [Fact]

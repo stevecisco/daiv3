@@ -348,6 +348,12 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
     private long _totalMonthlyTokens;
     private bool _hasBudgetAlert;
 
+    // ── Pending Knowledge Promotions (CT-REQ-009) ───────────────────
+    private int _pendingPromotionCount;
+    private int _highConfidencePromotionCount;
+    private string _oldestPendingPromotionAge = "-";
+    private List<PendingPromotionSummary> _pendingPromotions = [];
+
     /// <summary>Whether any online providers are configured.</summary>
     public bool HasOnlineProviders
     {
@@ -407,6 +413,37 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
             >= 1_000 => $"{TotalMonthlyTokens / 1_000.0:F1}K",
             _ => $"{TotalMonthlyTokens}"
         };
+
+    /// <summary>Total number of pending promotion proposals requiring review.</summary>
+    public int PendingPromotionCount
+    {
+        get => _pendingPromotionCount;
+        set => SetProperty(ref _pendingPromotionCount, value);
+    }
+
+    /// <summary>Number of pending proposals with high confidence (&gt;= 80%).</summary>
+    public int HighConfidencePromotionCount
+    {
+        get => _highConfidencePromotionCount;
+        set => SetProperty(ref _highConfidencePromotionCount, value);
+    }
+
+    /// <summary>Age text for the oldest pending promotion proposal.</summary>
+    public string OldestPendingPromotionAge
+    {
+        get => _oldestPendingPromotionAge;
+        set => SetProperty(ref _oldestPendingPromotionAge, value);
+    }
+
+    /// <summary>Pending promotion proposals (newest first).</summary>
+    public List<PendingPromotionSummary> PendingPromotions
+    {
+        get => _pendingPromotions;
+        set => SetProperty(ref _pendingPromotions, value);
+    }
+
+    /// <summary>Whether there are pending promotion proposals.</summary>
+    public bool HasPendingPromotions => PendingPromotionCount > 0;
 
     // ── Scheduled Jobs Properties (CT-REQ-008) ────────────────────────
 
@@ -946,6 +983,13 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
         HasBudgetAlert = data.OnlineUsage.HasBudgetAlert;
         OnPropertyChanged(nameof(TotalDailyTokensText));
         OnPropertyChanged(nameof(TotalMonthlyTokensText));
+
+        // Pending Knowledge Promotions (CT-REQ-009)
+        PendingPromotionCount = data.PendingKnowledgePromotions.PendingCount;
+        HighConfidencePromotionCount = data.PendingKnowledgePromotions.HighConfidenceCount;
+        PendingPromotions = new List<PendingPromotionSummary>(data.PendingKnowledgePromotions.Proposals);
+        OldestPendingPromotionAge = data.PendingKnowledgePromotions.OldestPendingProposal?.AgeText ?? "-";
+        OnPropertyChanged(nameof(HasPendingPromotions));
 
         // Scheduled Jobs (CT-REQ-008)
         HasScheduledJobs = data.ScheduledJobs.HasScheduledJobs;
