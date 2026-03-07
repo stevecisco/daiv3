@@ -266,6 +266,120 @@ knowledge/
 - Privacy/shareability labels (private, team-shareable, public-reference-only)
 - Topic tags, entities, people, projects, and citation links to original content
 
+### Version-Aware Knowledge & Temporal Tracking
+
+**Core Concept:** Track when content was created, what versions it applies to, when it becomes stale, and when to refresh it, enabling version-specific retrieval and automatic freshness management.
+
+#### Temporal Metadata (per knowledge item)
+- **Original dates:**
+  - `content_published_date` - When the content was originally published/created by the author
+  - `content_last_updated_date` - When the content was last modified at source (distinct from fetch date)
+  - `ingested_at` - When we first ingested the content into DAIv3
+  - `last_fetched_at` - Most recent fetch/validation attempt
+  - `last_verified_current_at` - When we last confirmed content is still current
+
+- **Validity dates:**
+  - `valid_from_date` - Content becomes valid/applicable starting this date
+  - `valid_until_date` - Content expires or becomes obsolete after this date (nullable for evergreen content)
+  - `deprecation_notice_date` - When notice was given that content will become obsolete
+  - `superseded_by_doc_id` - Link to newer version that replaces this content
+
+#### Version Applicability Metadata
+- **Technology/Standard versions:**
+  - `applies_to_versions` - Structured list of applicable version ranges
+    - Example: `[{technology: ".NET", versions: ["6.0", "7.0", "8.0", "9.0", "10.0"]}, {technology: "C#", versions: ["10", "11", "12", "13"]}]`
+    - Example: `[{standard: "OpenAPI", versions: ["3.0", "3.1"]}, {standard: "JSON Schema", versions: ["2020-12"]}]`
+  - `minimum_version` - Minimum version required (e.g., ".NET 8.0+")
+  - `maximum_version` - Last supported version (e.g., "valid through .NET 10.0")
+  - `breaking_changes_in` - List of versions that introduced breaking changes affecting this content
+  - `deprecated_in_version` - Version where features/APIs discussed became deprecated
+
+- **Version tags for filtering:**
+  - Queryable tags like `dotnet-8`, `csharp-12`, `openapi-3.1`, `sql-server-2022`
+  - Freeform `technology_stack` field: `["ASP.NET Core 8", "Entity Framework 9", "PostgreSQL 16"]`
+
+#### Freshness Policies (per source or content type)
+- **Automatic refresh rules:**
+  - `refresh_policy` - How often to check for updates:
+    - `static` - Never refresh (historical/archived content)
+    - `daily` - High-priority sources (official docs, release notes)
+    - `weekly` - Medium-priority (blog posts, technical articles)
+    - `monthly` - Low-priority (evergreen tutorials, books)
+    - `on_major_release` - Triggered by version release events
+    - `manual` - Only refresh on explicit user request
+  
+  - `refresh_trigger_rules`:
+    - Check RSS/Atom feeds for updates
+    - Monitor GitHub repo commits/releases
+    - Track package registry versions (NuGet, npm)
+    - Watch documentation site change logs
+    - Subscribe to API changelog webhooks
+
+- **Staleness detection:**
+  - `staleness_threshold_days` - How old before marked stale (default varies by source type)
+  - `is_stale` - Boolean computed from `last_fetched_at` + threshold
+  - `staleness_reason` - Why marked stale: `age_threshold`, `version_mismatch`, `source_updated`, `manual_flag`
+  - `stale_impact_score` - How critical is it to refresh this item (0-10 scale)
+
+#### Version-Specific Retrieval & Search
+- **Query augmentation for version context:**
+  - When user specifies ".NET 10" in query, filter/boost documents tagged for that version
+  - Warn if retrieving content marked obsolete for current project's technology stack
+  - Show "Newer version available" indicator when superseded content is retrieved
+  - Rank fresher content higher when multiple versions match query
+
+- **Embedding metadata injection:**
+  - Optionally inject version tags into chunk text before embedding: "This content applies to .NET 8 and .NET 9."
+  - Store version metadata alongside embeddings for post-retrieval filtering
+  - Maintain version-specific embedding indexes for critical technologies
+
+#### Dashboard & CLI Visibility
+- **Staleness dashboard:**  - Show count of stale items by project, by source type, by technology
+  - List items needing refresh sorted by priority/impact
+  - Display "last verified" timestamps and next scheduled refresh
+  - Alert on content that's critical to active projects but marked stale
+
+- **Version mismatch warnings:**
+  - "You're using .NET 10, but 37% of indexed knowledge is for .NET 8 or earlier"
+  - "Recommended: refresh Angular documentation (currently indexed v15, v19 released 3 months ago)"
+  - Highlight when project uses technology versions not well-represented in knowledge base
+
+- **CLI commands:**
+  - `daiv3 knowledge check-freshness` - Run staleness scan across all content
+  - `daiv3 knowledge refresh --stale-only` - Re-fetch items marked stale
+  - `daiv3 knowledge refresh --technology dotnet --min-age 90d` - Refresh .NET docs older than 90 days
+  - `daiv3 knowledge list-versions --technology dotnet` - Show all indexed .NET versions
+  - `daiv3 knowledge compare-versions --doc-id <id> --versions 8,9,10` - Compare same doc across versions
+  - `daiv3 knowledge set-valid-until --doc-id <id> --date 2027-12-31` - Mark expiration date
+
+#### Integration with Multi-Node Sync
+- Version metadata and freshness policies replicate with content
+- Shared nodes coordinate refresh scheduling (avoid duplicate fetches)
+- Staleness flags travel with content but each node can override refresh policy
+- Central coordinator (optional) can dispatch refresh tasks to idle nodes
+
+#### Example Use Cases
+1. **".NET 8 to .NET 10 migration project":**
+   - Query knowledge base filtered to `.NET 8` and `.NET 10` tags
+   - Identify breaking changes documented between versions
+   - Flag .NET 8 content as "needs .NET 10 equivalent verification"
+
+2. **API documentation with versioning:**
+   - Ingest Stripe API docs for v2023-08-16, v2023-10-16, v2024-01-01
+   - Tag each doc version with `applies_to_versions: ["stripe-api-2023-08-16"]`
+   - Retrieval automatically uses version matching project's integration
+
+3. **Weekly blog refresh workflow:**
+   - Technical blogs set to `refresh_policy: weekly`
+   - Scheduler checks for updates every Sunday
+   - Changed content triggers re-ingestion and re-embedding
+   - Old version archived with `superseded_by_doc_id` link
+
+4. **Deprecated API detection:**
+   - .NET 11 deprecates certain APIs
+   - Mark knowledge items mentioning those APIs with `deprecated_in_version: "11.0"`
+   - Warn user during retrieval: "This API is deprecated in .NET 11+ (you're using .NET 10)"
+
 **Additional high-value source indexes to consider:**
 
 - Library of Congress digital collections and catalog APIs
