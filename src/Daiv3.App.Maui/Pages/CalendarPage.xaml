@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Daiv3.App.Maui.ViewModels"
+             x:Class="Daiv3.App.Maui.Pages.CalendarPage"
+             x:DataType="vm:CalendarViewModel"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*" Padding="20">
+        
+        <!-- Header Section with Summary Stats -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,*,*,*,Auto" ColumnSpacing="15" Margin="0,0,0,20">
+            
+            <!-- Upcoming Count -->
+            <Frame Grid.Column="0" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#e3f2fd">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Upcoming (7d)" FontSize="12" TextColor="#1976d2" FontAttributes="Bold"/>
+                    <Label Text="{Binding UpcomingCount}" FontSize="24" FontAttributes="Bold" TextColor="#1976d2"/>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Overdue Count -->
+            <Frame Grid.Column="1" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#ffebee">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Overdue" FontSize="12" TextColor="#d32f2f" FontAttributes="Bold"/>
+                    <Label Text="{Binding OverdueCount}" FontSize="24" FontAttributes="Bold" TextColor="#d32f2f"/>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- At Risk Count -->
+            <Frame Grid.Column="2" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#fff3e0">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="At Risk" FontSize="12" TextColor="#f57c00" FontAttributes="Bold"/>
+                    <Label Text="{Binding AtRiskCount}" FontSize="24" FontAttributes="Bold" TextColor="#f57c00"/>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Milestones Count -->
+            <Frame Grid.Column="3" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#f3e5f5">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Milestones" FontSize="12" TextColor="#7b1fa2" FontAttributes="Bold"/>
+                    <Label Text="{Binding MilestoneCount}" FontSize="24" FontAttributes="Bold" TextColor="#7b1fa2"/>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Reminders Badge -->
+            <Frame Grid.Column="4" Padding="15" CornerRadius="8" BorderColor="Transparent" BackgroundColor="#e8f5e9"
+                   IsVisible="{Binding UnreadReminderCount, Converter={StaticResource IsGreaterThanZeroConverter}}">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Reminders" FontSize="12" TextColor="#388e3c" FontAttributes="Bold"/>
+                    <Label Text="{Binding UnreadReminderCount}" FontSize="24" FontAttributes="Bold" TextColor="#388e3c"/>
+                </VerticalStackLayout>
+            </Frame>
+        </Grid>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1" ColumnDefinitions="2*,*" ColumnSpacing="20">
+            
+            <!-- Left: Calendar and Scheduled Items -->
+            <Grid Grid.Column="0" RowDefinitions="Auto,*" RowSpacing="15">
+                
+                <!-- Calendar Navigation Controls -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+                    
+                    <!-- View Mode Picker -->
+                    <Picker Grid.Column="0" SelectedItem="{Binding SelectedView}" WidthRequest="120">
+                        <Picker.ItemsSource>
+                            <x:Array Type="{x:Type vm:CalendarView}">
+                                <vm:CalendarView>Month</vm:CalendarView>
+                                <vm:CalendarView>Week</vm:CalendarView>
+                                <vm:CalendarView>Day</vm:CalendarView>
+                            </x:Array>
+                        </Picker.ItemsSource>
+                    </Picker>
+
+                    <!-- Current Date Display -->
+                    <Label Grid.Column="1" 
+                           Text="{Binding SelectedDate, StringFormat='{0:MMMM yyyy}'}"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"
+                           HorizontalOptions="Center"/>
+
+                    <!-- Navigation Buttons -->
+                    <Button Grid.Column="2" Text="◀ Prev" Clicked="OnPreviousClicked" WidthRequest="80"/>
+                    <Button Grid.Column="3" Text="Today" Clicked="OnTodayClicked" WidthRequest="80"/>
+                    <Button Grid.Column="4" Text="Next ▶" Clicked="OnNextClicked" WidthRequest="80"/>
+                </Grid>
+
+                <!-- Scheduled Items List -->
+                <ScrollView Grid.Row="1">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Scheduled Items" FontSize="16" FontAttributes="Bold" Margin="0,10,0,5"/>
+                        
+                        <CollectionView ItemsSource="{Binding ScheduledItems}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ScheduledItemViewModel">
+                                    <Frame Padding="15" Margin="0,0,0,10" CornerRadius="8" BorderColor="#ddd" HasShadow="False">
+                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="5">
+                                            
+                                            <!-- Item Name -->
+                                            <Label Grid.Row="0" Grid.Column="0" 
+                                                   Text="{Binding Name}"
+                                                   FontSize="16"
+                                                   FontAttributes="Bold"/>
+
+                                            <!-- Status Badge -->
+                                            <Frame Grid.Row="0" Grid.Column="1" 
+                                                   Padding="8,4"
+                                                   CornerRadius="4"
+                                                   BorderColor="Transparent"
+                                                   BackgroundColor="{Binding StatusColor}"
+                                                   HasShadow="False">
+                                                <Label Text="{Binding StatusDisplay}" 
+                                                       TextColor="White"
+                                                       FontSize="12"
+                                                       FontAttributes="Bold"/>
+                                            </Frame>
+
+                                            <!-- Type and Deadline -->
+                                            <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                   FontSize="14"
+                                                   TextColor="#666">
+                                                <Label.FormattedText>
+                                                    <FormattedString>
+                                                        <Span Text="{Binding TypeDisplay}"/>
+                                                        <Span Text=" • "/>
+                                                        <Span Text="{Binding DeadlineDisplay}"/>
+                                                        <Span Text=" • "/>
+                                                        <Span Text="{Binding ProgressDisplay}"/>
+                                                    </FormattedString>
+                                                </Label.FormattedText>
+                                            </Label>
+
+                                            <!-- Milestone/Dependency Indicators -->
+                                            <HorizontalStackLayout Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Spacing="10">
+                                                <Label Text="⭐ Milestone" 
+                                                       FontSize="12"
+                                                       TextColor="#9c27b0"
+                                                       IsVisible="{Binding IsMilestone}"/>
+                                                <Label IsVisible="{Binding HasDependencies}"
+                                                       FontSize="12"
+                                                       TextColor="#ff9800">
+                                                    <Label.FormattedText>
+                                                        <FormattedString>
+                                                            <Span Text="🔗 "/>
+                                                            <Span Text="{Binding DependencyCount}"/>
+                                                            <Span Text=" dependencies"/>
+                                                        </FormattedString>
+                                                    </Label.FormattedText>
+                                                </Label>
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <!-- Empty State -->
+                        <Label Text="No scheduled items for this period"
+                               FontSize="14"
+                               TextColor="#999"
+                               HorizontalOptions="Center"
+                               Margin="0,30,0,0"
+                               IsVisible="{Binding ScheduledItems.Count, Converter={StaticResource IsZeroConverter}}"/>
+                    </VerticalStackLayout>
+                </ScrollView>
+            </Grid>
+
+            <!-- Right: Upcoming Deadlines and Reminders -->
+            <Grid Grid.Column="1" RowDefinitions="*,*" RowSpacing="20">
+                
+                <!-- Upcoming Deadlines -->
+                <ScrollView Grid.Row="0">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Upcoming Deadlines" FontSize="16" FontAttributes="Bold" Margin="0,0,0,5"/>
+                        
+                        <CollectionView ItemsSource="{Binding UpcomingDeadlines}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DeadlineItemViewModel">
+                                    <Frame Padding="12" Margin="0,0,0,8" CornerRadius="6" BorderColor="#ddd" HasShadow="False">
+                                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                                            
+                                            <!-- Name with Urgency -->
+                                            <Label Grid.Row="0" FontSize="14" FontAttributes="Bold">
+                                                <Label.FormattedText>
+                                                    <FormattedString>
+                                                        <Span Text="{Binding UrgencyIndicator}"/>
+                                                        <Span Text=" "/>
+                                                        <Span Text="{Binding Name}"/>
+                                                    </FormattedString>
+                                                </Label.FormattedText>
+                                            </Label>
+
+                                            <!-- Type and Days Remaining -->
+                                            <Label Grid.Row="1" FontSize="12" TextColor="#666">
+                                                <Label.FormattedText>
+                                                    <FormattedString>
+                                                        <Span Text="{Binding TypeDisplay}"/>
+                                                        <Span Text=" • "/>
+                                                        <Span Text="{Binding DaysRemainingDisplay}"/>
+                                                    </FormattedString>
+                                                </Label.FormattedText>
+                                            </Label>
+
+                                            <!-- Status -->
+                                            <Frame Grid.Row="2" 
+                                                   Padding="6,3"
+                                                   CornerRadius="3"
+                                                   BorderColor="Transparent"
+                                                   BackgroundColor="{Binding StatusColor}"
+                                                   HorizontalOptions="Start"
+                                                   HasShadow="False">
+                                                <Label Text="{Binding StatusDisplay}" 
+                                                       TextColor="White"
+                                                       FontSize="11"
+                                                       FontAttributes="Bold"/>
+                                            </Frame>
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <!-- Empty State -->
+                        <Label Text="No upcoming deadlines"
+                               FontSize="12"
+                               TextColor="#999"
+                               HorizontalOptions="Center"
+                               Margin="0,20,0,0"
+                               IsVisible="{Binding UpcomingDeadlines.Count, Converter={StaticResource IsZeroConverter}}"/>
+                    </VerticalStackLayout>
+                </ScrollView>
+
+                <!-- Active Reminders -->
+                <ScrollView Grid.Row="1">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Active Reminders" FontSize="16" FontAttributes="Bold" Margin="0,0,0,5"/>
+                        
+                        <CollectionView ItemsSource="{Binding ActiveReminders}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ReminderItemViewModel">
+                                    <Frame Padding="12" Margin="0,0,0,8" CornerRadius="6" 
+                                           BorderColor="#ddd" 
+                                           BackgroundColor="{Binding IsRead, Converter={StaticResource BoolToBackgroundColorConverter}}"
+                                           HasShadow="False">
+                                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                                            
+                                            <!-- Reminder Type -->
+                                            <Label Grid.Row="0" 
+                                                   Text="{Binding TypeDisplay}"
+                                                   FontSize="11"
+                                                   TextColor="#666"
+                                                   FontAttributes="Bold"/>
+
+                                            <!-- Message -->
+                                            <Label Grid.Row="1" 
+                                                   Text="{Binding Message}"
+                                                   FontSize="13"
+                                                   TextColor="#333"/>
+
+                                            <!-- Time and Actions -->
+                                            <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                <Label Grid.Column="0" 
+                                                       Text="{Binding TimeDisplay}"
+                                                       FontSize="11"
+                                                       TextColor="#999"
+                                                       VerticalOptions="Center"/>
+
+                                                <Button Grid.Column="1" 
+                                                        Text="Snooze"
+                                                        FontSize="10"
+                                                        Padding="6,3"
+                                                        Clicked="OnSnoozeReminderClicked"
+                                                        CommandParameter="{Binding ReminderId}"/>
+
+                                                <Button Grid.Column="2" 
+                                                        Text="Mark Read"
+                                                        FontSize="10"
+                                                        Padding="6,3"
+                                                        Clicked="OnMarkReminderReadClicked"
+                                                        CommandParameter="{Binding ReminderId}"
+                                                        IsVisible="{Binding IsRead, Converter={StaticResource InverseBoolConverter}}"/>
+                                            </Grid>
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <!-- Empty State -->
+                        <Label Text="No active reminders"
+                               FontSize="12"
+                               TextColor="#999"
+                               HorizontalOptions="Center"
+                               Margin="0,20,0,0"
+                               IsVisible="{Binding ActiveReminders.Count, Converter={StaticResource IsZeroConverter}}"/>
+                    </VerticalStackLayout>
+                </ScrollView>
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentPage>

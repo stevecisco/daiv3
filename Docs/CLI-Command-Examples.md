@@ -137,7 +137,6 @@ Shows only time entries associated with a specific agent/service.
 ```
 Outputs flattened time entries suitable for spreadsheet analysis.
 
----
 
 ## Chat Commands
 
@@ -156,13 +155,10 @@ Type your message and press Enter. Type 'exit' to quit.
 
 You: Hello, how are you?
 AI: Echo: Hello, how are you? (Orchestration integration pending)
-You: What can you do?
 AI: Echo: What can you do? (Orchestration integration pending)
 You: exit
-Goodbye!
 ```
 
-### Single Message Mode
 ```bash
 .\run-cli.bat chat --message "Hello from CLI"
 # or
@@ -182,15 +178,12 @@ AI: Echo: Hello from CLI (Orchestration integration pending)
 
 ### List All Projects
 ```bash
-.\run-cli.bat projects list
 ```
 Displays all projects in the system.
-
 **Output Example:**
 ```
 PROJECTS:
   ID: 7e0f2e8f-4c3e-4b91-93f8-001fd0d9589f
-  Name: My Project
   Description: Project description
   Root Paths:
     - C:\repo\src

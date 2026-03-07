@@ -67,11 +67,15 @@ public static class MauiProgram
                 serviceProvider.GetService<AgentExecutionMetricsCollector>(), // Optional - registered when orchestration is active
                 serviceProvider.GetRequiredService<ISystemMetricsService>()));
 
+        // Register Calendar Service (CT-REQ-014: Calendar and Reminders Dashboard)
+        builder.Services.AddSingleton<ICalendarService, CalendarService>();
+
         // Register ViewModels
         builder.Services.AddSingleton<ChatViewModel>();
         builder.Services.AddSingleton<DashboardViewModel>();
         builder.Services.AddSingleton<AdminDashboardViewModel>();
         builder.Services.AddSingleton<ProjectsViewModel>();
+        builder.Services.AddSingleton<CalendarViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>(serviceProvider =>
             new SettingsViewModel(
                 serviceProvider.GetRequiredService<ILogger<SettingsViewModel>>(),
@@ -85,6 +89,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<DashboardPage>();
         builder.Services.AddSingleton<AdminDashboardPage>();
         builder.Services.AddSingleton<ProjectsPage>();
+        builder.Services.AddSingleton<CalendarPage>();
         builder.Services.AddSingleton<SettingsPage>();
         builder.Services.AddTransient<IndexingPage>();
         builder.Services.AddSingleton<MainPage>();

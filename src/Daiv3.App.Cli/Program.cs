@@ -162,6 +162,31 @@ public class Program
         }, adminJsonOption, adminWatchOption, adminHistoryOption);
         dashboardCommand.AddCommand(dashboardAdminCommand);
 
+        // dashboard calendar subcommand (CT-REQ-014: Calendar and Reminders Dashboard)
+        var dashboardCalendarCommand = new Command("calendar", "Show calendar with upcoming deadlines and scheduled items");
+        var calendarDaysOption = new Option<int>(
+            aliases: new[] { "--days", "-d" },
+            description: "Number of days to show (default: 30)",
+            getDefaultValue: () => 30);
+        dashboardCalendarCommand.AddOption(calendarDaysOption);
+        dashboardCalendarCommand.SetHandler(async (int days) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await DashboardCalendarCommand(host, days);
+            Environment.Exit(exitCode);
+        }, calendarDaysOption);
+        dashboardCommand.AddCommand(dashboardCalendarCommand);
+
+        // dashboard reminders subcommand (CT-REQ-014: Active reminders)
+        var dashboardRemindersCommand = new Command("reminders", "Show active reminders and notifications");
+        dashboardRemindersCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await DashboardRemindersCommand(host);
+            Environment.Exit(exitCode);
+        });
+        dashboardCommand.AddCommand(dashboardRemindersCommand);
+
         rootCommand.AddCommand(dashboardCommand);
 
         // Chat command
@@ -2668,6 +2693,314 @@ public class Program
         catch
         {
             Console.WriteLine($"{label} (error reading)");
+        }
+    }
+
+    /// <summary>
+    /// CT-REQ-014: Displays calendar with upcoming deadlines and scheduled items.
+    /// </summary>
+    private static async Task<int> DashboardCalendarCommand(IHost host, int days)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying calendar dashboard");
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("          CALENDAR & DEADLINES (CT-REQ-014)                ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            var now = DateTime.UtcNow;
+            var futureDate = now.AddDays(days);
+
+            // Projects with deadlines
+            var projectRepo = host.Services.GetRequiredService<IRepository<Project>>();
+            var projects = await projectRepo.GetAllAsync();
+            var upcomingProjects = projects
+                .Where(p => p.Deadline.HasValue)
+                .Select(p => new
+                {
+                    Project = p,
+                    Deadline = DateTimeOffset.FromUnixTimeSeconds(p.Deadline!.Value).UtcDateTime
+                })
+                .Where(x => x.Deadline >= now && x.Deadline <= futureDate)
+                .OrderBy(x => x.Deadline)
+                .ToList();
+
+            // Tasks with deadlines
+            var taskRepo = host.Services.GetRequiredService<IRepository<ProjectTask>>();
+            var tasks = await taskRepo.GetAllAsync();
+            var upcomingTasks = tasks
+                .Where(t => t.ScheduledAt.HasValue)
+                .Select(t => new
+                {
+                    Task = t,
+                    Deadline = DateTimeOffset.FromUnixTimeSeconds(t.ScheduledAt!.Value).UtcDateTime
+                })
+                .Where(x => x.Deadline >= now && x.Deadline <= futureDate)
+                .OrderBy(x => x.Deadline)
+                .ToList();
+
+            // Summary statistics
+            var overdueProjects = projects.Where(p =>
+                p.Deadline.HasValue &&
+                DateTimeOffset.FromUnixTimeSeconds(p.Deadline.Value).UtcDateTime < now &&
+                p.Status != "Completed").Count();
+
+            var overdueTasks = tasks.Where(t =>
+                t.ScheduledAt.HasValue &&
+                DateTimeOffset.FromUnixTimeSeconds(t.ScheduledAt.Value).UtcDateTime < now &&
+                t.Status != "Completed" && t.Status != "Done").Count();
+
+            Console.WriteLine($"Period: Next {days} days ({now:MMM dd} - {futureDate:MMM dd, yyyy})");
+            Console.WriteLine();
+            Console.WriteLine($"SUMMARY:");
+            Console.WriteLine($"  Upcoming Projects: {upcomingProjects.Count}");
+            Console.WriteLine($"  Upcoming Tasks:    {upcomingTasks.Count}");
+            Console.WriteLine($"  Overdue Projects:  {overdueProjects}");
+            Console.WriteLine($"  Overdue Tasks:     {overdueTasks}");
+            Console.WriteLine();
+
+            // Upcoming project deadlines
+            if (upcomingProjects.Any())
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("═══════════════════════════════════════════════════════════");
+                Console.WriteLine("UPCOMING PROJECT DEADLINES:");
+                Console.ResetColor();
+                Console.WriteLine();
+
+                foreach (var item in upcomingProjects)
+                {
+                    var daysRemaining = (int)(item.Deadline - now).TotalDays;
+                    var urgency = daysRemaining < 2 ? "🔥 URGENT" : daysRemaining < 7 ? "⚠️  Soon" : "📅 Scheduled";
+                    var statusColor = item.Project.Status switch
+                    {
+                        "Completed" => ConsoleColor.Green,
+                        "Active" => ConsoleColor.Cyan,
+                        _ => ConsoleColor.Gray
+                    };
+
+                    Console.ForegroundColor = statusColor;
+                    Console.WriteLine($"  {urgency} {item.Project.Name}");
+                    Console.ResetColor();
+                    Console.WriteLine($"     Deadline:  {item.Deadline.ToLocalTime():ddd MMM dd, yyyy}");
+                    Console.WriteLine($"     Days Left: {daysRemaining} day(s)");
+                    Console.WriteLine($"     Progress:  {item.Project.ProgressPercent:F0}%");
+                    Console.WriteLine($"     Status:    {item.Project.Status}");
+                    if (!string.IsNullOrEmpty(item.Project.AssignedAgent))
+                        Console.WriteLine($"     Agent:     {item.Project.AssignedAgent}");
+                    Console.WriteLine();
+                }
+            }
+
+            // Upcoming task deadlines
+            if (upcomingTasks.Any())
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("═══════════════════════════════════════════════════════════");
+                Console.WriteLine("UPCOMING TASK DEADLINES:");
+                Console.ResetColor();
+                Console.WriteLine();
+
+                foreach (var item in upcomingTasks)
+                {
+                    var daysRemaining = (int)(item.Deadline - now).TotalDays;
+                    var urgency = daysRemaining < 2 ? "🔥 URGENT" : daysRemaining < 7 ? "⚠️  Soon" : "📋 Scheduled";
+
+                    Console.WriteLine($"  {urgency} {item.Task.Title}");
+                    Console.WriteLine($"     Deadline:   {item.Deadline.ToLocalTime():ddd MMM dd, yyyy HH:mm}");
+                    Console.WriteLine($"     Days Left:  {daysRemaining} day(s)");
+                    Console.WriteLine($"     Status:     {item.Task.Status}");
+                    Console.WriteLine($"     Priority:   P{item.Task.Priority}");
+                    if (!string.IsNullOrEmpty(item.Task.ProjectId))
+                    {
+                        var project = projects.FirstOrDefault(p => p.ProjectId == item.Task.ProjectId);
+                        if (project != null)
+                            Console.WriteLine($"     Project:    {project.Name}");
+                    }
+                    Console.WriteLine();
+                }
+            }
+
+            // Empty state
+            if (!upcomingProjects.Any() && !upcomingTasks.Any())
+            {
+                Console.WriteLine($"No deadlines scheduled in the next {days} days.");
+                Console.WriteLine();
+                Console.WriteLine("Use 'daiv3 projects create' to create projects with deadlines.");
+                Console.WriteLine("Use 'daiv3 tasks create' to schedule tasks.");
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display calendar: {ex.Message}");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// CT-REQ-014: Displays active reminders and notifications.
+    /// </summary>
+    private static async Task<int> DashboardRemindersCommand(IHost host)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying reminders dashboard");
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("            ACTIVE REMINDERS (CT-REQ-014)                  ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            var now = DateTime.UtcNow;
+
+            // Check for approaching deadlines (next 3 days)
+            var projectRepo = host.Services.GetRequiredService<IRepository<Project>>();
+            var taskRepo = host.Services.GetRequiredService<IRepository<ProjectTask>>();
+
+            var projects = await projectRepo.GetAllAsync();
+            var tasks = await taskRepo.GetAllAsync();
+
+            var approachingProjects = projects
+                .Where(p => p.Deadline.HasValue)
+                .Select(p => new
+                {
+                    Project = p,
+                    Deadline = DateTimeOffset.FromUnixTimeSeconds(p.Deadline!.Value).UtcDateTime,
+                    DaysRemaining = (DateTimeOffset.FromUnixTimeSeconds(p.Deadline!.Value).UtcDateTime - now).TotalDays
+                })
+                .Where(x => x.DaysRemaining >= 0 && x.DaysRemaining <= 3 && x.Project.Status != "Completed")
+                .OrderBy(x => x.Deadline)
+                .ToList();
+
+            var approachingTasks = tasks
+                .Where(t => t.ScheduledAt.HasValue)
+                .Select(t => new
+                {
+                    Task = t,
+                    Deadline = DateTimeOffset.FromUnixTimeSeconds(t.ScheduledAt!.Value).UtcDateTime,
+                    DaysRemaining = (DateTimeOffset.FromUnixTimeSeconds(t.ScheduledAt!.Value).UtcDateTime - now).TotalDays
+                })
+                .Where(x => x.DaysRemaining >= 0 && x.DaysRemaining <= 3 && x.Task.Status != "Completed" && x.Task.Status != "Done")
+                .OrderBy(x => x.Deadline)
+                .ToList();
+
+            // Overdue items
+            var overdueProjects = projects
+                .Where(p => p.Deadline.HasValue &&
+                           DateTimeOffset.FromUnixTimeSeconds(p.Deadline.Value).UtcDateTime < now &&
+                           p.Status != "Completed")
+                .OrderBy(p => p.Deadline)
+                .ToList();
+
+            var overdueTasks = tasks
+                .Where(t => t.ScheduledAt.HasValue &&
+                           DateTimeOffset.FromUnixTimeSeconds(t.ScheduledAt.Value).UtcDateTime < now &&
+                           t.Status != "Completed" && t.Status != "Done")
+                .OrderBy(t => t.ScheduledAt)
+                .ToList();
+
+            var totalReminders = approachingProjects.Count + approachingTasks.Count + overdueProjects.Count + overdueTasks.Count;
+
+            Console.WriteLine($"ACTIVE REMINDERS: {totalReminders}");
+            Console.WriteLine();
+
+            // Overdue reminders (highest priority)
+            if (overdueProjects.Any() || overdueTasks.Any())
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("═══════════════════════════════════════════════════════════");
+                Console.WriteLine("⚠️  OVERDUE ITEMS:");
+                Console.ResetColor();
+                Console.WriteLine();
+
+                foreach (var project in overdueProjects)
+                {
+                    var deadline = DateTimeOffset.FromUnixTimeSeconds(project.Deadline!.Value).UtcDateTime;
+                    var daysOverdue = (int)(now - deadline).TotalDays;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"  🚨 PROJECT: {project.Name}");
+                    Console.ResetColor();
+                    Console.WriteLine($"     Was due:   {deadline.ToLocalTime():ddd MMM dd, yyyy}");
+                    Console.WriteLine($"     Overdue:   {daysOverdue} day(s)");
+                    Console.WriteLine($"     Progress:  {project.ProgressPercent:F0}%");
+                    Console.WriteLine();
+                }
+
+                foreach (var task in overdueTasks)
+                {
+                    var deadline = DateTimeOffset.FromUnixTimeSeconds(task.ScheduledAt!.Value).UtcDateTime;
+                    var daysOverdue = (int)(now - deadline).TotalDays;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"  🚨 TASK: {task.Title}");
+                    Console.ResetColor();
+                    Console.WriteLine($"     Was due:   {deadline.ToLocalTime():ddd MMM dd, yyyy HH:mm}");
+                    Console.WriteLine($"     Overdue:   {daysOverdue} day(s)");
+                    Console.WriteLine($"     Priority:  P{task.Priority}");
+                    Console.WriteLine();
+                }
+            }
+
+            // Approaching deadlines
+            if (approachingProjects.Any() || approachingTasks.Any())
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("═══════════════════════════════════════════════════════════");
+                Console.WriteLine("⏰ DEADLINE APPROACHING (Next 3 Days):");
+                Console.ResetColor();
+                Console.WriteLine();
+
+                foreach (var item in approachingProjects)
+                {
+                    var daysText = item.DaysRemaining < 1 ? "today" :
+                                   item.DaysRemaining < 2 ? "tomorrow" :
+                                   $"in {(int)item.DaysRemaining} days";
+
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"  ⚠️  PROJECT: {item.Project.Name}");
+                    Console.ResetColor();
+                    Console.WriteLine($"     Due:       {item.Deadline.ToLocalTime():ddd MMM dd, yyyy} ({daysText})");
+                    Console.WriteLine($"     Progress:  {item.Project.ProgressPercent:F0}%");
+                    Console.WriteLine();
+                }
+
+                foreach (var item in approachingTasks)
+                {
+                    var daysText = item.DaysRemaining < 1 ? "today" :
+                                   item.DaysRemaining < 2 ? "tomorrow" :
+                                   $"in {(int)item.DaysRemaining} days";
+
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"  ⚠️  TASK: {item.Task.Title}");
+                    Console.ResetColor();
+                    Console.WriteLine($"     Due:       {item.Deadline.ToLocalTime():ddd MMM dd, yyyy HH:mm} ({daysText})");
+                    Console.WriteLine($"     Priority:  P{item.Task.Priority}");
+                    Console.WriteLine();
+                }
+            }
+
+            // Empty state
+            if (totalReminders == 0)
+            {
+                Console.WriteLine("No active reminders. All clear! ✓");
+                Console.WriteLine();
+                Console.WriteLine("Reminders will appear when:");
+                Console.WriteLine("  • Deadlines are within 3 days");
+                Console.WriteLine("  • Items become overdue");
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display reminders: {ex.Message}");
+            return 1;
         }
     }
 
