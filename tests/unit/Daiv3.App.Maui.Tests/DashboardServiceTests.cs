@@ -581,6 +581,84 @@ public class DashboardServiceTests
         Assert.Equal(Models.TaskStatus.Running, task.Status);
         Assert.Equal("Scheduler", task.AgentName);
     }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithNoTimeSources_ShouldReturnEmptyTimeTracking()
+    {
+        // Arrange
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.TimeTracking);
+        Assert.False(data.TimeTracking.HasEntries);
+        Assert.Empty(data.TimeTracking.Entries);
+        Assert.Empty(data.TimeTracking.Projects);
+        Assert.Empty(data.TimeTracking.Agents);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_WithSchedulerExecutionData_ShouldPopulateTimeTrackingRollups()
+    {
+        // Arrange
+        var mockScheduler = new Mock<IScheduler>();
+        var jobs = new List<ScheduledJobMetadata>
+        {
+            new()
+            {
+                JobId = "job-a",
+                JobName = "Import Files",
+                Status = ScheduledJobStatus.Completed,
+                ScheduleType = ScheduleType.OneTime,
+                CreatedAtUtc = DateTime.UtcNow.AddMinutes(-30),
+                LastStartedAtUtc = DateTime.UtcNow.AddMinutes(-25),
+                LastCompletedAtUtc = DateTime.UtcNow.AddMinutes(-20),
+                LastExecutionDuration = TimeSpan.FromMinutes(5),
+                Metadata = new Dictionary<string, object>
+                {
+                    ["projectName"] = "Project Alpha"
+                }
+            },
+            new()
+            {
+                JobId = "job-b",
+                JobName = "Generate Summary",
+                Status = ScheduledJobStatus.Completed,
+                ScheduleType = ScheduleType.OneTime,
+                CreatedAtUtc = DateTime.UtcNow.AddMinutes(-20),
+                LastStartedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+                LastCompletedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+                LastExecutionDuration = TimeSpan.FromMinutes(5),
+                Metadata = new Dictionary<string, object>
+                {
+                    ["projectName"] = "Project Alpha"
+                }
+            }
+        };
+
+        mockScheduler.Setup(s => s.GetAllJobsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(jobs);
+
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, mockScheduler.Object);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.True(data.TimeTracking.HasEntries);
+        Assert.Equal(2, data.TimeTracking.Entries.Count);
+        Assert.Single(data.TimeTracking.Projects);
+        Assert.Single(data.TimeTracking.Agents);
+
+        var project = data.TimeTracking.Projects[0];
+        Assert.Equal("Project Alpha", project.ProjectName);
+        Assert.Equal(2, project.TaskCount);
+
+        var agent = data.TimeTracking.Agents[0];
+        Assert.Equal("Scheduler", agent.AgentName);
+        Assert.True(agent.TotalElapsedTime.TotalMinutes >= 10);
+    }
 }
 
 /// <summary>
@@ -918,6 +996,41 @@ public class DashboardDataTests
 
         // Assert
         Assert.True(hasError);
+    }
+
+    [Fact]
+    public void TimeTrackingStatus_WithEntries_ShouldComputeSummaryMetrics()
+    {
+        // Arrange
+        var status = new TimeTrackingStatus
+        {
+            Entries = new List<TimeEntry>
+            {
+                new() { ElapsedTime = TimeSpan.FromMinutes(30), BillableTime = TimeSpan.FromMinutes(24), UtilizationPercent = 80 },
+                new() { ElapsedTime = TimeSpan.FromMinutes(60), BillableTime = TimeSpan.FromMinutes(54), UtilizationPercent = 90 }
+            }
+        };
+
+        // Act & Assert
+        Assert.Equal(TimeSpan.FromMinutes(90), status.TotalElapsedTime);
+        Assert.Equal(TimeSpan.FromMinutes(78), status.TotalBillableTime);
+        Assert.Equal(85.0, status.AverageUtilizationPercent, 1);
+        Assert.Equal(TimeSpan.FromMinutes(45), status.AverageTaskDuration);
+        Assert.Equal(15.0, status.IdleTimePercent, 1);
+    }
+
+    [Fact]
+    public void TimeEntry_IsOverrun_ShouldBeTrueWhenElapsedExceedsEstimate()
+    {
+        // Arrange
+        var entry = new TimeEntry
+        {
+            ElapsedTime = TimeSpan.FromMinutes(25),
+            EstimatedTime = TimeSpan.FromMinutes(20)
+        };
+
+        // Act & Assert
+        Assert.True(entry.IsOverrun);
     }
 
     // ── CT-REQ-012: Background Task Model Tests ───────────────────────

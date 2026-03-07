@@ -1,7 +1,7 @@
 # DAIv3 CLI Command Examples
 
 > **Auto-Updated**: This file is automatically updated as new CLI commands are implemented.
-> **Last Updated**: February 28, 2026
+> **Last Updated**: March 6, 2026
 
 ## Overview
 
@@ -112,6 +112,30 @@ Shows min/avg/max trends over the last 24 hours using persisted snapshots.
 .\run-cli.bat dashboard admin --history --json
 ```
 Outputs the 24-hour trend summary in JSON format.
+
+### Show Time Tracking Dashboard (CT-REQ-013)
+```bash
+.\run-cli.bat dashboard time
+```
+Displays hierarchical time rollups by project, task, and agent.
+
+### Filter Time Tracking by Project
+```bash
+.\run-cli.bat dashboard time --project "Project Alpha"
+```
+Shows only time entries associated with a specific project.
+
+### Filter Time Tracking by Agent
+```bash
+.\run-cli.bat dashboard time --agent "Scheduler"
+```
+Shows only time entries associated with a specific agent/service.
+
+### Export Time Tracking as CSV
+```bash
+.\run-cli.bat dashboard time --csv
+```
+Outputs flattened time entries suitable for spreadsheet analysis.
 
 ---
 

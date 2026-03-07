@@ -236,3 +236,53 @@ public record TimeMetrics(
 - CT-REQ-011 (project dashboard; complements with time metrics)
 - CT-REQ-006 (agent activity; complements with time tracking per agent)
 - CT-REQ-013-Phase7 (cost attribution, profitability - future enhancement)
+
+---
+
+## Implementation Status
+**Status:** ✅ COMPLETE (Phase 6 MVP scope)
+**Completion Date:** March 6, 2026
+
+## What Was Implemented
+- Added `DashboardData.TimeTracking` contract with hierarchical models in `src/Daiv3.App.Maui/Models/DashboardData.cs`:
+  - `TimeTrackingStatus`
+  - `TimeEntry`
+  - `ProjectTimeSummary`
+  - `TaskTimeSummary`
+  - `AgentTimeSummary`
+- Implemented `DashboardService.CollectTimeTrackingStatusAsync()` in `src/Daiv3.App.Maui/Services/DashboardService.cs`:
+  - Collects time entries from scheduler execution metadata and active agent executions.
+  - Produces per-project and per-task rollups plus per-agent utilization rollups.
+  - Computes summary metrics (total tracked, billable, utilization, average task duration, on-time rate).
+- Extended `DashboardViewModel` in `src/Daiv3.App.Maui/ViewModels/DashboardViewModel.cs` with CT-REQ-013 properties:
+  - `HasTimeEntries`, `TimeProjects`, `TimeAgents`
+  - `TimeUtilizationPercent`, `TimeOnTimeDeliveryRate`
+  - `TotalTrackedTimeText`, `TotalBillableTimeText`, `AverageTaskDurationText`
+- Added a new MAUI dashboard section in `src/Daiv3.App.Maui/Pages/DashboardPage.xaml`:
+  - Summary cards (tracked time, billable time, utilization)
+  - Project hierarchy rollup list
+  - Agent rollup list with utilization
+- Added CLI command support in `src/Daiv3.App.Cli/Program.cs`:
+  - `daiv3 dashboard time`
+  - `daiv3 dashboard time --project <id-or-name>`
+  - `daiv3 dashboard time --agent <name>`
+  - `daiv3 dashboard time --csv`
+
+## Validation
+- `dotnet test tests/unit/Daiv3.App.Maui.Tests/Daiv3.App.Maui.Tests.csproj --nologo --verbosity minimal`
+  - Result: 173 passed, 0 failed
+- `dotnet test tests/unit/Daiv3.App.Cli.Tests/Daiv3.App.Cli.Tests.csproj --nologo --verbosity minimal`
+  - Result: 16 passed, 0 failed
+
+## Test Traceability
+- `GetDashboardDataAsync_WithNoTimeSources_ShouldReturnEmptyTimeTracking`
+  - Validates empty/default time tracking behavior.
+- `GetDashboardDataAsync_WithSchedulerExecutionData_ShouldPopulateTimeTrackingRollups`
+  - Validates scheduler-driven entry collection and project/agent hierarchy rollups.
+- `TimeTrackingStatus_WithEntries_ShouldComputeSummaryMetrics`
+  - Validates aggregate metrics calculations.
+- `TimeEntry_IsOverrun_ShouldBeTrueWhenElapsedExceedsEstimate`
+  - Validates overrun classification behavior.
+- `TimeTrackingProperties_WhenSet_ShouldUpdateValues`
+- `TimeTrackingCollections_WhenSet_ShouldUpdateValues`
+  - Validates CT-REQ-013 ViewModel bindable properties.

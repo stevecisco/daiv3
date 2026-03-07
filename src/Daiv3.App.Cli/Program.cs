@@ -114,6 +114,29 @@ public class Program
         });
         dashboardCommand.AddCommand(dashboardTasksCommand);
 
+        // dashboard time subcommand (CT-REQ-013: Time tracking dashboard)
+        var dashboardTimeCommand = new Command("time", "Show time tracking by project, task, and agent");
+        var timeProjectOption = new Option<string?>(
+            aliases: new[] { "--project", "-p" },
+            description: "Filter by project ID or project name");
+        var timeAgentOption = new Option<string?>(
+            aliases: new[] { "--agent", "-a" },
+            description: "Filter by agent name");
+        var timeCsvOption = new Option<bool>(
+            aliases: new[] { "--csv" },
+            description: "Export flattened time entries as CSV",
+            getDefaultValue: () => false);
+        dashboardTimeCommand.AddOption(timeProjectOption);
+        dashboardTimeCommand.AddOption(timeAgentOption);
+        dashboardTimeCommand.AddOption(timeCsvOption);
+        dashboardTimeCommand.SetHandler(async (string? project, string? agent, bool csv) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await DashboardTimeCommand(host, project, agent, csv);
+            Environment.Exit(exitCode);
+        }, timeProjectOption, timeAgentOption, timeCsvOption);
+        dashboardCommand.AddCommand(dashboardTimeCommand);
+
         // dashboard admin subcommand (CT-REQ-010: System admin dashboard)
         var dashboardAdminCommand = new Command("admin", "Show system admin dashboard metrics");
         var adminJsonOption = new Option<bool>(
@@ -2088,6 +2111,252 @@ public class Program
             Console.WriteLine($"✗ Failed to display background tasks: {ex.Message}");
             return 1;
         }
+    }
+
+    private sealed record CliTimeEntry(
+        string TaskId,
+        string TaskName,
+        string ProjectName,
+        string AgentName,
+        DateTimeOffset StartTime,
+        DateTimeOffset EndTime,
+        TimeSpan Elapsed,
+        TimeSpan Billable,
+        double UtilizationPercent,
+        string Status,
+        string WorkType);
+
+    /// <summary>
+    /// CT-REQ-013: Displays time tracking hierarchy and utilization metrics.
+    /// Supports project and agent filters, plus CSV export.
+    /// </summary>
+    private static async Task<int> DashboardTimeCommand(IHost host, string? projectFilter, string? agentFilter, bool csv)
+    {
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Displaying time tracking dashboard");
+
+            var entries = new List<CliTimeEntry>();
+            var now = DateTimeOffset.UtcNow;
+
+            var scheduler = host.Services.GetService<IScheduler>();
+            if (scheduler != null)
+            {
+                var jobs = await scheduler.GetAllJobsAsync().ConfigureAwait(false);
+                foreach (var job in jobs)
+                {
+                    var hasExecutionData = job.LastStartedAtUtc.HasValue || job.LastExecutionDuration.HasValue;
+                    if (!hasExecutionData)
+                        continue;
+
+                    var startUtc = job.LastStartedAtUtc ?? job.CreatedAtUtc;
+                    var elapsed = job.Status == ScheduledJobStatus.Running && job.LastStartedAtUtc.HasValue
+                        ? now - new DateTimeOffset(job.LastStartedAtUtc.Value, TimeSpan.Zero)
+                        : job.LastExecutionDuration ?? TimeSpan.Zero;
+
+                    if (elapsed <= TimeSpan.Zero)
+                        continue;
+
+                    var endUtc = job.Status == ScheduledJobStatus.Running
+                        ? now
+                        : job.LastCompletedAtUtc.HasValue
+                            ? new DateTimeOffset(job.LastCompletedAtUtc.Value, TimeSpan.Zero)
+                            : new DateTimeOffset(startUtc, TimeSpan.Zero) + elapsed;
+
+                    var utilization = job.Status switch
+                    {
+                        ScheduledJobStatus.Running => 100,
+                        ScheduledJobStatus.Completed => 95,
+                        ScheduledJobStatus.Pending => 60,
+                        ScheduledJobStatus.Scheduled => 45,
+                        ScheduledJobStatus.Paused => 40,
+                        ScheduledJobStatus.Failed => 35,
+                        _ => 50
+                    };
+
+                    var billable = TimeSpan.FromTicks((long)(elapsed.Ticks * (Math.Max(0, Math.Min(100, utilization)) / 100.0)));
+
+                    var projectName = ResolveProjectNameFromMetadata(job.Metadata) ?? job.EventType ?? "Unassigned";
+
+                    entries.Add(new CliTimeEntry(
+                        TaskId: job.JobId,
+                        TaskName: job.JobName,
+                        ProjectName: projectName,
+                        AgentName: "Scheduler",
+                        StartTime: new DateTimeOffset(startUtc, TimeSpan.Zero),
+                        EndTime: endUtc,
+                        Elapsed: elapsed,
+                        Billable: billable,
+                        UtilizationPercent: utilization,
+                        Status: job.Status.ToString(),
+                        WorkType: job.ScheduleType.ToString()));
+                }
+            }
+
+            var agentManager = host.Services.GetService<IAgentManager>();
+            var metricsCollector = host.Services.GetService<AgentExecutionMetricsCollector>();
+            if (agentManager != null && metricsCollector != null)
+            {
+                foreach (var execution in agentManager.GetActiveExecutions())
+                {
+                    var snapshot = metricsCollector.GetMetricsSnapshot(execution.ExecutionId);
+                    if (snapshot == null || snapshot.TotalDuration <= TimeSpan.Zero)
+                        continue;
+
+                    var agent = await agentManager.GetAgentAsync(execution.AgentId).ConfigureAwait(false);
+                    var agentName = agent?.Name ?? $"Agent-{execution.AgentId.ToString("N")[..8]}";
+                    var status = execution.IsStopped ? "Stopped" : execution.IsPaused ? "Paused" : "Running";
+                    var utilization = status == "Running" ? 100 : status == "Paused" ? 60 : 80;
+                    var billable = TimeSpan.FromTicks((long)(snapshot.TotalDuration.Ticks * (utilization / 100.0)));
+
+                    entries.Add(new CliTimeEntry(
+                        TaskId: execution.ExecutionId.ToString(),
+                        TaskName: "Agent execution",
+                        ProjectName: "Agent Workloads",
+                        AgentName: agentName,
+                        StartTime: snapshot.StartedAt,
+                        EndTime: snapshot.StartedAt + snapshot.TotalDuration,
+                        Elapsed: snapshot.TotalDuration,
+                        Billable: billable,
+                        UtilizationPercent: utilization,
+                        Status: status,
+                        WorkType: "AgentExecution"));
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(projectFilter))
+            {
+                entries = entries
+                    .Where(e => string.Equals(e.ProjectName, projectFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(agentFilter))
+            {
+                entries = entries
+                    .Where(e => string.Equals(e.AgentName, agentFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            if (csv)
+            {
+                Console.WriteLine("task_id,task_name,project,agent,start_utc,end_utc,elapsed_minutes,billable_minutes,utilization_percent,status,work_type");
+                foreach (var entry in entries.OrderBy(e => e.ProjectName).ThenBy(e => e.TaskName))
+                {
+                    Console.WriteLine(
+                        $"{EscapeCsv(entry.TaskId)},{EscapeCsv(entry.TaskName)},{EscapeCsv(entry.ProjectName)},{EscapeCsv(entry.AgentName)},{entry.StartTime:O},{entry.EndTime:O},{entry.Elapsed.TotalMinutes:F2},{entry.Billable.TotalMinutes:F2},{entry.UtilizationPercent:F1},{EscapeCsv(entry.Status)},{EscapeCsv(entry.WorkType)}");
+                }
+                return 0;
+            }
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("        TIME TRACKING DASHBOARD (CT-REQ-013)              ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            if (!string.IsNullOrWhiteSpace(projectFilter) || !string.IsNullOrWhiteSpace(agentFilter))
+            {
+                Console.WriteLine("FILTERS:");
+                Console.WriteLine($"  Project: {(string.IsNullOrWhiteSpace(projectFilter) ? "(all)" : projectFilter)}");
+                Console.WriteLine($"  Agent:   {(string.IsNullOrWhiteSpace(agentFilter) ? "(all)" : agentFilter)}");
+                Console.WriteLine();
+            }
+
+            if (entries.Count == 0)
+            {
+                Console.WriteLine("No time entries found for the selected filters.");
+                Console.WriteLine("Hint: run scheduler jobs or agent executions to populate tracking data.");
+                return 0;
+            }
+
+            var totalElapsed = TimeSpan.FromTicks(entries.Sum(e => e.Elapsed.Ticks));
+            var totalBillable = TimeSpan.FromTicks(entries.Sum(e => e.Billable.Ticks));
+            var avgUtilization = entries.Average(e => e.UtilizationPercent);
+            var avgTaskDuration = TimeSpan.FromTicks((long)entries.Average(e => e.Elapsed.Ticks));
+
+            Console.WriteLine("SUMMARY:");
+            Console.WriteLine($"  Total Tracked:      {FormatDuration(totalElapsed)}");
+            Console.WriteLine($"  Total Billable:     {FormatDuration(totalBillable)}");
+            Console.WriteLine($"  Avg Utilization:    {avgUtilization:F1}%");
+            Console.WriteLine($"  Avg Task Duration:  {FormatDuration(avgTaskDuration)}");
+            Console.WriteLine();
+
+            Console.WriteLine("PER-PROJECT HIERARCHY:");
+            foreach (var projectGroup in entries.GroupBy(e => e.ProjectName).OrderByDescending(g => g.Sum(x => x.Elapsed.Ticks)))
+            {
+                var projectElapsed = TimeSpan.FromTicks(projectGroup.Sum(e => e.Elapsed.Ticks));
+                Console.WriteLine($"  {projectGroup.Key}  ({FormatDuration(projectElapsed)})");
+
+                foreach (var taskGroup in projectGroup.GroupBy(e => new { e.TaskId, e.TaskName }).OrderByDescending(g => g.Sum(x => x.Elapsed.Ticks)))
+                {
+                    var taskElapsed = TimeSpan.FromTicks(taskGroup.Sum(e => e.Elapsed.Ticks));
+                    var taskBillable = TimeSpan.FromTicks(taskGroup.Sum(e => e.Billable.Ticks));
+                    Console.WriteLine($"    - {taskGroup.Key.TaskName} [{taskGroup.Key.TaskId}]  elapsed={FormatDuration(taskElapsed)}, billable={FormatDuration(taskBillable)}");
+                }
+            }
+            Console.WriteLine();
+
+            Console.WriteLine("PER-AGENT TIME VIEW:");
+            foreach (var agentGroup in entries.GroupBy(e => e.AgentName).OrderByDescending(g => g.Sum(x => x.Elapsed.Ticks)))
+            {
+                var elapsed = TimeSpan.FromTicks(agentGroup.Sum(e => e.Elapsed.Ticks));
+                var billable = TimeSpan.FromTicks(agentGroup.Sum(e => e.Billable.Ticks));
+                var utilization = elapsed.Ticks == 0 ? 0 : billable.Ticks * 100.0 / elapsed.Ticks;
+                var activeProjects = agentGroup.Select(e => e.ProjectName).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+
+                Console.WriteLine($"  {agentGroup.Key}");
+                Console.WriteLine($"    Total: {FormatDuration(elapsed)} | Utilization: {utilization:F1}% | Active Projects: {activeProjects}");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Use --csv to export detailed entries.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display time dashboard: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static string? ResolveProjectNameFromMetadata(IReadOnlyDictionary<string, object>? metadata)
+    {
+        if (metadata == null)
+            return null;
+
+        if (metadata.TryGetValue("projectName", out var projectName) && projectName != null)
+            return projectName.ToString();
+
+        if (metadata.TryGetValue("project_name", out projectName) && projectName != null)
+            return projectName.ToString();
+
+        if (metadata.TryGetValue("projectId", out var projectId) && projectId != null)
+            return projectId.ToString();
+
+        if (metadata.TryGetValue("project_id", out projectId) && projectId != null)
+            return projectId.ToString();
+
+        return null;
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (value.IndexOfAny([',', '"', '\r', '\n']) < 0)
+            return value;
+
+        return $"\"{value.Replace("\"", "\"\"")}\"";
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+
+        if (duration.TotalMinutes >= 1)
+            return $"{(int)duration.TotalMinutes}m";
+
+        return $"{Math.Max(0, duration.Seconds)}s";
     }
 
     private static async Task<int> DashboardAdminWatchCommand(IHost host, bool asJson)

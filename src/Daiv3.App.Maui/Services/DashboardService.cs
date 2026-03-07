@@ -236,6 +236,7 @@ public sealed class DashboardService : IDashboardService, IDisposable
         data.OnlineUsage = await CollectOnlineProviderUsageAsync(cancellationToken).ConfigureAwait(false);
         data.ScheduledJobs = await CollectScheduledJobsStatusAsync(cancellationToken).ConfigureAwait(false);
         data.BackgroundTasks = await CollectBackgroundTasksAsync(cancellationToken).ConfigureAwait(false);
+        data.TimeTracking = await CollectTimeTrackingStatusAsync(cancellationToken).ConfigureAwait(false);
         data.Indexing = await CollectIndexingStatusAsync(cancellationToken).ConfigureAwait(false);
         data.Agent = await CollectAgentStatusAsync(cancellationToken).ConfigureAwait(false);
         data.SystemResources = CollectSystemResourceMetrics();
@@ -901,6 +902,328 @@ public sealed class DashboardService : IDashboardService, IDisposable
             CompletedCount = statusGroups.GetValueOrDefault(Models.TaskStatus.Completed, 0),
             Tasks = tasks
         };
+    }
+
+    /// <summary>
+    /// Collects hierarchical time tracking data for project/task/agent rollups.
+    /// Implements CT-REQ-013 Time Tracking Dashboard (Phase 6 MVP scope).
+    /// </summary>
+    private async Task<TimeTrackingStatus> CollectTimeTrackingStatusAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var entries = new List<TimeEntry>();
+
+        if (_scheduler != null)
+        {
+            try
+            {
+                var allJobs = await _scheduler.GetAllJobsAsync(cancellationToken).ConfigureAwait(false);
+
+                foreach (var job in allJobs)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var hasExecutionData = job.LastStartedAtUtc.HasValue || job.LastExecutionDuration.HasValue;
+                    if (!hasExecutionData)
+                        continue;
+
+                    var startTimeUtc = job.LastStartedAtUtc ?? job.CreatedAtUtc;
+                    var elapsed = ResolveJobElapsed(job, now);
+                    if (elapsed <= TimeSpan.Zero)
+                        continue;
+
+                    var endTimeUtc = ResolveJobEndTime(job, startTimeUtc, elapsed, now);
+                    var utilization = ResolveUtilizationForStatus(job.Status);
+                    var billable = ComputeBillableTime(elapsed, utilization);
+                    var (projectId, projectName) = ResolveProject(job);
+
+                    entries.Add(new TimeEntry
+                    {
+                        TaskId = job.JobId,
+                        TaskName = string.IsNullOrWhiteSpace(job.JobName) ? "Scheduled Job" : job.JobName,
+                        ProjectId = projectId,
+                        ProjectName = projectName,
+                        AgentName = "Scheduler",
+                        StartTime = new DateTimeOffset(startTimeUtc, TimeSpan.Zero),
+                        EndTime = endTimeUtc,
+                        ElapsedTime = elapsed,
+                        BillableTime = billable,
+                        EstimatedTime = job.LastExecutionDuration,
+                        UtilizationPercent = utilization,
+                        WorkType = job.ScheduleType.ToString(),
+                        Status = job.Status.ToString()
+                    });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error collecting time tracking entries from scheduler");
+            }
+        }
+
+        if (_scopeFactory != null && _metricsCollector != null)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var agentManager = scope.ServiceProvider.GetService<IAgentManager>();
+
+                if (agentManager != null)
+                {
+                    var activeExecutions = agentManager.GetActiveExecutions();
+
+                    foreach (var executionControl in activeExecutions)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        var snapshot = _metricsCollector.GetMetricsSnapshot(executionControl.ExecutionId);
+                        if (snapshot == null || snapshot.TotalDuration <= TimeSpan.Zero)
+                            continue;
+
+                        Agent? agent = null;
+                        try
+                        {
+                            agent = await agentManager.GetAgentAsync(executionControl.AgentId, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Could not resolve agent for execution {ExecutionId}", executionControl.ExecutionId);
+                        }
+
+                        var agentName = agent?.Name ?? $"Agent-{executionControl.AgentId.ToString("N")[..8]}";
+                        var state = executionControl.IsStopped ? "Stopped"
+                                  : executionControl.IsPaused ? "Paused"
+                                  : "Running";
+
+                        var utilization = state == "Running" ? 100 : state == "Paused" ? 60 : 80;
+                        var billable = ComputeBillableTime(snapshot.TotalDuration, utilization);
+
+                        entries.Add(new TimeEntry
+                        {
+                            TaskId = executionControl.ExecutionId.ToString(),
+                            TaskName = "Agent execution",
+                            ProjectId = "agent-workloads",
+                            ProjectName = "Agent Workloads",
+                            AgentName = agentName,
+                            StartTime = snapshot.StartedAt,
+                            EndTime = snapshot.StartedAt + snapshot.TotalDuration,
+                            ElapsedTime = snapshot.TotalDuration,
+                            BillableTime = billable,
+                            EstimatedTime = null,
+                            UtilizationPercent = utilization,
+                            WorkType = "AgentExecution",
+                            Status = state
+                        });
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error collecting time tracking entries from agent manager");
+            }
+        }
+
+        var projects = BuildProjectRollups(entries);
+        var agents = BuildAgentRollups(entries);
+
+        return new TimeTrackingStatus
+        {
+            HasEntries = entries.Count > 0,
+            PeriodStartUtc = now.AddDays(-7),
+            PeriodEndUtc = now,
+            Entries = entries,
+            Projects = projects,
+            Agents = agents
+        };
+    }
+
+    private static TimeSpan ResolveJobElapsed(ScheduledJobMetadata job, DateTimeOffset now)
+    {
+        if (job.Status == ScheduledJobStatus.Running && job.LastStartedAtUtc.HasValue)
+        {
+            var elapsed = now - new DateTimeOffset(job.LastStartedAtUtc.Value, TimeSpan.Zero);
+            return elapsed > TimeSpan.Zero ? elapsed : TimeSpan.Zero;
+        }
+
+        return job.LastExecutionDuration ?? TimeSpan.Zero;
+    }
+
+    private static DateTimeOffset ResolveJobEndTime(ScheduledJobMetadata job, DateTime startTimeUtc, TimeSpan elapsed, DateTimeOffset now)
+    {
+        if (job.Status == ScheduledJobStatus.Running)
+            return now;
+
+        if (job.LastCompletedAtUtc.HasValue)
+            return new DateTimeOffset(job.LastCompletedAtUtc.Value, TimeSpan.Zero);
+
+        return new DateTimeOffset(startTimeUtc, TimeSpan.Zero) + elapsed;
+    }
+
+    private static double ResolveUtilizationForStatus(ScheduledJobStatus status)
+    {
+        return status switch
+        {
+            ScheduledJobStatus.Running => 100,
+            ScheduledJobStatus.Completed => 95,
+            ScheduledJobStatus.Scheduled => 45,
+            ScheduledJobStatus.Pending => 60,
+            ScheduledJobStatus.Paused => 40,
+            ScheduledJobStatus.Cancelled => 20,
+            ScheduledJobStatus.Failed => 35,
+            _ => 50
+        };
+    }
+
+    private static TimeSpan ComputeBillableTime(TimeSpan elapsed, double utilizationPercent)
+    {
+        var clamped = Math.Max(0, Math.Min(100, utilizationPercent));
+        return TimeSpan.FromTicks((long)(elapsed.Ticks * (clamped / 100.0)));
+    }
+
+    private static (string ProjectId, string ProjectName) ResolveProject(ScheduledJobMetadata job)
+    {
+        var metadata = job.Metadata;
+        if (metadata != null)
+        {
+            var projectId = TryGetMetadataValue(metadata, "projectId")
+                ?? TryGetMetadataValue(metadata, "project_id")
+                ?? TryGetMetadataValue(metadata, "ProjectId");
+
+            var projectName = TryGetMetadataValue(metadata, "projectName")
+                ?? TryGetMetadataValue(metadata, "project_name")
+                ?? TryGetMetadataValue(metadata, "ProjectName");
+
+            if (!string.IsNullOrWhiteSpace(projectId))
+            {
+                return (projectId, string.IsNullOrWhiteSpace(projectName) ? projectId : projectName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(projectName))
+            {
+                return (projectName, projectName);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(job.EventType))
+        {
+            return (job.EventType, job.EventType);
+        }
+
+        return ("unassigned", "Unassigned");
+    }
+
+    private static string? TryGetMetadataValue(IReadOnlyDictionary<string, object> metadata, string key)
+    {
+        if (!metadata.TryGetValue(key, out var value) || value == null)
+            return null;
+
+        return value.ToString();
+    }
+
+    private static List<ProjectTimeSummary> BuildProjectRollups(List<TimeEntry> entries)
+    {
+        if (entries.Count == 0)
+            return [];
+
+        return entries
+            .GroupBy(e => new { e.ProjectId, e.ProjectName })
+            .Select(projectGroup =>
+            {
+                var tasks = projectGroup
+                    .GroupBy(e => new { e.TaskId, e.TaskName })
+                    .Select(taskGroup =>
+                    {
+                        var taskEntries = taskGroup.ToList();
+                        return new TaskTimeSummary
+                        {
+                            TaskId = taskGroup.Key.TaskId,
+                            TaskName = taskGroup.Key.TaskName,
+                            TotalElapsedTime = TimeSpan.FromTicks(taskEntries.Sum(e => e.ElapsedTime.Ticks)),
+                            TotalBillableTime = TimeSpan.FromTicks(taskEntries.Sum(e => e.BillableTime.Ticks)),
+                            EstimatedTime = taskEntries.FirstOrDefault(e => e.EstimatedTime.HasValue)?.EstimatedTime,
+                            AgentBreakdown = taskEntries
+                                .GroupBy(e => e.AgentName, StringComparer.OrdinalIgnoreCase)
+                                .ToDictionary(
+                                    g => g.Key,
+                                    g => TimeSpan.FromTicks(g.Sum(x => x.ElapsedTime.Ticks)),
+                                    StringComparer.OrdinalIgnoreCase)
+                        };
+                    })
+                    .OrderByDescending(t => t.TotalElapsedTime)
+                    .ToList();
+
+                return new ProjectTimeSummary
+                {
+                    ProjectId = projectGroup.Key.ProjectId,
+                    ProjectName = projectGroup.Key.ProjectName,
+                    TotalElapsedTime = TimeSpan.FromTicks(projectGroup.Sum(e => e.ElapsedTime.Ticks)),
+                    TotalBillableTime = TimeSpan.FromTicks(projectGroup.Sum(e => e.BillableTime.Ticks)),
+                    TaskCount = tasks.Count,
+                    OverrunTaskCount = tasks.Count(t => t.IsOverrun),
+                    Tasks = tasks,
+                    AgentBreakdown = projectGroup
+                        .GroupBy(e => e.AgentName, StringComparer.OrdinalIgnoreCase)
+                        .ToDictionary(
+                            g => g.Key,
+                            g => TimeSpan.FromTicks(g.Sum(x => x.ElapsedTime.Ticks)),
+                            StringComparer.OrdinalIgnoreCase)
+                };
+            })
+            .OrderByDescending(p => p.TotalElapsedTime)
+            .ToList();
+    }
+
+    private static List<AgentTimeSummary> BuildAgentRollups(List<TimeEntry> entries)
+    {
+        if (entries.Count == 0)
+            return [];
+
+        return entries
+            .GroupBy(e => e.AgentName, StringComparer.OrdinalIgnoreCase)
+            .Select(agentGroup =>
+            {
+                var agentEntries = agentGroup.ToList();
+                var totalElapsedTicks = agentEntries.Sum(e => e.ElapsedTime.Ticks);
+                var totalBillableTicks = agentEntries.Sum(e => e.BillableTime.Ticks);
+
+                var projectDurations = agentEntries
+                    .GroupBy(e => e.ProjectName, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => TimeSpan.FromTicks(g.Sum(x => x.ElapsedTime.Ticks)),
+                        StringComparer.OrdinalIgnoreCase);
+
+                var projectPercentages = projectDurations.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => totalElapsedTicks == 0 ? 0 : kvp.Value.Ticks * 100.0 / totalElapsedTicks,
+                    StringComparer.OrdinalIgnoreCase);
+
+                return new AgentTimeSummary
+                {
+                    AgentName = agentGroup.Key,
+                    TotalElapsedTime = TimeSpan.FromTicks(totalElapsedTicks),
+                    TotalBillableTime = TimeSpan.FromTicks(totalBillableTicks),
+                    UtilizationPercent = totalElapsedTicks == 0 ? 0 : totalBillableTicks * 100.0 / totalElapsedTicks,
+                    ActiveProjectCount = projectDurations.Count,
+                    AverageTaskDuration = TimeSpan.FromTicks((long)agentEntries.Average(e => e.ElapsedTime.Ticks)),
+                    CurrentTask = agentEntries
+                        .OrderByDescending(e => e.EndTime)
+                        .Select(e => e.TaskName)
+                        .FirstOrDefault(),
+                    ProjectPercentages = projectPercentages
+                };
+            })
+            .OrderByDescending(a => a.TotalElapsedTime)
+            .ToList();
     }
 
     private DashboardData CreateErrorData(string errorMessage)

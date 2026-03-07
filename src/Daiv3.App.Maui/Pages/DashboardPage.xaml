@@ -964,6 +964,160 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Time Tracking Dashboard (CT-REQ-013) -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
+                    Padding="15"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0"
+                    IsVisible="{Binding HasTimeEntries}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Time Tracking Dashboard"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+
+                    <!-- Summary Cards -->
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <Border Grid.Column="0"
+                                Padding="10,8"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#0F172A}">
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="{Binding TotalTrackedTimeText}"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{StaticResource Primary}" />
+                                <Label Text="Tracked"
+                                       FontSize="11"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Grid.Column="1"
+                                Padding="10,8"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=#F0FDF4, Dark=#052E16}">
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="{Binding TotalBillableTimeText}"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="#16A34A" />
+                                <Label Text="Billable"
+                                       FontSize="11"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Grid.Column="2"
+                                Padding="10,8"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=#FFFBEB, Dark=#1F1604}">
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="{Binding TimeUtilizationPercent, StringFormat='{0:F1}%'}"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="#D97706" />
+                                <Label Text="Utilization"
+                                       FontSize="11"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Label Grid.Column="0"
+                               Text="{Binding AverageTaskDurationText, StringFormat='Avg Task Duration: {0}'}"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding TimeOnTimeDeliveryRate, StringFormat='On-time Delivery: {0:F1}%'}"
+                               FontSize="12"
+                               HorizontalTextAlignment="End"
+                               TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
+                    </Grid>
+
+                    <Label Text="Projects (Hierarchical Rollup)"
+                           FontSize="14"
+                           FontAttributes="Bold" />
+
+                    <CollectionView ItemsSource="{Binding TimeProjects}" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="local:ProjectTimeSummary">
+                                <Border Padding="10"
+                                        Margin="0,4"
+                                        StrokeShape="RoundRectangle 8"
+                                        StrokeThickness="1"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                                        BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0F172A}">
+                                    <VerticalStackLayout Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding ProjectName}"
+                                                   FontSize="13"
+                                                   FontAttributes="Bold" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding TotalElapsedTime, StringFormat='{0:hh\\:mm\\:ss}'}"
+                                                   FontSize="12"
+                                                   TextColor="{StaticResource Primary}" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding TaskCount, StringFormat='Tasks: {0}'}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding OverrunTaskCount, StringFormat='Overruns: {0}'}"
+                                                   FontSize="11"
+                                                   HorizontalTextAlignment="End"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Label Text="Agents"
+                           FontSize="14"
+                           FontAttributes="Bold" />
+
+                    <CollectionView ItemsSource="{Binding TimeAgents}" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="local:AgentTimeSummary">
+                                <Border Padding="10"
+                                        Margin="0,4"
+                                        StrokeShape="RoundRectangle 8"
+                                        StrokeThickness="1"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding AgentName}"
+                                               FontSize="12"
+                                               FontAttributes="Bold" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding TotalElapsedTime, StringFormat='{0:hh\\:mm\\:ss}'}"
+                                               FontSize="11"
+                                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        <Label Grid.Column="2"
+                                               Text="{Binding UtilizationPercent, StringFormat='{0:F0}%'}"
+                                               FontSize="11"
+                                               TextColor="#16A34A" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Loading Indicator -->
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                               IsVisible="{Binding IsBusy}"

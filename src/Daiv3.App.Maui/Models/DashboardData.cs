@@ -58,6 +58,11 @@ public class DashboardData
     public BackgroundTasksStatus BackgroundTasks { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets hierarchical time tracking and utilization data (CT-REQ-013).
+    /// </summary>
+    public TimeTrackingStatus TimeTracking { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets any error messages encountered during data collection.
     /// Null means no errors.
     /// </summary>
@@ -902,6 +907,301 @@ public class ScheduledJobSummary
             return "One-time";
         }
     }
+}
+
+/// <summary>
+/// Aggregated time tracking dashboard status (CT-REQ-013 data).
+/// </summary>
+public class TimeTrackingStatus
+{
+    /// <summary>
+    /// Whether any time entries were collected in the current snapshot.
+    /// </summary>
+    public bool HasEntries { get; set; }
+
+    /// <summary>
+    /// Start of the aggregation period in UTC.
+    /// </summary>
+    public DateTimeOffset PeriodStartUtc { get; set; }
+
+    /// <summary>
+    /// End of the aggregation period in UTC.
+    /// </summary>
+    public DateTimeOffset PeriodEndUtc { get; set; }
+
+    /// <summary>
+    /// Flat list of raw time entries used to produce dashboard rollups.
+    /// </summary>
+    public List<TimeEntry> Entries { get; set; } = [];
+
+    /// <summary>
+    /// Time rollups grouped by project and nested task summaries.
+    /// </summary>
+    public List<ProjectTimeSummary> Projects { get; set; } = [];
+
+    /// <summary>
+    /// Time rollups grouped by agent.
+    /// </summary>
+    public List<AgentTimeSummary> Agents { get; set; } = [];
+
+    /// <summary>
+    /// Total elapsed wall-clock time across all entries.
+    /// </summary>
+    public TimeSpan TotalElapsedTime => TimeSpan.FromTicks(Entries.Sum(e => e.ElapsedTime.Ticks));
+
+    /// <summary>
+    /// Total billable time across all entries.
+    /// </summary>
+    public TimeSpan TotalBillableTime => TimeSpan.FromTicks(Entries.Sum(e => e.BillableTime.Ticks));
+
+    /// <summary>
+    /// Average utilization percentage across all entries.
+    /// </summary>
+    public double AverageUtilizationPercent => Entries.Count == 0 ? 0 : Entries.Average(e => e.UtilizationPercent);
+
+    /// <summary>
+    /// Average duration per task.
+    /// </summary>
+    public TimeSpan AverageTaskDuration
+    {
+        get
+        {
+            if (Entries.Count == 0)
+                return TimeSpan.Zero;
+
+            return TimeSpan.FromTicks((long)Entries.Average(e => e.ElapsedTime.Ticks));
+        }
+    }
+
+    /// <summary>
+    /// Percentage of tasks completed within estimate when estimate data is available.
+    /// </summary>
+    public double OnTimeDeliveryRate
+    {
+        get
+        {
+            var estimated = Entries.Where(e => e.EstimatedTime.HasValue).ToList();
+            if (estimated.Count == 0)
+                return 0;
+
+            var onTime = estimated.Count(e => e.ElapsedTime <= e.EstimatedTime!.Value);
+            return onTime * 100.0 / estimated.Count;
+        }
+    }
+
+    /// <summary>
+    /// Approximate idle percentage derived from utilization.
+    /// </summary>
+    public double IdleTimePercent => Math.Max(0, 100.0 - AverageUtilizationPercent);
+}
+
+/// <summary>
+/// Time entry for a single task execution unit.
+/// </summary>
+public class TimeEntry
+{
+    /// <summary>
+    /// Task identifier.
+    /// </summary>
+    public string TaskId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Task display name.
+    /// </summary>
+    public string TaskName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Project identifier for grouping.
+    /// </summary>
+    public string ProjectId { get; set; } = "unassigned";
+
+    /// <summary>
+    /// Project display name.
+    /// </summary>
+    public string ProjectName { get; set; } = "Unassigned";
+
+    /// <summary>
+    /// Agent or subsystem name responsible for this time entry.
+    /// </summary>
+    public string AgentName { get; set; } = "Unknown";
+
+    /// <summary>
+    /// Entry start time in UTC.
+    /// </summary>
+    public DateTimeOffset StartTime { get; set; }
+
+    /// <summary>
+    /// Entry end time in UTC.
+    /// </summary>
+    public DateTimeOffset EndTime { get; set; }
+
+    /// <summary>
+    /// Elapsed wall-clock time for this entry.
+    /// </summary>
+    public TimeSpan ElapsedTime { get; set; }
+
+    /// <summary>
+    /// Billable subset of elapsed time.
+    /// </summary>
+    public TimeSpan BillableTime { get; set; }
+
+    /// <summary>
+    /// Estimated duration when available.
+    /// </summary>
+    public TimeSpan? EstimatedTime { get; set; }
+
+    /// <summary>
+    /// Utilization percentage (productive time / elapsed time).
+    /// </summary>
+    public double UtilizationPercent { get; set; }
+
+    /// <summary>
+    /// Work category (scheduler, agent execution, indexing, etc).
+    /// </summary>
+    public string WorkType { get; set; } = "General";
+
+    /// <summary>
+    /// Lifecycle status for this entry (running, completed, failed, etc).
+    /// </summary>
+    public string Status { get; set; } = "Unknown";
+
+    /// <summary>
+    /// Whether this entry exceeded its estimate.
+    /// </summary>
+    public bool IsOverrun => EstimatedTime.HasValue && ElapsedTime > EstimatedTime.Value;
+}
+
+/// <summary>
+/// Aggregated task-level rollup with per-agent contribution.
+/// </summary>
+public class TaskTimeSummary
+{
+    /// <summary>
+    /// Task identifier.
+    /// </summary>
+    public string TaskId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Task display name.
+    /// </summary>
+    public string TaskName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Total elapsed time for this task.
+    /// </summary>
+    public TimeSpan TotalElapsedTime { get; set; }
+
+    /// <summary>
+    /// Total billable time for this task.
+    /// </summary>
+    public TimeSpan TotalBillableTime { get; set; }
+
+    /// <summary>
+    /// Estimated time for this task when available.
+    /// </summary>
+    public TimeSpan? EstimatedTime { get; set; }
+
+    /// <summary>
+    /// Agent contribution in elapsed time.
+    /// </summary>
+    public Dictionary<string, TimeSpan> AgentBreakdown { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether this task exceeded estimate.
+    /// </summary>
+    public bool IsOverrun => EstimatedTime.HasValue && TotalElapsedTime > EstimatedTime.Value;
+}
+
+/// <summary>
+/// Aggregated project-level rollup for hierarchical time view.
+/// </summary>
+public class ProjectTimeSummary
+{
+    /// <summary>
+    /// Project identifier.
+    /// </summary>
+    public string ProjectId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Project display name.
+    /// </summary>
+    public string ProjectName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Total elapsed time for this project.
+    /// </summary>
+    public TimeSpan TotalElapsedTime { get; set; }
+
+    /// <summary>
+    /// Total billable time for this project.
+    /// </summary>
+    public TimeSpan TotalBillableTime { get; set; }
+
+    /// <summary>
+    /// Number of task rollups included in this project.
+    /// </summary>
+    public int TaskCount { get; set; }
+
+    /// <summary>
+    /// Number of tasks that exceeded estimate.
+    /// </summary>
+    public int OverrunTaskCount { get; set; }
+
+    /// <summary>
+    /// Task-level breakdown for this project.
+    /// </summary>
+    public List<TaskTimeSummary> Tasks { get; set; } = [];
+
+    /// <summary>
+    /// Agent contribution in elapsed time.
+    /// </summary>
+    public Dictionary<string, TimeSpan> AgentBreakdown { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// Aggregated agent-level rollup for time utilization view.
+/// </summary>
+public class AgentTimeSummary
+{
+    /// <summary>
+    /// Agent or subsystem name.
+    /// </summary>
+    public string AgentName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Total elapsed time for this agent.
+    /// </summary>
+    public TimeSpan TotalElapsedTime { get; set; }
+
+    /// <summary>
+    /// Total billable time for this agent.
+    /// </summary>
+    public TimeSpan TotalBillableTime { get; set; }
+
+    /// <summary>
+    /// Utilization percentage for this agent.
+    /// </summary>
+    public double UtilizationPercent { get; set; }
+
+    /// <summary>
+    /// Number of active projects this agent has entries for.
+    /// </summary>
+    public int ActiveProjectCount { get; set; }
+
+    /// <summary>
+    /// Average task duration for this agent.
+    /// </summary>
+    public TimeSpan AverageTaskDuration { get; set; }
+
+    /// <summary>
+    /// Current task for this agent when available.
+    /// </summary>
+    public string? CurrentTask { get; set; }
+
+    /// <summary>
+    /// Per-project elapsed time percentages.
+    /// </summary>
+    public Dictionary<string, double> ProjectPercentages { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>

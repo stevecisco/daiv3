@@ -263,6 +263,48 @@ public class DashboardViewModelTests
 #pragma warning restore IDISP016
 
     [Fact]
+    public void TimeTrackingProperties_WhenSet_ShouldUpdateValues()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+
+        // Act
+        viewModel.HasTimeEntries = true;
+        viewModel.TimeUtilizationPercent = 87.5;
+        viewModel.TimeOnTimeDeliveryRate = 92.0;
+        viewModel.TotalTrackedTimeText = "4h 15m";
+        viewModel.TotalBillableTimeText = "3h 50m";
+        viewModel.AverageTaskDurationText = "28m";
+
+        // Assert
+        Assert.True(viewModel.HasTimeEntries);
+        Assert.Equal(87.5, viewModel.TimeUtilizationPercent);
+        Assert.Equal(92.0, viewModel.TimeOnTimeDeliveryRate);
+        Assert.Equal("4h 15m", viewModel.TotalTrackedTimeText);
+        Assert.Equal("3h 50m", viewModel.TotalBillableTimeText);
+        Assert.Equal("28m", viewModel.AverageTaskDurationText);
+    }
+
+    [Fact]
+    public void TimeTrackingCollections_WhenSet_ShouldUpdateValues()
+    {
+        // Arrange
+        var viewModel = new DashboardViewModel(_mockLogger.Object, _mockDashboardService.Object);
+        var projects = new List<ProjectTimeSummary> { new() { ProjectId = "p1", ProjectName = "Project 1", TaskCount = 1 } };
+        var agents = new List<AgentTimeSummary> { new() { AgentName = "Scheduler", ActiveProjectCount = 1 } };
+
+        // Act
+        viewModel.TimeProjects = projects;
+        viewModel.TimeAgents = agents;
+
+        // Assert
+        Assert.Single(viewModel.TimeProjects);
+        Assert.Equal("Project 1", viewModel.TimeProjects[0].ProjectName);
+        Assert.Single(viewModel.TimeAgents);
+        Assert.Equal("Scheduler", viewModel.TimeAgents[0].AgentName);
+    }
+
+    [Fact]
     public void PropertyChanged_ShouldNotifyWhenPropertyUpdates()
     {
         // Arrange

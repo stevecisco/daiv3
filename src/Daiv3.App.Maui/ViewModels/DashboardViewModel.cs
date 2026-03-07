@@ -500,6 +500,16 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
     private List<BackgroundTaskInfo> _backgroundTasks = [];
     private BackgroundTaskInfo? _selectedTask;
 
+    // ── Time Tracking Properties (CT-REQ-013) ────────────────────────
+    private bool _hasTimeEntries;
+    private List<ProjectTimeSummary> _timeProjects = [];
+    private List<AgentTimeSummary> _timeAgents = [];
+    private double _timeUtilizationPercent;
+    private double _timeOnTimeDeliveryRate;
+    private string _totalTrackedTimeText = "0h 0m";
+    private string _totalBillableTimeText = "0h 0m";
+    private string _averageTaskDurationText = "0m";
+
     /// <summary>Whether any background tasks exist.</summary>
     public bool HasTasks
     {
@@ -564,6 +574,64 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
 
     /// <summary>Whether there are any active tasks (running or queued).</summary>
     public bool HasActiveTasks => TasksRunningCount > 0 ||TasksQueuedCount > 0;
+
+    // ── Time Tracking Properties (CT-REQ-013) ─────────────────────────
+
+    /// <summary>Whether any time tracking entries exist in the current period.</summary>
+    public bool HasTimeEntries
+    {
+        get => _hasTimeEntries;
+        set => SetProperty(ref _hasTimeEntries, value);
+    }
+
+    /// <summary>Project rollups ordered by total elapsed time.</summary>
+    public List<ProjectTimeSummary> TimeProjects
+    {
+        get => _timeProjects;
+        set => SetProperty(ref _timeProjects, value);
+    }
+
+    /// <summary>Agent rollups ordered by total elapsed time.</summary>
+    public List<AgentTimeSummary> TimeAgents
+    {
+        get => _timeAgents;
+        set => SetProperty(ref _timeAgents, value);
+    }
+
+    /// <summary>Average utilization percent for tracked time.</summary>
+    public double TimeUtilizationPercent
+    {
+        get => _timeUtilizationPercent;
+        set => SetProperty(ref _timeUtilizationPercent, value);
+    }
+
+    /// <summary>On-time delivery rate for tasks with estimates.</summary>
+    public double TimeOnTimeDeliveryRate
+    {
+        get => _timeOnTimeDeliveryRate;
+        set => SetProperty(ref _timeOnTimeDeliveryRate, value);
+    }
+
+    /// <summary>Formatted total tracked time for display.</summary>
+    public string TotalTrackedTimeText
+    {
+        get => _totalTrackedTimeText;
+        set => SetProperty(ref _totalTrackedTimeText, value);
+    }
+
+    /// <summary>Formatted total billable time for display.</summary>
+    public string TotalBillableTimeText
+    {
+        get => _totalBillableTimeText;
+        set => SetProperty(ref _totalBillableTimeText, value);
+    }
+
+    /// <summary>Formatted average task duration for display.</summary>
+    public string AverageTaskDurationText
+    {
+        get => _averageTaskDurationText;
+        set => SetProperty(ref _averageTaskDurationText, value);
+    }
 
     // ── View Toggle Properties (CT-REQ-006 Dual Layout) ───────────────
 
@@ -904,6 +972,16 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
         OnPropertyChanged(nameof(HasTaskErrors));
         OnPropertyChanged(nameof(HasActiveTasks));
 
+        // Time Tracking (CT-REQ-013)
+        HasTimeEntries = data.TimeTracking.HasEntries;
+        TimeProjects = new List<ProjectTimeSummary>(data.TimeTracking.Projects);
+        TimeAgents = new List<AgentTimeSummary>(data.TimeTracking.Agents);
+        TimeUtilizationPercent = data.TimeTracking.AverageUtilizationPercent;
+        TimeOnTimeDeliveryRate = data.TimeTracking.OnTimeDeliveryRate;
+        TotalTrackedTimeText = FormatDuration(data.TimeTracking.TotalElapsedTime);
+        TotalBillableTimeText = FormatDuration(data.TimeTracking.TotalBillableTime);
+        AverageTaskDurationText = FormatDuration(data.TimeTracking.AverageTaskDuration);
+
         // Status
         CurrentActivity = data.IsValid ? "Monitoring active" : $"Error: {data.CollectionError}";
         LastUpdateTime = data.CollectedAt.ToLocalTime().ToString("h:mm:ss tt");
@@ -925,6 +1003,17 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await ShutdownAsync().ConfigureAwait(false);
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+
+        if (duration.TotalMinutes >= 1)
+            return $"{(int)duration.TotalMinutes}m";
+
+        return $"{Math.Max(0, duration.Seconds)}s";
     }
 
     private static double BytesToGb(long bytes) => bytes / (1024.0 * 1024 * 1024);
