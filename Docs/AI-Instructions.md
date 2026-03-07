@@ -56,6 +56,16 @@
     - Apply the same pattern for linked sources:
        - `_linkedCts?.Dispose(); _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);`
 
+8. **MAUI XAML runtime-safety validation gate (required for UI work)**
+   - Before completing any MAUI page update, validate all `StaticResource` keys used in page XAML exist in `src/Daiv3.App.Maui/App.xaml`, `src/Daiv3.App.Maui/Resources/Styles/Colors.xaml`, or `src/Daiv3.App.Maui/Resources/Styles/Styles.xaml`.
+   - Validate `AppThemeBinding` syntax is exact: `Light=#...` and `Dark=#...` (never `Light:#...`, `Dark:#...`, or `Light#...`).
+   - Avoid direct nested bindings on nullable object graphs in XAML (for example `CurrentMetrics.Cpu.CoreCount`, `CurrentAlerts.HighCpuAlert`). Expose null-safe top-level ViewModel properties and bind to those instead.
+   - For MAUI Shell tab pages, avoid singleton page/viewmodel registrations when scoped services are involved. Prefer transient page/viewmodel registration or resolve scoped services per operation via `IServiceScopeFactory`.
+   - Recommended validation commands (run from repo root):
+      - `rg "StaticResource" src/Daiv3.App.Maui/Pages/*.xaml`
+      - `rg "x:Key=\"(KeyName)\"" src/Daiv3.App.Maui/App.xaml src/Daiv3.App.Maui/Resources/Styles/*.xaml`
+      - `rg "Light:#|Dark:#|Light#|Dark#" src/Daiv3.App.Maui/**/*.xaml`
+
 ### 2. Target Framework & Platform Configuration
 
 **Follow the established TFM (Target Framework Moniker) pattern used in existing projects.**

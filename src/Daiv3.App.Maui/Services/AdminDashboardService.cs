@@ -165,7 +165,7 @@ public sealed class AdminDashboardService : IAdminDashboardService, IDisposable
         _pollingCancellation?.Dispose();
         _pollingCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        _pollingTask = PollingLoopAsync(refreshIntervalSeconds, _pollingCancellation.Token);
+        _pollingTask = Task.Run(() => PollingLoopAsync(refreshIntervalSeconds, _pollingCancellation.Token), _pollingCancellation.Token);
         await Task.CompletedTask;
     }
 
@@ -335,9 +335,14 @@ public sealed class AdminDashboardService : IAdminDashboardService, IDisposable
                 var modelDir = Path.Combine(daiv3Dir, "models");
 
                 if (Directory.Exists(kbDir))
-                    knowledgeBaseSize = GetDirectorySizeAsync(kbDir).GetAwaiter().GetResult();
+                {
+                    knowledgeBaseSize = await GetDirectorySizeAsync(kbDir);
+                }
+
                 if (Directory.Exists(modelDir))
-                    modelCacheSize = GetDirectorySizeAsync(modelDir).GetAwaiter().GetResult();
+                {
+                    modelCacheSize = await GetDirectorySizeAsync(modelDir);
+                }
             }
 
             return new StorageMetrics(

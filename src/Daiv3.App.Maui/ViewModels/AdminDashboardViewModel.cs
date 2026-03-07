@@ -126,7 +126,8 @@ public sealed class AdminDashboardViewModel : BaseViewModel, IAsyncDisposable
             IsBusy = true;
             ErrorMessage = null;
 
-            var metrics = await _adminDashboardService.GetMetricsAsync();
+            // Collect potentially expensive metrics work off the UI thread.
+            var metrics = await Task.Run(() => _adminDashboardService.GetMetricsAsync());
             CurrentMetrics = metrics;
 
             if (!metrics.IsHealthy)
@@ -410,6 +411,70 @@ public sealed class AdminDashboardViewModel : BaseViewModel, IAsyncDisposable
     /// </summary>
     public string QueueAlertText => $"Queue at {CurrentMetrics?.Queue.TotalQueuedItems} items (threshold: >100)";
 
+    /// <summary>
+    /// Whether any alert is active.
+    /// </summary>
+    public bool HasAnyAlert => CurrentAlerts is not null &&
+        (CurrentAlerts.HighCpuAlert ||
+         CurrentAlerts.HighGpuAlert ||
+         CurrentAlerts.HighMemoryAlert ||
+         CurrentAlerts.LowDiskAlert ||
+         CurrentAlerts.QueueBottleneckAlert ||
+         CurrentAlerts.ThermalThrottlingAlert ||
+         CurrentAlerts.AlertMessages.Count > 0);
+
+    /// <summary>
+    /// Whether CPU alert is active.
+    /// </summary>
+    public bool HasHighCpuAlert => CurrentAlerts?.HighCpuAlert ?? false;
+
+    /// <summary>
+    /// Whether memory alert is active.
+    /// </summary>
+    public bool HasHighMemoryAlert => CurrentAlerts?.HighMemoryAlert ?? false;
+
+    /// <summary>
+    /// Whether low disk alert is active.
+    /// </summary>
+    public bool HasLowDiskAlert => CurrentAlerts?.LowDiskAlert ?? false;
+
+    /// <summary>
+    /// Whether queue bottleneck alert is active.
+    /// </summary>
+    public bool HasQueueBottleneckAlert => CurrentAlerts?.QueueBottleneckAlert ?? false;
+
+    // ── Additional Safe Property Accessors ────────────────────────────
+
+    /// <summary>
+    /// CPU core count for display.
+    /// </summary>
+    public int CpuCoreCount => CurrentMetrics?.Cpu.CoreCount ?? 0;
+
+    /// <summary>
+    /// Whether GPU is available.
+    /// </summary>
+    public bool IsGpuAvailable => CurrentMetrics?.Gpu.IsAvailable ?? false;
+
+    /// <summary>
+    /// Whether NPU is available.
+    /// </summary>
+    public bool IsNpuAvailable => CurrentMetrics?.Npu.IsAvailable ?? false;
+
+    /// <summary>
+    /// NPU execution provider name.
+    /// </summary>
+    public string NpuExecutionProvider => CurrentMetrics?.Npu.ExecutionProvider ?? "N/A";
+
+    /// <summary>
+    /// Total queue items for display.
+    /// </summary>
+    public int TotalQueuedItems => CurrentMetrics?.Queue.TotalQueuedItems ?? 0;
+
+    /// <summary>
+    /// Critical priority queue items for display.
+    /// </summary>
+    public int CriticalPriorityCount => CurrentMetrics?.Queue.CriticalPriorityCount ?? 0;
+
     // ── Relay Commands ────────────────────────────────────────────────
 
     private Command? _refreshCommand;
@@ -440,6 +505,31 @@ public sealed class AdminDashboardViewModel : BaseViewModel, IAsyncDisposable
             CurrentMetrics = metrics;
             UpdateLastUpdatedTime();
             UpdateColorScheme();
+            
+            // Notify all computed properties that reference CurrentMetrics
+            OnPropertyChanged(nameof(CpuPercentText));
+            OnPropertyChanged(nameof(CpuProgress));
+            OnPropertyChanged(nameof(CpuCoreCount));
+            OnPropertyChanged(nameof(GpuPercentText));
+            OnPropertyChanged(nameof(GpuProgress));
+            OnPropertyChanged(nameof(IsGpuAvailable));
+            OnPropertyChanged(nameof(IsNpuAvailable));
+            OnPropertyChanged(nameof(NpuExecutionProvider));
+            OnPropertyChanged(nameof(MemoryPercentText));
+            OnPropertyChanged(nameof(MemoryProgress));
+            OnPropertyChanged(nameof(MemoryUsedText));
+            OnPropertyChanged(nameof(MemoryTotalText));
+            OnPropertyChanged(nameof(DiskPercentText));
+            OnPropertyChanged(nameof(DiskProgress));
+            OnPropertyChanged(nameof(DiskUsedText));
+            OnPropertyChanged(nameof(DiskTotalText));
+            OnPropertyChanged(nameof(TotalQueuedItems));
+            OnPropertyChanged(nameof(CriticalPriorityCount));
+            OnPropertyChanged(nameof(CpuAlertText));
+            OnPropertyChanged(nameof(GpuAlertText));
+            OnPropertyChanged(nameof(MemoryAlertText));
+            OnPropertyChanged(nameof(DiskAlertText));
+            OnPropertyChanged(nameof(QueueAlertText));
         });
     }
 
@@ -448,6 +538,11 @@ public sealed class AdminDashboardViewModel : BaseViewModel, IAsyncDisposable
         MainThread.BeginInvokeOnMainThread(() =>
         {
             CurrentAlerts = alerts;
+            OnPropertyChanged(nameof(HasAnyAlert));
+            OnPropertyChanged(nameof(HasHighCpuAlert));
+            OnPropertyChanged(nameof(HasHighMemoryAlert));
+            OnPropertyChanged(nameof(HasLowDiskAlert));
+            OnPropertyChanged(nameof(HasQueueBottleneckAlert));
         });
     }
 

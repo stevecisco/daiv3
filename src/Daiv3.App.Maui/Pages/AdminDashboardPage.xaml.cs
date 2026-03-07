@@ -6,6 +6,7 @@ using Microsoft.Maui.Controls;
 public partial class AdminDashboardPage : ContentPage
 {
     private readonly AdminDashboardViewModel _viewModel;
+    private bool _isInitializing;
 
     public AdminDashboardPage(AdminDashboardViewModel viewModel)
     {
@@ -14,17 +15,28 @@ public partial class AdminDashboardPage : ContentPage
         BindingContext = viewModel;
     }
 
-    protected override void  OnNavigatedTo(NavigatedToEventArgs args)
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
     {
         base.OnNavigatedTo(args);
 
-        // Load initial metrics
-        _viewModel.RefreshMetricsCommand.Execute(null);
+        _ = InitializeAdminDashboardAsync();
+    }
 
-        // Start polling on navigation to page
-        if (!_viewModel.IsPolling)
+    private async Task InitializeAdminDashboardAsync()
+    {
+        if (_isInitializing || _viewModel.IsPolling)
         {
-            _viewModel.StartPollingCommand.Execute(null);
+            return;
+        }
+
+        try
+        {
+            _isInitializing = true;
+            await _viewModel.StartPollingAsync();
+        }
+        finally
+        {
+            _isInitializing = false;
         }
     }
 
@@ -43,11 +55,6 @@ public partial class AdminDashboardPage : ContentPage
     {
         base.OnDisappearing();
 
-        // Ensure proper cleanup
-        if (_viewModel is IAsyncDisposable disposable)
-        {
-            // Fire and forget - don't await in sync method
-            _ = disposable.DisposeAsync();
-        }
+        // Lifecycle cleanup is handled by DI/container scope; avoid disposing on tab switch.
     }
 }

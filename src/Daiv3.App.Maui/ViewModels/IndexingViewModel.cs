@@ -1,4 +1,5 @@
 using Daiv3.Knowledge;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
@@ -12,7 +13,7 @@ namespace Daiv3.App.Maui.ViewModels;
 public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
 {
     private readonly ILogger<IndexingViewModel> _logger;
-    private readonly IIndexingStatusService _indexingStatusService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly HashSet<string> _expandedDirectories = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _viewLifetimeCts;
 
@@ -45,10 +46,10 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
 
     public IndexingViewModel(
         ILogger<IndexingViewModel> logger,
-        IIndexingStatusService indexingStatusService)
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _indexingStatusService = indexingStatusService ?? throw new ArgumentNullException(nameof(indexingStatusService));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         Title = "Indexing Status";
 
         RefreshCommand = new Command(async () => await RefreshAsync().ConfigureAwait(false));
@@ -423,8 +424,11 @@ public sealed class IndexingViewModel : BaseViewModel, IAsyncDisposable
     {
         _logger.LogDebug("Loading indexing data");
 
-        var stats = await _indexingStatusService.GetIndexingStatisticsAsync(ct).ConfigureAwait(false);
-        var files = await _indexingStatusService.GetAllFilesAsync(ct).ConfigureAwait(false);
+        using var scope = _scopeFactory.CreateScope();
+        var indexingStatusService = scope.ServiceProvider.GetRequiredService<IIndexingStatusService>();
+
+        var stats = await indexingStatusService.GetIndexingStatisticsAsync(ct).ConfigureAwait(false);
+        var files = await indexingStatusService.GetAllFilesAsync(ct).ConfigureAwait(false);
 
         await MainThread.InvokeOnMainThreadAsync(async () =>
         {

@@ -78,7 +78,7 @@ public static class MauiProgram
                 serviceProvider.GetRequiredService<ISettingsService>(),
                 serviceProvider.GetRequiredService<ISettingsInitializer>(),
                 serviceProvider.GetRequiredService<IFoundryLocalManagementService>()));
-        builder.Services.AddSingleton<IndexingViewModel>();
+        builder.Services.AddTransient<IndexingViewModel>();
 
         // Register Pages
         builder.Services.AddSingleton<ChatPage>();
@@ -86,7 +86,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<AdminDashboardPage>();
         builder.Services.AddSingleton<ProjectsPage>();
         builder.Services.AddSingleton<SettingsPage>();
-        builder.Services.AddSingleton<IndexingPage>();
+        builder.Services.AddTransient<IndexingPage>();
         builder.Services.AddSingleton<MainPage>();
 
         var modelPath = GetDefaultEmbeddingModelPath();

@@ -54,7 +54,7 @@
                         StrokeShape="RoundRectangle 10"
                         StrokeThickness="2"
                         Stroke="#EF4444"
-                        IsVisible="{Binding CurrentAlerts.HasAnyAlert}">
+                    IsVisible="{Binding HasAnyAlert}">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="⚠ System Alerts"
                                FontSize="16"
@@ -64,22 +64,22 @@
                         <Label Text="{Binding CpuAlertText}"
                                FontSize="12"
                                TextColor="{AppThemeBinding Light=#7F1D1D, Dark=#FCA5A5}"
-                               IsVisible="{Binding CurrentAlerts.HighCpuAlert}" />
+                               IsVisible="{Binding HasHighCpuAlert}" />
 
                         <Label Text="{Binding MemoryAlertText}"
                                FontSize="12"
                                TextColor="{AppThemeBinding Light=#7F1D1D, Dark=#FCA5A5}"
-                               IsVisible="{Binding CurrentAlerts.HighMemoryAlert}" />
+                               IsVisible="{Binding HasHighMemoryAlert}" />
 
                         <Label Text="{Binding DiskAlertText}"
                                FontSize="12"
                                TextColor="{AppThemeBinding Light=#7F1D1D, Dark=#FCA5A5}"
-                               IsVisible="{Binding CurrentAlerts.LowDiskAlert}" />
+                               IsVisible="{Binding HasLowDiskAlert}" />
 
                         <Label Text="{Binding QueueAlertText}"
                                FontSize="12"
                                TextColor="{AppThemeBinding Light=#7F1D1D, Dark=#FCA5A5}"
-                               IsVisible="{Binding CurrentAlerts.QueueBottleneckAlert}" />
+                               IsVisible="{Binding HasQueueBottleneckAlert}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -99,9 +99,9 @@
                                    FontAttributes="Bold"
                                    TextColor="{Binding CpuBarColor}"
                                    VerticalOptions="Center" />
-                            <Label Text="{Binding CurrentMetrics.Cpu.CoreCount, StringFormat='{0} cores'}"
+                                <Label Text="{Binding CpuCoreCount, StringFormat='{0} cores'}"
                                    FontSize="11"
-                                   TextColor="{AppThemeBinding Light=#64748B, Dark:#94A3B8}"
+                                              TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                                    VerticalOptions="Center" />
                         </HorizontalStackLayout>
                         <ProgressBar Progress="{Binding CpuProgress}"
@@ -163,11 +163,11 @@
                 </Border>
 
                 <!-- GPU Metrics (if available) -->
-                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark:#1A212B}"
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                         Padding="15"
                         StrokeShape="RoundRectangle 10"
                         StrokeThickness="0"
-                        IsVisible="{Binding CurrentMetrics.Gpu.IsAvailable}">
+                    IsVisible="{Binding IsGpuAvailable}">
                     <VerticalStackLayout Spacing="8">
                         <HorizontalStackLayout Spacing="8">
                             <Label Text="GPU"
@@ -187,11 +187,11 @@
                 </Border>
 
                 <!-- NPU Status (if available) -->
-                <Border BackgroundColor="{AppThemeBinding Light=#F0FDF4, Dark=#052E16}"
+                  <Border BackgroundColor="{AppThemeBinding Light=#F0FDF4, Dark=#052E16}"
                         Padding="15"
                         StrokeShape="RoundRectangle 10"
                         StrokeThickness="0"
-                        IsVisible="{Binding CurrentMetrics.Npu.IsAvailable}">
+                       IsVisible="{Binding IsNpuAvailable}">
                     <HorizontalStackLayout Spacing="8">
                         <Label Text="NPU"
                                FontSize="14"
@@ -201,7 +201,7 @@
                                FontSize="12"
                                TextColor="#16A34A"
                                VerticalOptions="Center" />
-                        <Label Text="{Binding CurrentMetrics.Npu.ExecutionProvider}"
+                       <Label Text="{Binding NpuExecutionProvider}"
                                FontSize="11"
                                TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                                VerticalOptions="Center" />
@@ -219,10 +219,10 @@
                                FontAttributes="Bold" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <Label Grid.Column="0"
-                                   Text="{Binding CurrentMetrics.Queue.TotalQueuedItems, StringFormat='Total: {0}'}"
+                                Text="{Binding TotalQueuedItems, StringFormat='Total: {0}'}"
                                    FontSize="12" />
                             <Label Grid.Column="1"
-                                   Text="{Binding CurrentMetrics.Queue.CriticalPriorityCount, StringFormat='Critical: {0}'}"
+                                Text="{Binding CriticalPriorityCount, StringFormat='Critical: {0}'}"
                                    FontSize="12"
                                    TextColor="#EF4444" />
                         </Grid>

@@ -11,6 +11,8 @@
     <Color x:Key="Secondary">#DBEAFE</Color>
     <Color x:Key="SecondaryDarkText">#E2E8F0</Color>
     <Color x:Key="Tertiary">#1E40AF</Color>
+    <Color x:Key="Warning">#F59E0B</Color>
+    <Color x:Key="Danger">#EF4444</Color>
 
     <Color x:Key="White">White</Color>
     <Color x:Key="Black">Black</Color>
