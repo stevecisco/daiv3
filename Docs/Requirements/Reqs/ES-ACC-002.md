@@ -23,7 +23,12 @@ Users can enable online providers and must see usage and budget indicators.
 ## Implementation Status
 **Status:** IN PROGRESS  
 **Completion Target (Original Scope AC1-AC9):** March 8, 2026 ✅ Complete  
-**Completion Target (Addendum AC10-AC16):** TBD - Sequenced implementation phases defined below
+**Completion Target (Addendum AC10-AC16):** IN PROGRESS
+- **Phase 1 (Foundation):** ✅ Complete (March 8, 2026)
+- **Phase 2 (Approval):** Not started
+- **Phase 3 (Execution):** Not started
+- **Phase 4 (Audit):** Not started
+- **Phase 5 (Docker):** Not started
 
 ## Architecture & Design
 
@@ -162,11 +167,13 @@ Users can enable online providers and must see usage and budget indicators.
 
 ### Phase 1: Foundation - Data Model + Hash Service
 
+**Status:** ✅ COMPLETE (March 8, 2026)
+
 **Deliverables:**
-1. `ExecutableSkill` entity with fields: `Id`, `Name`, `FilePath`, `FileHash`, `MetadataPath`, `ApprovalStatus`, `CreatedBy`, `CreatedAt`, `ApprovedBy`, `ApprovedAt`, `LastModifiedAt`
-2. `ISkillHashService` interface with `ComputeHashAsync(filePath)`, `ValidateHashAsync(skill)`, `UpdateHashAsync(skill)`
-3. `SkillHashService` implementation using SHA256 hash of file contents
-4. Database migration for `executable_skills` table (via `Daiv3.Persistence` schema migrations)
+1. ✅ `ExecutableSkill` entity with fields: `Id`, `Name`, `FilePath`, `FileHash`, `MetadataPath`, `ApprovalStatus`, `CreatedBy`, `CreatedAt`, `ApprovedBy`, `ApprovedAt`, `LastModifiedAt`
+2. ✅ `ISkillHashService` interface with `ComputeHashAsync(filePath)`, `ValidateHashAsync(skill)`, `UpdateHashAsync(skill)`
+3. ✅ `SkillHashService` implementation using SHA256 hash of file contents
+4. ✅ Database migration for `executable_skills` table (Migration011 via `Daiv3.Persistence` schema migrations)
 
 **Affected Projects:**
 - `src/Daiv3.Core/` - Add `ExecutableSkill` domain model, `ApprovalStatus` enum (`PendingApproval`, `Approved`, `Revoked`, `Stale`)
@@ -175,22 +182,22 @@ Users can enable online providers and must see usage and budget indicators.
 - `src/Daiv3.Persistence/Migrations/` - Add `executable_skills` table schema
 
 **Test Coverage:**
-- Unit tests: `SkillHashServiceTests` (10+ tests)
+- ✅ Unit tests: `SkillHashServiceTests` (**11/11 passing**)
   - Stable hash for same content
   - Different hash for modified content
   - Hash validation passes for matching hash
   - Hash validation fails for mismatched hash
   - Async file read edge cases (locked files, missing files)
-- Integration tests: `ExecutableSkillRepositoryTests` (5+ tests)
+- ✅ Integration tests: `ExecutableSkillRepositoryIntegrationTests` (**6/6 passing**)
   - CRUD operations on executable_skills table
   - Query by approval status
   - Query by name/path
 
 **Acceptance Gate:**
-- [ ] All unit tests passing (project-scoped)
-- [ ] Database migration applies cleanly (up/down)
-- [ ] `ExecutableSkill` entity retrievable via repository
-- [ ] Hash service validates known test file integrity
+- ✅ All unit tests passing (11/11 SkillHashServiceTests)
+- ✅ Database migration applies cleanly (Migration011 executable_skills table)
+- ✅ `ExecutableSkill` entity retrievable via repository
+- ✅ Hash service validates known test file integrity
 
 **Mapped Acceptance Criteria:** AC12 (partial - hash validation foundation)
 
