@@ -2,6 +2,7 @@ using Daiv3.Knowledge.Embedding;
 using Daiv3.Mcp.Integration;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Messaging;
+using Daiv3.Orchestration.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -114,6 +115,17 @@ public static class OrchestrationServiceExtensions
 
         // Register web content ingestion options
         services.AddOptions<WebContentIngestionOptions>();
+
+        // Register transparency view service for system activity visibility (ES-REQ-004)
+        services.TryAddScoped<ITransparencyViewService>(serviceProvider =>
+        {
+            var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TransparencyViewService>>();
+            var modelQueue = serviceProvider.GetService<Daiv3.ModelExecution.Interfaces.IModelQueue>();
+            var indexingStatusService = serviceProvider.GetService<Daiv3.Knowledge.IIndexingStatusService>();
+            var scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
+            var databaseContext = serviceProvider.GetService<Daiv3.Persistence.IDatabaseContext>();
+            return new TransparencyViewService(logger, modelQueue, indexingStatusService, scopeFactory, databaseContext);
+        });
 
         return services;
     }

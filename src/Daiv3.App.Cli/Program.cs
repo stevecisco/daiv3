@@ -71,6 +71,58 @@ public class Program
         systemCommand.AddCommand(systemVerifyCommand);
         rootCommand.AddCommand(systemCommand);
 
+        // Transparency command (ES-REQ-004)
+        var transparencyCommand = new Command("transparency", "System transparency and observability");
+
+        var transparencyViewCommand = new Command("view", "Show transparency view with model usage, indexing status, queue state, and agent activity");
+        var formatOption = new Option<string>(
+            aliases: new[] { "--format", "-f" },
+            description: "Output format: text (default), json, csv",
+            getDefaultValue: () => "text");
+        var watchOption = new Option<int?>(
+            aliases: new[] { "--watch", "-w" },
+            description: "Watch mode with refresh interval in milliseconds (e.g., 3000 for 3 seconds)");
+        var modelUsageOnlyOption = new Option<bool>(
+            aliases: new[] { "--model-usage" },
+            description: "Show only model usage information",
+            getDefaultValue: () => false);
+        var indexingStatusOnlyOption = new Option<bool>(
+            aliases: new[] { "--indexing-status" },
+            description: "Show only indexing status information",
+            getDefaultValue: () => false);
+        var queueStateOnlyOption = new Option<bool>(
+            aliases: new[] { "--queue-state" },
+            description: "Show only queue state information",
+            getDefaultValue: () => false);
+        var agentActivityOnlyOption = new Option<bool>(
+            aliases: new[] { "--agent-activity" },
+            description: "Show only agent activity information",
+            getDefaultValue: () => false);
+        var exportOption = new Option<string?>(
+            aliases: new[] { "--export", "-e" },
+            description: "Export output to file");
+
+        transparencyViewCommand.AddOption(formatOption);
+        transparencyViewCommand.AddOption(watchOption);
+        transparencyViewCommand.AddOption(modelUsageOnlyOption);
+        transparencyViewCommand.AddOption(indexingStatusOnlyOption);
+        transparencyViewCommand.AddOption(queueStateOnlyOption);
+        transparencyViewCommand.AddOption(agentActivityOnlyOption);
+        transparencyViewCommand.AddOption(exportOption);
+
+        transparencyViewCommand.SetHandler(async (string format, int? watch, bool modelUsageOnly, 
+            bool indexingStatusOnly, bool queueStateOnly, bool agentActivityOnly, string? export) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await TransparencyViewCommand(host, format, watch, modelUsageOnly, 
+                indexingStatusOnly, queueStateOnly, agentActivityOnly, export);
+            Environment.Exit(exitCode);
+        }, formatOption, watchOption, modelUsageOnlyOption, indexingStatusOnlyOption, 
+           queueStateOnlyOption, agentActivityOnlyOption, exportOption);
+
+        transparencyCommand.AddCommand(transparencyViewCommand);
+        rootCommand.AddCommand(transparencyCommand);
+
         // Dashboard command (CT-REQ-003, CT-REQ-006)
         var dashboardCommand = new Command("dashboard", "Show system dashboard and status");
         dashboardCommand.SetHandler(async () =>
@@ -1516,6 +1568,280 @@ public class Program
             Console.WriteLine();
             Console.WriteLine($"   Info: {result.AdditionalInfo}");
         }
+    }
+
+    /// <summary>
+    /// ES-REQ-004: Transparency view showing model usage, indexing status, queue state, and agent activity.
+    /// </summary>
+    private static async Task<int> TransparencyViewCommand(IHost host, string format, int? watch, 
+        bool modelUsageOnly, bool indexingStatusOnly, bool queueStateOnly, bool agentActivityOnly, string? export)
+    {
+        try
+        {
+            // Validate format
+            if (format != "text" && format != "json" && format != "csv")
+            {
+                Console.WriteLine($"✗ Invalid format '{format}'. Valid formats: text, json, csv");
+                return 1;
+            }
+
+            // Check for conflicting filter options
+            var filterCount = (modelUsageOnly ? 1 : 0) + (indexingStatusOnly ? 1 : 0) + 
+                             (queueStateOnly ? 1 : 0) + (agentActivityOnly ? 1 : 0);
+            if (filterCount > 1)
+            {
+                Console.WriteLine("✗ Only one filter option can be used at a time.");
+                Console.WriteLine("  Use --model-usage OR --indexing-status OR --queue-state OR --agent-activity");
+                return 1;
+            }
+
+            // Watch mode
+            if (watch.HasValue)
+            {
+                if (watch.Value < 100)
+                {
+                    Console.WriteLine("✗ Watch interval must be at least 100 milliseconds.");
+                    return 1;
+                }
+
+                Console.WriteLine($"Entering watch mode (refresh every {watch.Value}ms). Press Ctrl+C to exit.");
+                Console.WriteLine();
+
+                while (true)
+                {
+                    Console.Clear();
+                    await DisplayTransparencyViewAsync(host, format, modelUsageOnly, 
+                        indexingStatusOnly, queueStateOnly, agentActivityOnly).ConfigureAwait(false);
+                    await Task.Delay(watch.Value).ConfigureAwait(false);
+                }
+            }
+
+            // Single display
+            var output = await GetTransparencyViewOutputAsync(host, format, modelUsageOnly, 
+                indexingStatusOnly, queueStateOnly, agentActivityOnly).ConfigureAwait(false);
+
+            if (!string.IsNullOrEmpty(export))
+            {
+                await File.WriteAllTextAsync(export, output).ConfigureAwait(false);
+                Console.WriteLine($"✓ Transparency view exported to: {export}");
+                return 0;
+            }
+
+            Console.WriteLine(output);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to display transparency view: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task DisplayTransparencyViewAsync(IHost host, string format, 
+        bool modelUsageOnly, bool indexingStatusOnly, bool queueStateOnly, bool agentActivityOnly)
+    {
+        var output = await GetTransparencyViewOutputAsync(host, format, modelUsageOnly, 
+            indexingStatusOnly, queueStateOnly, agentActivityOnly).ConfigureAwait(false);
+        Console.WriteLine(output);
+    }
+
+    private static async Task<string> GetTransparencyViewOutputAsync(IHost host, string format, 
+        bool modelUsageOnly, bool indexingStatusOnly, bool queueStateOnly, bool agentActivityOnly)
+    {
+        var transparencyService = host.Services.GetService<ITransparencyViewService>();
+        if (transparencyService == null)
+        {
+            return "✗ Transparency view service not available. Ensure the orchestration services are properly configured.";
+        }
+
+        var data = await transparencyService.GetTransparencyViewAsync().ConfigureAwait(false);
+
+        return format switch
+        {
+            "json" => FormatTransparencyViewAsJson(data, modelUsageOnly, indexingStatusOnly, queueStateOnly, agentActivityOnly),
+            "csv" => FormatTransparencyViewAsCsv(data, modelUsageOnly, indexingStatusOnly, queueStateOnly, agentActivityOnly),
+            _ => FormatTransparencyViewAsText(data, modelUsageOnly, indexingStatusOnly, queueStateOnly, agentActivityOnly)
+        };
+    }
+
+    private static string FormatTransparencyViewAsText(TransparencyViewData data, 
+        bool modelUsageOnly, bool indexingStatusOnly, bool queueStateOnly, bool agentActivityOnly)
+    {
+        var output = new System.Text.StringBuilder();
+
+        output.AppendLine("═══════════════════════════════════════════════════════════");
+        output.AppendLine("        TRANSPARENCY VIEW (ES-REQ-004)                    ");
+        output.AppendLine("═══════════════════════════════════════════════════════════");
+        output.AppendLine($"Collected: {data.CollectedAt:yyyy-MM-dd HH:mm:ss} UTC");
+        output.AppendLine();
+
+        // Model Usage
+        if (!indexingStatusOnly && !queueStateOnly && !agentActivityOnly)
+        {
+            output.AppendLine("MODEL USAGE");
+            output.AppendLine($"  Current Model:            {data.ModelUsage.CurrentModel ?? "None"}");
+            output.AppendLine($"  Total Executions:         {data.ModelUsage.TotalExecutions:N0}");
+            output.AppendLine($"  Avg Execution Time:       {data.ModelUsage.AverageExecutionMs:F2} ms");
+            output.AppendLine($"  Model Switches:           {data.ModelUsage.ModelSwitchCount}");
+            if (data.ModelUsage.LastModelSwitchAt.HasValue)
+                output.AppendLine($"  Last Switch:              {data.ModelUsage.LastModelSwitchAt.Value:yyyy-MM-dd HH:mm:ss} UTC");
+            output.AppendLine($"  Active Load Duration:     {FormatDuration(data.ModelUsage.ActiveModelLoadDurationMs)}");
+            output.AppendLine();
+        }
+
+        // Indexing Status
+        if (!modelUsageOnly && !queueStateOnly && !agentActivityOnly)
+        {
+            output.AppendLine("INDEXING STATUS");
+            output.AppendLine($"  Status:                   {(data.IndexingStatus.IsIndexing ? "Indexing" : "Idle")}");
+            output.AppendLine($"  Progress:                 {data.IndexingStatus.ProgressPercentage:F1}%");
+            output.AppendLine($"  Files Queued:             {data.IndexingStatus.FilesQueued:N0}");
+            output.AppendLine($"  Files In Progress:        {data.IndexingStatus.FilesInProgress:N0}");
+            output.AppendLine($"  Files Indexed:            {data.IndexingStatus.FilesIndexed:N0}");
+            output.AppendLine($"  Files with Errors:        {data.IndexingStatus.FilesWithErrors:N0}");
+            output.AppendLine($"  Knowledge Base Documents: {data.IndexingStatus.TotalDocumentsStored:N0}");
+            output.AppendLine($"  Knowledge Base Chunks:    {data.IndexingStatus.TotalChunksStored:N0}");
+            if (data.IndexingStatus.ErrorDetailsFormatted.Length > 0)
+                output.AppendLine($"  Error Details:            {string.Join(", ", data.IndexingStatus.ErrorDetailsFormatted)}");
+            output.AppendLine();
+        }
+
+        // Queue State
+        if (!modelUsageOnly && !indexingStatusOnly && !agentActivityOnly)
+        {
+            output.AppendLine("QUEUE STATE");
+            output.AppendLine($"  Pending Tasks:            {data.QueueState.PendingCount:N0}");
+            output.AppendLine($"  Completed Tasks:          {data.QueueState.CompletedCount:N0}");
+            output.AppendLine($"  Avg Execution Duration:   {data.QueueState.AverageTaskDurationMs:F2} ms");
+            output.AppendLine($"  Model Utilization:        {data.QueueState.ModelUtilizationPercent}%");
+            output.AppendLine();
+            output.AppendLine("  Priority Distribution:");
+            output.AppendLine($"    Immediate (P0):         {data.QueueState.ImmediateCount:N0}");
+            output.AppendLine($"    Normal (P1):            {data.QueueState.NormalCount:N0}");
+            output.AppendLine($"    Background (P2):        {data.QueueState.BackgroundCount:N0}");
+            output.AppendLine();
+        }
+
+        // Agent Activity
+        if (!modelUsageOnly && !indexingStatusOnly && !queueStateOnly)
+        {
+            output.AppendLine("AGENT ACTIVITY");
+            output.AppendLine($"  Active Agents:            {data.AgentActivity.ActiveAgentCount:N0}");
+            output.AppendLine($"  Total Iterations:         {data.AgentActivity.TotalIterations:N0}");
+            output.AppendLine($"  Total Tokens Used:        {data.AgentActivity.TotalTokensUsed:N0}");
+            output.AppendLine();
+
+            if (data.AgentActivity.Activities.Length > 0)
+            {
+                output.AppendLine("  Active Agent Details:");
+                foreach (var agent in data.AgentActivity.Activities)
+                {
+                    output.AppendLine($"    • {agent.AgentName} (ID: {agent.AgentId})");
+                    output.AppendLine($"      State:              {agent.State}");
+                    output.AppendLine($"      Iterations:         {agent.IterationCount}");
+                    output.AppendLine($"      Tokens Used:        {agent.TokensUsed:N0}");
+                    output.AppendLine($"      Elapsed Time:       {FormatDuration(agent.ElapsedTime.TotalMilliseconds)}");
+                    if (agent.ErrorCount > 0)
+                    {
+                        output.AppendLine($"      Errors:             {agent.ErrorCount}");
+                        if (!string.IsNullOrEmpty(agent.LastErrorMessage))
+                            output.AppendLine($"      Last Error:         {agent.LastErrorMessage}");
+                    }
+                    output.AppendLine();
+                }
+            }
+            else
+            {
+                output.AppendLine("  No agents currently active.");
+                output.AppendLine();
+            }
+        }
+
+        output.AppendLine("═══════════════════════════════════════════════════════════");
+        return output.ToString();
+    }
+
+    private static string FormatTransparencyViewAsJson(TransparencyViewData data, 
+        bool modelUsageOnly, bool indexingStatusOnly, bool queueStateOnly, bool agentActivityOnly)
+    {
+        object outputData = data;
+
+        if (modelUsageOnly)
+            outputData = data.ModelUsage;
+        else if (indexingStatusOnly)
+            outputData = data.IndexingStatus;
+        else if (queueStateOnly)
+            outputData = data.QueueState;
+        else if (agentActivityOnly)
+            outputData = data.AgentActivity;
+
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        return JsonSerializer.Serialize(outputData, options);
+    }
+
+    private static string FormatTransparencyViewAsCsv(TransparencyViewData data, 
+        bool modelUsageOnly, bool indexingStatusOnly, bool queueStateOnly, bool agentActivityOnly)
+    {
+        var output = new System.Text.StringBuilder();
+
+        if (modelUsageOnly)
+        {
+            output.AppendLine("CurrentModel,TotalExecutions,AverageExecutionMs,ModelSwitchCount,LastModelSwitchAt,ActiveModelLoadDurationMs");
+            output.AppendLine($"\"{data.ModelUsage.CurrentModel}\",{data.ModelUsage.TotalExecutions},{data.ModelUsage.AverageExecutionMs:F2},{data.ModelUsage.ModelSwitchCount},{data.ModelUsage.LastModelSwitchAt:O},{data.ModelUsage.ActiveModelLoadDurationMs}");
+        }
+        else if (indexingStatusOnly)
+        {
+            output.AppendLine("IsIndexing,Progress,FilesQueued,FilesInProgress,FilesIndexed,FilesWithErrors,TotalDocuments,TotalChunks,ErrorDetails");
+            var errorDetails = string.Join("; ", data.IndexingStatus.ErrorDetailsFormatted);
+            output.AppendLine($"{data.IndexingStatus.IsIndexing},{data.IndexingStatus.ProgressPercentage:F1},{data.IndexingStatus.FilesQueued},{data.IndexingStatus.FilesInProgress},{data.IndexingStatus.FilesIndexed},{data.IndexingStatus.FilesWithErrors},{data.IndexingStatus.TotalDocumentsStored},{data.IndexingStatus.TotalChunksStored},\"{errorDetails}\"");
+        }
+        else if (queueStateOnly)
+        {
+            output.AppendLine("PendingCount,CompletedCount,AverageTaskDurationMs,ModelUtilizationPercent,ImmediateCount,NormalCount,BackgroundCount");
+            output.AppendLine($"{data.QueueState.PendingCount},{data.QueueState.CompletedCount},{data.QueueState.AverageTaskDurationMs:F2},{data.QueueState.ModelUtilizationPercent},{data.QueueState.ImmediateCount},{data.QueueState.NormalCount},{data.QueueState.BackgroundCount}");
+        }
+        else if (agentActivityOnly)
+        {
+            output.AppendLine("AgentId,AgentName,State,IterationCount,TokensUsed,ElapsedTimeMs,ErrorCount,LastErrorMessage");
+            foreach (var agent in data.AgentActivity.Activities)
+            {
+                output.AppendLine($"\"{agent.AgentId}\",\"{agent.AgentName}\",\"{agent.State}\",{agent.IterationCount},{agent.TokensUsed},{agent.ElapsedTime.TotalMilliseconds:F0},{agent.ErrorCount},\"{agent.LastErrorMessage}\"");
+            }
+        }
+        else
+        {
+            // Full CSV with all sections
+            output.AppendLine("Section,Key,Value");
+            output.AppendLine($"ModelUsage,CurrentModel,\"{data.ModelUsage.CurrentModel}\"");
+            output.AppendLine($"ModelUsage,TotalExecutions,{data.ModelUsage.TotalExecutions}");
+            output.AppendLine($"ModelUsage,AverageExecutionMs,{data.ModelUsage.AverageExecutionMs:F2}");
+            output.AppendLine($"IndexingStatus,IsIndexing,{data.IndexingStatus.IsIndexing}");
+            output.AppendLine($"IndexingStatus,ProgressPercentage,{data.IndexingStatus.ProgressPercentage:F1}");
+            output.AppendLine($"IndexingStatus,FilesIndexed,{data.IndexingStatus.FilesIndexed}");
+            output.AppendLine($"QueueState,PendingCount,{data.QueueState.PendingCount}");
+            output.AppendLine($"QueueState,CompletedCount,{data.QueueState.CompletedCount}");
+            output.AppendLine($"AgentActivity,ActiveAgentCount,{data.AgentActivity.ActiveAgentCount}");
+            output.AppendLine($"AgentActivity,TotalIterations,{data.AgentActivity.TotalIterations}");
+        }
+
+        return output.ToString();
+    }
+
+    private static string FormatDuration(double milliseconds)
+    {
+        var ts = TimeSpan.FromMilliseconds(milliseconds);
+        if (ts.TotalDays >= 1)
+            return $"{ts.Days} day(s) {ts.Hours} hour(s)";
+        if (ts.TotalHours >= 1)
+            return $"{ts.Hours} hour(s) {ts.Minutes} minute(s)";
+        if (ts.TotalMinutes >= 1)
+            return $"{ts.Minutes} minute(s) {ts.Seconds} second(s)";
+        return $"{ts.TotalSeconds:F1} second(s)";
     }
 
     private static int DashboardCommand(IHost host)
