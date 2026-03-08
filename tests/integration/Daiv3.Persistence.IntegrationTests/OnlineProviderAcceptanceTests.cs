@@ -304,7 +304,7 @@ public sealed class OnlineProviderAcceptanceTests : IAsyncLifetime, IDisposable
 
         await _settingsService.SaveSettingAsync(
             ApplicationSettings.Providers.ForceOfflineMode,
-            "true",
+            true,
             ApplicationSettings.Categories.Providers,
             ApplicationSettings.Descriptions.ForceOfflineMode,
             reason: "acceptance_test");
