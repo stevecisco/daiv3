@@ -294,7 +294,7 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 | Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
 |-----|-------------|---------------|-------------|--------------|--------|------------|-------|
-| 177 | [CT-ACC-001](Reqs/CT-ACC-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can configure online access rules and see them applied. | CT-REQ-002, MQ-REQ-012 | Not Started | 0% | Acceptance: Online config (validates P2.0) |
+| 177 | [CT-ACC-001](Reqs/CT-ACC-001.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can configure online access rules and see them applied. | CT-REQ-002, MQ-REQ-012 | Complete | 100% | ✅ 8 acceptance tests passing, enhanced logging (Mar 7, 2026) |
 | 178 | [CT-ACC-002](Reqs/CT-ACC-002.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can observe active model queue state in dashboard. | CT-REQ-004 | Not Started | 0% | Acceptance: Queue visibility (validates P1.2) |
 | 179 | [CT-ACC-003](Reqs/CT-ACC-003.md) | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | Users can see token usage vs budget per provider. | CT-REQ-007 | Not Started | 0% | Acceptance: Budget display (validates P2.1) |
 | 182 | [ES-CON-001](Reqs/ES-CON-001.md) | [1. Executive Summary](Specs/01-Executive-Summary.md) | The application MUST be locally installable and self-contained. | ARCH-REQ-001 | Not Started | 0% | Deployment constraint |
