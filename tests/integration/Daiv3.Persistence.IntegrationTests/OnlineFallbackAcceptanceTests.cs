@@ -6,6 +6,8 @@ using Daiv3.Persistence.Services;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
+#pragma warning disable IDISP001, IDISP002 // Test fixture members disposed in DisposeAsync via IAsyncLifetime
+
 namespace Daiv3.Persistence.IntegrationTests;
 
 /// <summary>
@@ -32,6 +34,12 @@ public sealed class OnlineFallbackAcceptanceTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
+        // Dispose previous context if exists (prevents re-assignment without disposal)
+        if (_databaseContext != null)
+        {
+            await _databaseContext.DisposeAsync();
+        }
+
         // Create a temporary database file for testing
         _testDatabasePath = Path.Combine(Path.GetTempPath(), $"test_es_req_002_{Guid.NewGuid()}.db");
 
@@ -88,9 +96,14 @@ public sealed class OnlineFallbackAcceptanceTests : IAsyncLifetime, IDisposable
         if (_disposed)
             return;
 
-        if (_databaseContext != null)
+        // Dispose IDisposable members (context and logger factory)
+        if (_databaseContext is IAsyncDisposable asyncDisposable)
         {
-            await _databaseContext.DisposeAsync();
+            await asyncDisposable.DisposeAsync();
+        }
+        else if (_databaseContext is IDisposable disposable)
+        {
+            disposable.Dispose();
         }
 
         _loggerFactory?.Dispose();
