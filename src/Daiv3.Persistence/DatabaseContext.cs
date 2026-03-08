@@ -326,6 +326,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 11,
                 Description = "Add executable_skills table with approval workflow and hash-based tamper detection (ES-ACC-002 Phase 1)",
                 Sql = SchemaScripts.Migration011_ExecutableSkills
+            },
+            new Migration
+            {
+                Version = 12,
+                Description = "Add skill_audit_log table for executable skill lifecycle events (ES-ACC-002 Phase 4)",
+                Sql = SchemaScripts.Migration012_SkillAuditLog
             }
         };
     }

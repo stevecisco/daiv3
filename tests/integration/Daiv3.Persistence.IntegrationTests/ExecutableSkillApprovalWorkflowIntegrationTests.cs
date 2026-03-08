@@ -75,8 +75,10 @@ public class ExecutableSkillApprovalWorkflowIntegrationTests : IAsyncLifetime
         // Arrange
         var context = await CreateInitializedContextAsync();
         var repository = new ExecutableSkillRepository(context, _loggerFactory.CreateLogger<ExecutableSkillRepository>());
+        var skillAuditRepository = new SkillAuditLogRepository(context, _loggerFactory.CreateLogger<SkillAuditLogRepository>());
+        var skillAuditService = new SkillAuditService(skillAuditRepository, _loggerFactory.CreateLogger<SkillAuditService>());
         var hashService = new SkillHashService(_loggerFactory.CreateLogger<SkillHashService>());
-        var approvalService = new ExecutableSkillApprovalService(repository, hashService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
+        var approvalService = new ExecutableSkillApprovalService(repository, hashService, skillAuditService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
 
         approvalService.GrantRole("admin-user", SystemRoles.SkillAdministrator);
 
@@ -110,8 +112,10 @@ public class ExecutableSkillApprovalWorkflowIntegrationTests : IAsyncLifetime
         // Arrange
         var context = await CreateInitializedContextAsync();
         var repository = new ExecutableSkillRepository(context, _loggerFactory.CreateLogger<ExecutableSkillRepository>());
+        var skillAuditRepository = new SkillAuditLogRepository(context, _loggerFactory.CreateLogger<SkillAuditLogRepository>());
+        var skillAuditService = new SkillAuditService(skillAuditRepository, _loggerFactory.CreateLogger<SkillAuditService>());
         var hashService = new SkillHashService(_loggerFactory.CreateLogger<SkillHashService>());
-        var approvalService = new ExecutableSkillApprovalService(repository, hashService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
+        var approvalService = new ExecutableSkillApprovalService(repository, hashService, skillAuditService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
 
         approvalService.GrantRole("admin-user", SystemRoles.SkillAdministrator);
 
@@ -144,8 +148,10 @@ public class ExecutableSkillApprovalWorkflowIntegrationTests : IAsyncLifetime
         // Arrange
         var context = await CreateInitializedContextAsync();
         var repository = new ExecutableSkillRepository(context, _loggerFactory.CreateLogger<ExecutableSkillRepository>());
+        var skillAuditRepository = new SkillAuditLogRepository(context, _loggerFactory.CreateLogger<SkillAuditLogRepository>());
+        var skillAuditService = new SkillAuditService(skillAuditRepository, _loggerFactory.CreateLogger<SkillAuditService>());
         var hashService = new SkillHashService(_loggerFactory.CreateLogger<SkillHashService>());
-        var approvalService = new ExecutableSkillApprovalService(repository, hashService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
+        var approvalService = new ExecutableSkillApprovalService(repository, hashService, skillAuditService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
 
         _testFilePath = Path.Combine(Path.GetTempPath(), $"UnauthorizedSkill_{Guid.NewGuid():N}.cs");
         await File.WriteAllTextAsync(_testFilePath, "return 42;");
@@ -168,8 +174,10 @@ public class ExecutableSkillApprovalWorkflowIntegrationTests : IAsyncLifetime
         // Arrange
         var context = await CreateInitializedContextAsync();
         var repository = new ExecutableSkillRepository(context, _loggerFactory.CreateLogger<ExecutableSkillRepository>());
+        var skillAuditRepository = new SkillAuditLogRepository(context, _loggerFactory.CreateLogger<SkillAuditLogRepository>());
+        var skillAuditService = new SkillAuditService(skillAuditRepository, _loggerFactory.CreateLogger<SkillAuditService>());
         var hashService = new SkillHashService(_loggerFactory.CreateLogger<SkillHashService>());
-        var approvalService = new ExecutableSkillApprovalService(repository, hashService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
+        var approvalService = new ExecutableSkillApprovalService(repository, hashService, skillAuditService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
 
         approvalService.GrantRole("admin-user", SystemRoles.SkillAdministrator);
 
@@ -197,8 +205,10 @@ public class ExecutableSkillApprovalWorkflowIntegrationTests : IAsyncLifetime
         // Arrange
         var context = await CreateInitializedContextAsync();
         var repository = new ExecutableSkillRepository(context, _loggerFactory.CreateLogger<ExecutableSkillRepository>());
+        var skillAuditRepository = new SkillAuditLogRepository(context, _loggerFactory.CreateLogger<SkillAuditLogRepository>());
+        var skillAuditService = new SkillAuditService(skillAuditRepository, _loggerFactory.CreateLogger<SkillAuditService>());
         var hashService = new SkillHashService(_loggerFactory.CreateLogger<SkillHashService>());
-        var approvalService = new ExecutableSkillApprovalService(repository, hashService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
+        var approvalService = new ExecutableSkillApprovalService(repository, hashService, skillAuditService, _loggerFactory.CreateLogger<ExecutableSkillApprovalService>());
 
         approvalService.GrantRole("admin-user", SystemRoles.SkillAdministrator);
 

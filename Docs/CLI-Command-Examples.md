@@ -1,7 +1,7 @@
 # DAIv3 CLI Command Examples
 
 > **Auto-Updated**: This file is automatically updated as new CLI commands are implemented.
-> **Last Updated**: March 6, 2026
+> **Last Updated**: March 8, 2026
 
 ## Overview
 
@@ -2162,6 +2162,26 @@ Displays comprehensive project analytics including:
 
 ## Future Commands (Planned)
 
+## Skill Commands
+
+### Show Executable Skill Audit Trail
+```bash
+.\run-cli.bat skill audit --name "SkillName"
+```
+Displays lifecycle audit events for an executable skill (approval actions, execution events, and denials).
+
+### Filter Skill Audit by Event Type
+```bash
+.\run-cli.bat skill audit --name "SkillName" --event-type Executed
+```
+Shows only matching audit event types (for example: `Created`, `ApprovalRequested`, `Approved`, `Revoked`, `Executed`, `ExecutionDenied`, `HashMismatch`, `FileModified`).
+
+### Filter Skill Audit by Time Window
+```bash
+.\run-cli.bat skill audit --name "SkillName" --from 1741392000 --to 1741478400
+```
+Filters events using inclusive Unix timestamp bounds.
+
 The following commands will be added as features are implemented:
 
 ### Projects (Additional)
@@ -2218,4 +2238,4 @@ The following commands will be added as features are implemented:
 
 **Version**: 1.0  
 **Requirement**: ARCH-REQ-002 (Presentation Layer)  
-**Last Updated**: February 25, 2026
+**Last Updated**: March 8, 2026

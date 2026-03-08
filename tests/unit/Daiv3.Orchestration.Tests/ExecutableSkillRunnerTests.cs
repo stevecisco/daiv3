@@ -14,6 +14,7 @@ public class ExecutableSkillRunnerTests
     private readonly Mock<IExecutableSkillRepository> _mockRepository;
     private readonly Mock<IExecutableSkillApprovalService> _mockApprovalService;
     private readonly Mock<ISkillHashService> _mockHashService;
+    private readonly Mock<ISkillAuditService> _mockSkillAuditService;
     private readonly Mock<ILogger<ExecutableSkillRunner>> _mockLogger;
     private readonly ExecutableSkillRunner _runner;
 
@@ -22,12 +23,14 @@ public class ExecutableSkillRunnerTests
         _mockRepository = new Mock<IExecutableSkillRepository>();
         _mockApprovalService = new Mock<IExecutableSkillApprovalService>();
         _mockHashService = new Mock<ISkillHashService>();
+        _mockSkillAuditService = new Mock<ISkillAuditService>();
         _mockLogger = new Mock<ILogger<ExecutableSkillRunner>>();
 
         _runner = new ExecutableSkillRunner(
             _mockRepository.Object,
             _mockApprovalService.Object,
             _mockHashService.Object,
+            _mockSkillAuditService.Object,
             _mockLogger.Object);
     }
 
@@ -273,6 +276,12 @@ public class ExecutableSkillRunnerTests
         Assert.False(result.Success);
         Assert.NotNull(result.ErrorMessage);
         Assert.Contains("not found", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        _mockSkillAuditService.Verify(a => a.LogEventAsync(
+            skillId,
+            SkillAuditEventType.ExecutionDenied.ToString(),
+            principal.PrincipalId,
+            It.IsAny<IDictionary<string, string>>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -347,6 +356,12 @@ public class ExecutableSkillRunnerTests
             Assert.NotNull(result.ErrorMessage);
             Assert.Contains("integrity", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("re-approval", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+            _mockSkillAuditService.Verify(a => a.LogEventAsync(
+                skillId,
+                SkillAuditEventType.HashMismatch.ToString(),
+                principal.PrincipalId,
+                It.IsAny<IDictionary<string, string>>(),
+                It.IsAny<CancellationToken>()), Times.Once);
         }
         finally
         {

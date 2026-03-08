@@ -32,7 +32,15 @@ Users can enable online providers and must see usage and budget indicators.
   - Dotnet-based execution with parameter passing, output capture, JSON parsing
   - 14/14 unit tests passing, 12 integration tests created
   - DI registration complete
-- **Phase 4 (Audit):** Not started
+- **Phase 4 (Skill Creator Integration + Audit Trail):** ⏳ In Progress (March 8, 2026)
+  - ✅ Added `SkillAuditLog` entity + schema migration (`Migration012_SkillAuditLog`)
+  - ✅ Added `ISkillAuditRepository` + `SkillAuditLogRepository` with filter queries
+  - ✅ Added `ISkillAuditService` + `SkillAuditService`
+  - ✅ Wired audit logging into approval and execution flows
+  - ✅ Added `SkillAuditEventType` enum
+  - ✅ Extended `skills/global/SkillCreator.md` executable scaffolding guidance
+  - ✅ Added CLI `skill audit` query command for lifecycle trail inspection
+  - ⏳ Remaining: end-to-end creator workflow automation (generate .cs + metadata + initial hash + auto approval request)
 - **Phase 5 (Docker):** Not started
 
 ## Architecture & Design
@@ -290,7 +298,7 @@ Users can enable online providers and must see usage and budget indicators.
 - ✅ All unit tests passing (14/14 ExecutableSkillRunnerTests)
 - ⏳ Integration tests created but cannot run due to pre-existing compilation errors in other test files
 - ⏳ CLI `daiv3 skill execute <name> --param key=value` works end-to-end (deferred to Phase 4)
-- [ ] Denied executions log structured error with remediation steps
+- ✅ Denied executions now emit structured audit events (`ExecutionDenied`, `HashMismatch`) with remediation metadata
 
 **Mapped Acceptance Criteria:** AC10 (partial - runtime execution), AC11 (skill execution), AC12 (hash enforcement)
 
@@ -299,43 +307,45 @@ Users can enable online providers and must see usage and budget indicators.
 ### Phase 4: Skill Creator Integration + Audit Trail
 
 **Deliverables:**
-1. Extend `SkillCreator` skill to scaffold executable skill files:
+1. ⏳ Extend `SkillCreator` skill to scaffold executable skill files:
    - Generate `.cs` file with argument parsing entry point (`args[]` handling)
    - Generate/update skill metadata `.md` with parameter contract (YAML frontmatter)
    - Automatically compute and store initial hash
    - Auto-create approval request record
-2. `ISkillAuditService` interface with `LogEventAsync(skillId, eventType, actorId, metadata)`
-3. `SkillAuditService` implementation persisting to `skill_audit_log` table
-4. Audit event types: `Created`, `ApprovalRequested`, `Approved`, `Revoked`, `Executed`, `ExecutionDenied`, `HashMismatch`, `FileModified`
+2. ✅ `ISkillAuditService` interface with `LogEventAsync(skillId, eventType, actorId, metadata)`
+3. ✅ `SkillAuditService` implementation persisting to `skill_audit_log` table
+4. ✅ Audit event types: `Created`, `ApprovalRequested`, `Approved`, `Revoked`, `Executed`, `ExecutionDenied`, `HashMismatch`, `FileModified`
 
 **Affected Projects:**
-- `skills/global/SkillCreator.md` - Extend with executable skill scaffolding workflow
+- ✅ `skills/global/SkillCreator.md` - Extended executable skill scaffolding workflow guidance
 - `src/Daiv3.Orchestration/Skills/` - Extend skill creator logic (if code-based) or CLI integration
-- `src/Daiv3.Persistence/Repositories/` - Add `ISkillAuditRepository`, `SkillAuditLogRepository`
-- `src/Daiv3.Persistence/Migrations/` - Add `skill_audit_log` table
+- ✅ `src/Daiv3.Orchestration/Services/` - Added `ISkillAuditService`, `SkillAuditService`, and event logging integrations
+- ✅ `src/Daiv3.Persistence/Repositories/` - Added `ISkillAuditRepository`, `SkillAuditLogRepository`
+- ✅ `src/Daiv3.Persistence/` - Added `skill_audit_log` table migration in `SchemaScripts` + `DatabaseContext`
 - `src/Daiv3.App.Cli/Commands/` - Add `skill audit` command to query audit trail
+- ✅ `src/Daiv3.App.Cli/Program.cs` - Added `skill audit --name <name> [--event-type ...] [--from ...] [--to ...]`
 
 **Test Coverage:**
-- Unit tests: `SkillCreatorExecutableTests` (8+ tests)
+- ⏳ Unit tests: `SkillCreatorExecutableTests` (8+ tests)
   - Scaffold generates valid `.cs` file
   - Scaffold generates matching `.md` metadata
   - Initial hash is computed and stored
   - Approval request is auto-created
-- Unit tests: `SkillAuditServiceTests` (6+ tests)
+- ✅ Unit tests: `SkillAuditServiceTests` (3 tests implemented)
   - Audit log entries persist with correct schema
   - Query by skill ID returns full lifecycle
   - Query by event type filters correctly
-- Integration tests: `SkillCreatorEndToEndTests` (4+ tests)
+- ⏳ Integration tests: `SkillCreatorEndToEndTests` (4+ tests)
   - Create executable skill → verify all artifacts on disk
   - Approve created skill → verify audit trail has Create + Approve events
   - Execute approved skill → verify audit trail has Executed event
   - Modify skill file → verify audit trail has FileModified + hash stale events
 
 **Acceptance Gate:**
-- [ ] All unit tests passing
+- ✅ All implemented unit tests passing (`SkillAuditServiceTests`, `ExecutableSkillRunnerTests`, `ExecutableSkillApprovalServiceTests`)
 - [ ] Skill creator produces valid executable skill + metadata + hash + audit record
-- [ ] CLI `daiv3 skill audit <name>` displays full lifecycle
-- [ ] Audit log queryable by skill, event type, date range
+- ✅ CLI `daiv3 skill audit <name>` displays lifecycle audit trail with optional event/time filters
+- ✅ Audit log queryable by skill, event type, date range (repository + service API)
 
 **Mapped Acceptance Criteria:** AC10 (skill creation), AC15 (audit trail)
 

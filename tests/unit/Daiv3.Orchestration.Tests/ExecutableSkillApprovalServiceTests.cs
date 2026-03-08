@@ -19,6 +19,7 @@ public class ExecutableSkillApprovalServiceTests
 {
     private readonly Mock<IExecutableSkillRepository> _repositoryMock;
     private readonly Mock<ISkillHashService> _hashServiceMock;
+    private readonly Mock<ISkillAuditService> _skillAuditServiceMock;
     private readonly Mock<ILogger<ExecutableSkillApprovalService>> _loggerMock;
     private readonly ExecutableSkillApprovalService _service;
 
@@ -26,8 +27,13 @@ public class ExecutableSkillApprovalServiceTests
     {
         _repositoryMock = new Mock<IExecutableSkillRepository>();
         _hashServiceMock = new Mock<ISkillHashService>();
+        _skillAuditServiceMock = new Mock<ISkillAuditService>();
         _loggerMock = new Mock<ILogger<ExecutableSkillApprovalService>>();
-        _service = new ExecutableSkillApprovalService(_repositoryMock.Object, _hashServiceMock.Object, _loggerMock.Object);
+        _service = new ExecutableSkillApprovalService(
+            _repositoryMock.Object,
+            _hashServiceMock.Object,
+            _skillAuditServiceMock.Object,
+            _loggerMock.Object);
     }
 
     [Fact]
@@ -43,6 +49,12 @@ public class ExecutableSkillApprovalServiceTests
 
         Assert.Equal(ApprovalStatus.PendingApproval.ToString(), result.ApprovalStatus);
         _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<ExecutableSkill>(), It.IsAny<CancellationToken>()), Times.Once);
+        _skillAuditServiceMock.Verify(a => a.LogEventAsync(
+            skill.SkillId,
+            SkillAuditEventType.ApprovalRequested.ToString(),
+            "user123",
+            It.IsAny<IDictionary<string, string>>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

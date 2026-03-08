@@ -28,3 +28,15 @@ Generate a markdown skill where line 1 is the skill name and line 2 is the short
 Use explicit metadata fields and avoid ambiguity.
 Always state domain, scope, language, inputs, outputs, capabilities, and restrictions.
 When scope is not Global, include project hierarchy identifiers and explain inheritance intent.
+
+## Executable Skill Scaffolding
+When the prompt requests an executable C# skill:
+1. Generate a `.cs` file template with top-level argument parsing from `args[]`.
+2. Generate or update a companion `.md` metadata file with YAML frontmatter that defines:
+	- `name`, `description`, and `parameters`
+	- expected outputs
+	- `requiresApproval: true`
+	- `requiresIsolatedEnvironment: false` by default
+3. Include a deterministic parameter contract in metadata so CLI and orchestration can validate invocation.
+4. Include guidance that file hash must be computed and approval must be requested before execution.
+5. Include a note that lifecycle events should be audited: `Created`, `ApprovalRequested`, `Approved`, `Revoked`, `Executed`, `ExecutionDenied`, `HashMismatch`, `FileModified`.

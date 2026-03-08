@@ -746,3 +746,40 @@ public class ExecutableSkill
     /// </summary>
     public long LastModifiedAt { get; set; }
 }
+
+/// <summary>
+/// Audit log entry for executable skill lifecycle events.
+/// Implements ES-ACC-002 Phase 4: Skill creator integration + audit trail.
+/// </summary>
+public class SkillAuditLog
+{
+    /// <summary>
+    /// Unique audit event identifier (UUID as string).
+    /// </summary>
+    public string AuditId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Skill identifier this event belongs to.
+    /// </summary>
+    public string SkillId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Event type name (e.g., Created, Approved, Executed).
+    /// </summary>
+    public string EventType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Principal ID that triggered the event.
+    /// </summary>
+    public string ActorId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional JSON metadata with event-specific details.
+    /// </summary>
+    public string? MetadataJson { get; set; }
+
+    /// <summary>
+    /// Event timestamp (Unix seconds).
+    /// </summary>
+    public long EventAt { get; set; }
+}

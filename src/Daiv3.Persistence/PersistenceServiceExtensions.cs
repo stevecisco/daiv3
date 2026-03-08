@@ -86,6 +86,9 @@ public static class PersistenceServiceExtensions
         // ES-ACC-002: Executable skill repository with approval workflow (Phase 1)
         services.AddScoped<IExecutableSkillRepository, ExecutableSkillRepository>();
 
+        // ES-ACC-002 Phase 4: Skill audit trail repository
+        services.AddScoped<ISkillAuditRepository, SkillAuditLogRepository>();
+
         // LM-NFR-002: Learning metrics collector for transparency and auditability
         services.AddSingleton<LearningMetricsCollector>(serviceProvider =>
         {

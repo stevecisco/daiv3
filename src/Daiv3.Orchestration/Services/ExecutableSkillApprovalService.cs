@@ -14,6 +14,7 @@ public class ExecutableSkillApprovalService : IExecutableSkillApprovalService
 {
     private readonly IExecutableSkillRepository _repository;
     private readonly ISkillHashService _hashService;
+    private readonly ISkillAuditService _skillAuditService;
     private readonly ILogger<ExecutableSkillApprovalService> _logger;
 
     // Simple in-memory role store for Phase 2
@@ -23,10 +24,12 @@ public class ExecutableSkillApprovalService : IExecutableSkillApprovalService
     public ExecutableSkillApprovalService(
         IExecutableSkillRepository repository,
         ISkillHashService hashService,
+        ISkillAuditService skillAuditService,
         ILogger<ExecutableSkillApprovalService> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _hashService = hashService ?? throw new ArgumentNullException(nameof(hashService));
+        _skillAuditService = skillAuditService ?? throw new ArgumentNullException(nameof(skillAuditService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Initialize with system principal having admin role
@@ -54,6 +57,17 @@ public class ExecutableSkillApprovalService : IExecutableSkillApprovalService
         skill.LastModifiedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         await _repository.UpdateAsync(skill, ct).ConfigureAwait(false);
+
+        await LogAuditSafeAsync(
+            skillId,
+            SkillAuditEventType.ApprovalRequested,
+            requestorId,
+            new Dictionary<string, string>
+            {
+                ["skillName"] = skill.Name,
+                ["newStatus"] = skill.ApprovalStatus
+            },
+            ct).ConfigureAwait(false);
 
         _logger.LogInformation("Approval requested for skill {SkillId} '{SkillName}' by {RequestorId}",
             skillId, skill.Name, requestorId);
@@ -101,6 +115,17 @@ public class ExecutableSkillApprovalService : IExecutableSkillApprovalService
 
         await _repository.UpdateAsync(skill, ct).ConfigureAwait(false);
 
+        await LogAuditSafeAsync(
+            skillId,
+            SkillAuditEventType.Approved,
+            approverAdminId,
+            new Dictionary<string, string>
+            {
+                ["skillName"] = skill.Name,
+                ["newStatus"] = skill.ApprovalStatus
+            },
+            ct).ConfigureAwait(false);
+
         _logger.LogInformation("Skill {SkillId} '{SkillName}' approved by {ApproverId}",
             skillId, skill.Name, approverAdminId);
 
@@ -135,6 +160,17 @@ public class ExecutableSkillApprovalService : IExecutableSkillApprovalService
         skill.LastModifiedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         await _repository.UpdateAsync(skill, ct).ConfigureAwait(false);
+
+        await LogAuditSafeAsync(
+            skillId,
+            SkillAuditEventType.Revoked,
+            adminId,
+            new Dictionary<string, string>
+            {
+                ["skillName"] = skill.Name,
+                ["newStatus"] = skill.ApprovalStatus
+            },
+            ct).ConfigureAwait(false);
 
         _logger.LogWarning("Skill {SkillId} '{SkillName}' revoked by {AdminId}",
             skillId, skill.Name, adminId);
@@ -176,6 +212,30 @@ public class ExecutableSkillApprovalService : IExecutableSkillApprovalService
 
             await _repository.UpdateAsync(skill, ct).ConfigureAwait(false);
 
+            await LogAuditSafeAsync(
+                skillId,
+                SkillAuditEventType.HashMismatch,
+                "system",
+                new Dictionary<string, string>
+                {
+                    ["skillName"] = skill.Name,
+                    ["newStatus"] = skill.ApprovalStatus,
+                    ["reason"] = "File hash mismatch detected during validation"
+                },
+                ct).ConfigureAwait(false);
+
+            await LogAuditSafeAsync(
+                skillId,
+                SkillAuditEventType.FileModified,
+                "system",
+                new Dictionary<string, string>
+                {
+                    ["skillName"] = skill.Name,
+                    ["newStatus"] = skill.ApprovalStatus,
+                    ["reason"] = "Approved skill file changed after approval"
+                },
+                ct).ConfigureAwait(false);
+
             _logger.LogInformation("Skill {SkillId} '{SkillName}' marked as Stale due to file modification",
                 skillId, skill.Name);
         }
@@ -213,6 +273,33 @@ public class ExecutableSkillApprovalService : IExecutableSkillApprovalService
         {
             _principalRoles[principalId].Add(role);
             _logger.LogInformation("Granted role {Role} to principal {PrincipalId}", role, principalId);
+        }
+    }
+
+    private async Task LogAuditSafeAsync(
+        string skillId,
+        SkillAuditEventType eventType,
+        string actorId,
+        IDictionary<string, string>? metadata,
+        CancellationToken ct)
+    {
+        try
+        {
+            await _skillAuditService.LogEventAsync(
+                skillId,
+                eventType.ToString(),
+                actorId,
+                metadata,
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Audit logging must not break approval workflow.
+            _logger.LogWarning(
+                ex,
+                "Failed to log audit event {EventType} for skill {SkillId}",
+                eventType,
+                skillId);
         }
     }
 

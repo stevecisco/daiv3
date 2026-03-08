@@ -55,6 +55,7 @@ public static class OrchestrationServiceExtensions
         services.TryAddScoped<ISkillHashService, SkillHashService>();
         services.TryAddScoped<IExecutableSkillApprovalService, ExecutableSkillApprovalService>();
         services.TryAddScoped<IExecutableSkillRunner, ExecutableSkillRunner>();
+        services.TryAddScoped<ISkillAuditService, SkillAuditService>();
 
         // Register core orchestration services
         services.TryAddScoped<ITaskOrchestrator, TaskOrchestrator>();

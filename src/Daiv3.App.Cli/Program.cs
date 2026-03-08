@@ -12,6 +12,7 @@ using Daiv3.Orchestration;
 using Daiv3.Orchestration.Configuration;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Models;
+using Daiv3.Orchestration.Services;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
@@ -947,6 +948,31 @@ public class Program
             Environment.Exit(exitCode);
         }, skillTreePathOption, skillTreeNameOption, skillTreeRecursiveOption);
 
+        var skillAuditCommand = new Command("audit", "Show executable skill lifecycle audit trail");
+        var skillAuditNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Executable skill name")
+        { IsRequired = true };
+        var skillAuditEventTypeOption = new Option<string?>(
+            aliases: new[] { "--event-type", "-e" },
+            description: "Optional event type filter (Created, Approved, Executed, etc.)");
+        var skillAuditFromOption = new Option<long?>(
+            aliases: new[] { "--from" },
+            description: "Optional inclusive lower timestamp filter (Unix seconds)");
+        var skillAuditToOption = new Option<long?>(
+            aliases: new[] { "--to" },
+            description: "Optional inclusive upper timestamp filter (Unix seconds)");
+        skillAuditCommand.AddOption(skillAuditNameOption);
+        skillAuditCommand.AddOption(skillAuditEventTypeOption);
+        skillAuditCommand.AddOption(skillAuditFromOption);
+        skillAuditCommand.AddOption(skillAuditToOption);
+        skillAuditCommand.SetHandler(async (string name, string? eventType, long? from, long? to) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SkillAuditCommand(host, name, eventType, from, to);
+            Environment.Exit(exitCode);
+        }, skillAuditNameOption, skillAuditEventTypeOption, skillAuditFromOption, skillAuditToOption);
+
         var skillScaffoldCommand = new Command("scaffold", "Create a markdown skill file scaffold (supports SkillCreator bootstrap)");
         var skillScaffoldPathOption = new Option<string>(
             aliases: new[] { "--path", "-p" },
@@ -991,6 +1017,7 @@ public class Program
         skillCommand.AddCommand(skillListCommand);
         skillCommand.AddCommand(skillSearchCommand);
         skillCommand.AddCommand(skillTreeCommand);
+        skillCommand.AddCommand(skillAuditCommand);
         skillCommand.AddCommand(skillScaffoldCommand);
         rootCommand.AddCommand(skillCommand);
 
@@ -5458,6 +5485,80 @@ public class Program
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to render skill hierarchy: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SkillAuditCommand(
+        IHost host,
+        string skillName,
+        string? eventType,
+        long? fromUnixSeconds,
+        long? toUnixSeconds)
+    {
+        try
+        {
+            var skillRepository = host.Services.GetRequiredService<IExecutableSkillRepository>();
+            var skillAuditService = host.Services.GetRequiredService<ISkillAuditService>();
+
+            var skill = await skillRepository.GetByNameAsync(skillName).ConfigureAwait(false);
+            if (skill == null)
+            {
+                Console.WriteLine($"Executable skill not found: {skillName}");
+                return 1;
+            }
+
+            var events = await skillAuditService.QueryAuditEventsAsync(
+                skill.SkillId,
+                eventType,
+                fromUnixSeconds,
+                toUnixSeconds).ConfigureAwait(false);
+
+            Console.WriteLine($"SKILL AUDIT TRAIL: {skill.Name}");
+            Console.WriteLine(new string('=', 20 + skill.Name.Length));
+            Console.WriteLine($"Skill ID: {skill.SkillId}");
+            Console.WriteLine($"Current Status: {skill.ApprovalStatus}");
+            Console.WriteLine();
+
+            if (events.Count == 0)
+            {
+                Console.WriteLine("No audit events found for the selected filters.");
+                return 0;
+            }
+
+            foreach (var entry in events)
+            {
+                var eventTime = DateTimeOffset.FromUnixTimeSeconds(entry.EventAt).UtcDateTime;
+                Console.WriteLine($"- {entry.EventType} at {eventTime:yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"  Actor: {entry.ActorId}");
+
+                if (!string.IsNullOrWhiteSpace(entry.MetadataJson))
+                {
+                    try
+                    {
+                        var metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(entry.MetadataJson);
+                        if (metadata != null)
+                        {
+                            foreach (var pair in metadata)
+                            {
+                                Console.WriteLine($"  {pair.Key}: {pair.Value}");
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        Console.WriteLine($"  metadata: {entry.MetadataJson}");
+                    }
+                }
+
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to query skill audit trail: {ex.Message}");
             return 1;
         }
     }

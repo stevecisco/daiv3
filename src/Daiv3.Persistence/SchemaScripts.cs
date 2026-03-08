@@ -495,4 +495,32 @@ CREATE INDEX IF NOT EXISTS idx_executable_skills_approved_at ON executable_skill
 -- Composite index for approval status timeline queries
 CREATE INDEX IF NOT EXISTS idx_executable_skills_status_created ON executable_skills(approval_status, created_at DESC);
 ";
+
+    /// <summary>
+    /// Migration 012: Skill Audit Trail
+    /// Implements ES-ACC-002 Phase 4: Skill creator integration + audit trail.
+    ///
+    /// Creates skill_audit_log table to track lifecycle events:
+    /// - Created, ApprovalRequested, Approved, Revoked
+    /// - Executed, ExecutionDenied, HashMismatch, FileModified
+    /// </summary>
+    public const string Migration012_SkillAuditLog = @"
+-- Skill audit log table
+CREATE TABLE IF NOT EXISTS skill_audit_log (
+    audit_id TEXT PRIMARY KEY,
+    skill_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    metadata_json TEXT,
+    event_at INTEGER NOT NULL,
+    FOREIGN KEY (skill_id) REFERENCES executable_skills(skill_id) ON DELETE CASCADE
+);
+
+-- Performance indexes for audit queries
+CREATE INDEX IF NOT EXISTS idx_skill_audit_log_skill_id ON skill_audit_log(skill_id);
+CREATE INDEX IF NOT EXISTS idx_skill_audit_log_event_type ON skill_audit_log(event_type);
+CREATE INDEX IF NOT EXISTS idx_skill_audit_log_event_at ON skill_audit_log(event_at DESC);
+CREATE INDEX IF NOT EXISTS idx_skill_audit_log_skill_event_at ON skill_audit_log(skill_id, event_at DESC);
+CREATE INDEX IF NOT EXISTS idx_skill_audit_log_event_type_at ON skill_audit_log(event_type, event_at DESC);
+";
 }

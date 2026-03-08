@@ -16,17 +16,20 @@ public class ExecutableSkillRunner : IExecutableSkillRunner
     private readonly IExecutableSkillRepository _repository;
     private readonly IExecutableSkillApprovalService _approvalService;
     private readonly ISkillHashService _hashService;
+    private readonly ISkillAuditService _skillAuditService;
     private readonly ILogger<ExecutableSkillRunner> _logger;
 
     public ExecutableSkillRunner(
         IExecutableSkillRepository repository,
         IExecutableSkillApprovalService approvalService,
         ISkillHashService hashService,
+        ISkillAuditService skillAuditService,
         ILogger<ExecutableSkillRunner> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _approvalService = approvalService ?? throw new ArgumentNullException(nameof(approvalService));
         _hashService = hashService ?? throw new ArgumentNullException(nameof(hashService));
+        _skillAuditService = skillAuditService ?? throw new ArgumentNullException(nameof(skillAuditService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -99,6 +102,30 @@ public class ExecutableSkillRunner : IExecutableSkillRunner
         var validationResult = await ValidateBeforeExecutionAsync(skillId, cancellationToken);
         if (!validationResult.IsValid)
         {
+            await LogAuditSafeAsync(
+                skillId,
+                SkillAuditEventType.ExecutionDenied,
+                principal.PrincipalId,
+                new Dictionary<string, string>
+                {
+                    ["errorCode"] = validationResult.ErrorCode ?? "Unknown",
+                    ["reason"] = validationResult.ErrorMessage ?? "Validation failed"
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (string.Equals(validationResult.ErrorCode, "IntegrityFailure", StringComparison.OrdinalIgnoreCase))
+            {
+                await LogAuditSafeAsync(
+                    skillId,
+                    SkillAuditEventType.HashMismatch,
+                    principal.PrincipalId,
+                    new Dictionary<string, string>
+                    {
+                        ["reason"] = validationResult.ErrorMessage ?? "Skill hash mismatch"
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
+
             _logger.LogError(
                 "Skill {SkillId} failed pre-execution validation: {ErrorMessage}",
                 skillId,
@@ -131,10 +158,47 @@ public class ExecutableSkillRunner : IExecutableSkillRunner
                 stopwatch.ElapsedMilliseconds,
                 result.ExitCode);
 
+            if (result.Success)
+            {
+                await LogAuditSafeAsync(
+                    skillId,
+                    SkillAuditEventType.Executed,
+                    principal.PrincipalId,
+                    new Dictionary<string, string>
+                    {
+                        ["exitCode"] = result.ExitCode?.ToString() ?? "0",
+                        ["executionTimeMs"] = stopwatch.ElapsedMilliseconds.ToString()
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await LogAuditSafeAsync(
+                    skillId,
+                    SkillAuditEventType.ExecutionDenied,
+                    principal.PrincipalId,
+                    new Dictionary<string, string>
+                    {
+                        ["exitCode"] = result.ExitCode?.ToString() ?? "-1",
+                        ["reason"] = result.ErrorMessage ?? "Execution failed"
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
+
             return result with { ExecutionTimeMs = stopwatch.ElapsedMilliseconds };
         }
         catch (Exception ex)
         {
+            await LogAuditSafeAsync(
+                skillId,
+                SkillAuditEventType.ExecutionDenied,
+                principal.PrincipalId,
+                new Dictionary<string, string>
+                {
+                    ["reason"] = ex.Message
+                },
+                cancellationToken).ConfigureAwait(false);
+
             _logger.LogError(
                 ex,
                 "Skill {SkillId} execution threw exception: {Message}",
@@ -307,4 +371,31 @@ public class ExecutableSkillRunner : IExecutableSkillRunner
         int ExitCode,
         string StandardOutput,
         string StandardError);
+
+    private async Task LogAuditSafeAsync(
+        string skillId,
+        SkillAuditEventType eventType,
+        string actorId,
+        IDictionary<string, string>? metadata,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _skillAuditService.LogEventAsync(
+                skillId,
+                eventType.ToString(),
+                actorId,
+                metadata,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Audit logging must not block skill execution.
+            _logger.LogWarning(
+                ex,
+                "Failed to log audit event {EventType} for skill {SkillId}",
+                eventType,
+                skillId);
+        }
+    }
 }
