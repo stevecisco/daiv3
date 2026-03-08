@@ -114,6 +114,50 @@ public class GlossaryConsistencyTests
         Assert.True(historyLines.Count >= 1, "Version History table must contain at least one version entry");
     }
 
+    /// <summary>
+    /// Validates that the canonical glossary is accessible from key documentation entry points.
+    /// Implements GLO-ACC-002.
+    /// </summary>
+    [Fact]
+    public void KeyDocumentation_LinksToCanonicalGlossary()
+    {
+        var repoRoot = FindRepoRoot();
+        var glossaryPath = "Glossary.md";
+        var violations = new List<string>();
+
+        // Key documentation files that should reference the glossary
+        var docsToCheck = new Dictionary<string, string>
+        {
+            { "Design Document", Path.Combine(repoRoot, "Docs", "Requirements", "Daiv3_Design_Document.md") },
+            { "Master Implementation Tracker", Path.Combine(repoRoot, "Docs", "Requirements", "Master-Implementation-Tracker.md") },
+            { "Glossary Spec", Path.Combine(repoRoot, "Docs", "Requirements", "Specs", "14-Glossary.md") }
+        };
+
+        foreach (var (docName, docPath) in docsToCheck)
+        {
+            if (!File.Exists(docPath))
+            {
+                violations.Add($"{docName} not found at {docPath}");
+                continue;
+            }
+
+            var content = File.ReadAllText(docPath);
+
+            // Check for markdown links to Glossary.md (various forms)
+            var hasLink = content.Contains($"[Glossary.md]") ||
+                         content.Contains($"(Glossary.md)") ||
+                         content.Contains($"[Glossary](Glossary.md)") ||
+                         content.Contains($"](Glossary.md)");
+
+            if (!hasLink)
+            {
+                violations.Add($"{docName} does not link to {glossaryPath}");
+            }
+        }
+
+        Assert.Empty(violations);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

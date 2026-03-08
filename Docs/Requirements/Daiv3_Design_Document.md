@@ -618,6 +618,10 @@ A real-time status view is always accessible to the user, showing:
 
 # 14. Glossary
 
+**Canonical Glossary:** See [Glossary.md](Glossary.md) for the complete, versioned glossary with definitions, related terms, and canonical usage rules.
+
+The table below provides a quick reference to key terminology used throughout this document:
+
   ------------------ -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
   **Term**           **Definition**
 
