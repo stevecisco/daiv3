@@ -3,6 +3,7 @@ namespace Daiv3.Core.Validation;
 /// <summary>
 /// Validates that the system can operate in self-contained mode at startup.
 /// Implements ES-CON-001: The application MUST be locally installable and self-contained.
+/// Implements ES-CON-002: The initial implementation targets .NET 10.
 /// </summary>
 public interface IStartupValidator
 {
@@ -22,4 +23,12 @@ public interface IStartupValidator
     /// <param name="ct">Cancellation token</param>
     /// <returns>Validation result indicating offline capability</returns>
     Task<StartupValidationResult> ValidateOfflineCapabilityAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Validates that the application is running on .NET 10.
+    /// Implements ES-CON-002: The initial implementation targets .NET 10.
+    /// </summary>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Validation result indicating framework version compliance</returns>
+    Task<StartupValidationResult> ValidateFrameworkVersionAsync(CancellationToken ct = default);
 }

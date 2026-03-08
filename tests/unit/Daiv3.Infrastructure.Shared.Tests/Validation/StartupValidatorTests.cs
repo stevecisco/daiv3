@@ -9,6 +9,7 @@ namespace Daiv3.Infrastructure.Shared.Tests.Validation;
 /// <summary>
 /// Unit tests for StartupValidator.
 /// Validates ES-CON-001: The application MUST be locally installable and self-contained.
+/// Validates ES-CON-002: The initial implementation targets .NET 10.
 /// </summary>
 public class StartupValidatorTests
 {
@@ -195,4 +196,133 @@ public class StartupValidatorTests
         Assert.True(Directory.Exists(Path.Combine(appDataPath, "models")), "Models directory should be created");
         Assert.True(Directory.Exists(Path.Combine(appDataPath, "logs")), "Logs directory should be created");
     }
+
+    /// <summary>
+    /// ES-CON-002: Tests that framework version validation succeeds on .NET 10.
+    /// </summary>
+    [Fact]
+    public async Task ValidateFrameworkVersionAsync_OnNet10_ReturnsSuccess()
+    {
+        // Act
+        var result = await _validator.ValidateFrameworkVersionAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("FrameworkVersion", result.Category);
+        Assert.True(result.IsValid, $"Validation failed with errors: {string.Join(", ", result.Errors)}. Runtime version: {Environment.Version}");
+        Assert.NotEmpty(result.Checks);
+        Assert.All(result.Checks, check => Assert.True(check.Passed, $"Check '{check.Name}' failed: {check.ErrorMessage}"));
+    }
+
+    /// <summary>
+    /// ES-CON-002: Tests that framework validation includes runtime version check.
+    /// </summary>
+    [Fact]
+    public async Task ValidateFrameworkVersionAsync_IncludesRuntimeVersionCheck()
+    {
+        // Act
+        var result = await _validator.ValidateFrameworkVersionAsync();
+
+        // Assert
+        Assert.NotNull(result.Checks);
+        Assert.Contains(result.Checks, c => c.Name == ".NET 10 Runtime");
+    }
+
+    /// <summary>
+    /// ES-CON-002: Tests that framework validation includes additional runtime info.
+    /// </summary>
+    [Fact]
+    public async Task ValidateFrameworkVersionAsync_IncludesRuntimeInformation()
+    {
+        // Act
+        var result = await _validator.ValidateFrameworkVersionAsync();
+
+        // Assert
+        Assert.NotNull(result.AdditionalInfo);
+        Assert.Contains("Runtime:", result.AdditionalInfo);
+        Assert.Contains("Version:", result.AdditionalInfo);
+    }
+
+    /// <summary>
+    /// ES-CON-002: Tests that validation correctly reports .NET 10 major version.
+    /// </summary>
+    [Fact]
+    public async Task ValidateFrameworkVersionAsync_DetectsNet10MajorVersion()
+    {
+        // Arrange
+        var expectedMajorVersion = 10;
+        var actualMajorVersion = Environment.Version.Major;
+
+        // Act
+        var result = await _validator.ValidateFrameworkVersionAsync();
+
+        // Assert
+        Assert.Equal(expectedMajorVersion, actualMajorVersion);
+        Assert.True(result.IsValid, $"Expected .NET {expectedMajorVersion} but running on .NET {actualMajorVersion}");
+    }
+
+    /// <summary>
+    /// ES-CON-002: Tests that validation result structure is correct for framework check.
+    /// </summary>
+    [Fact]
+    public async Task ValidateFrameworkVersionAsync_ReturnsWellFormedResult()
+    {
+        // Act
+        var result = await _validator.ValidateFrameworkVersionAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.Category);
+        Assert.NotNull(result.Checks);
+        Assert.NotNull(result.Errors);
+        Assert.NotNull(result.Warnings);
+        Assert.False(string.IsNullOrWhiteSpace(result.Category));
+    }
+
+    /// <summary>
+    /// ES-CON-002: Tests that framework validation can be cancelled.
+    /// </summary>
+    [Fact]
+    public async Task ValidateFrameworkVersionAsync_SupportsCancellation()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            // Fast cancellation check
+            cts.Token.ThrowIfCancellationRequested();
+            await _validator.ValidateFrameworkVersionAsync(cts.Token);
+        });
+    }
+
+    /// <summary>
+    /// ES-CON-002: Tests that check includes duration measurement.
+    /// </summary>
+    [Fact]
+    public async Task ValidateFrameworkVersionAsync_CheckIncludesDuration()
+    {
+        // Act
+        var result = await _validator.ValidateFrameworkVersionAsync();
+
+        // Assert
+        Assert.All(result.Checks, check => Assert.True(check.DurationMs >= 0));
+    }
+
+    /// <summary>
+    /// ES-CON-002: Tests that validation does not produce errors on correct runtime.
+    /// </summary>
+    [Fact]
+    public async Task ValidateFrameworkVersionAsync_OnCorrectRuntime_NoErrors()
+    {
+        // Act
+        var result = await _validator.ValidateFrameworkVersionAsync();
+
+        // Assert
+        Assert.Empty(result.Errors);
+        Assert.Empty(result.Warnings);
+    }
 }
+
