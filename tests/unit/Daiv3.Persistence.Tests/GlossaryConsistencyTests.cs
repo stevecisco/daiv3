@@ -66,6 +66,54 @@ public class GlossaryConsistencyTests
         }
     }
 
+    /// <summary>
+    /// Validates that the canonical glossary includes version metadata and change history.
+    /// Implements GLO-REQ-003.
+    /// </summary>
+    [Fact]
+    public void CanonicalGlossary_IncludesVersionMetadata()
+    {
+        var repoRoot = FindRepoRoot();
+        var glossaryPath = Path.Combine(repoRoot, "Docs", "Requirements", "Glossary.md");
+        var glossaryText = File.ReadAllText(glossaryPath);
+
+        // Validate version metadata section exists
+        Assert.Contains("**Version:**", glossaryText);
+        Assert.Contains("**Last Updated:**", glossaryText);
+        Assert.Contains("**Status:**", glossaryText);
+
+        // Validate version history table exists
+        Assert.Contains("## Version History", glossaryText);
+        Assert.Contains("| Version | Date | Changes | Author/Context |", glossaryText);
+
+        // Validate version format (e.g., "1.0", "1.1", "2.0")
+        var versionMatch = System.Text.RegularExpressions.Regex.Match(
+            glossaryText,
+            @"\*\*Version:\*\*\s+(\d+\.\d+)",
+            System.Text.RegularExpressions.RegexOptions.Multiline
+        );
+        Assert.True(versionMatch.Success, "Version metadata must include a semantic version number (e.g., 1.0)");
+
+        // Validate date format (e.g., "2026-03-08")
+        var dateMatch = System.Text.RegularExpressions.Regex.Match(
+            glossaryText,
+            @"\*\*Last Updated:\*\*\s+(\d{4}-\d{2}-\d{2})",
+            System.Text.RegularExpressions.RegexOptions.Multiline
+        );
+        Assert.True(dateMatch.Success, "Last Updated metadata must include a date in YYYY-MM-DD format");
+
+        // Validate at least one entry in version history table (beyond the header)
+        var historyLines = glossaryText.Split('\n')
+            .SkipWhile(line => !line.Contains("## Version History"))
+            .Skip(1) // Skip the section header
+            .TakeWhile(line => !line.StartsWith("##")) // Take until next section
+            .Where(line => line.TrimStart().StartsWith("|") && !line.Contains("Version | Date")) // Table rows, excluding header
+            .ToList();
+
+        Assert.NotEmpty(historyLines);
+        Assert.True(historyLines.Count >= 1, "Version History table must contain at least one version entry");
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

@@ -1,6 +1,16 @@
 # DAIv3 Glossary
 
+**Version:** 1.0  
+**Last Updated:** 2026-03-08  
+**Status:** Active
+
 This glossary defines the canonical terminology used across DAIv3 requirements, architecture docs, UI labels, and operational documentation.
+
+## Version History
+
+| Version | Date | Changes | Author/Context |
+|---|---|---|---|
+| 1.0 | 2026-03-08 | Initial baseline with 11 canonical terms (Chunk, Embedding, Foundry Local, MCP, NPU, ONNX Runtime, Learning Memory, RAG, SLM, Tier 1 / Tier 2, TensorPrimitives). Added canonical usage rules and governance section. | GLO-REQ-001 implementation |
 
 ## Canonical Terms
 
