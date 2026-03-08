@@ -95,6 +95,20 @@ public class SkillRegistryTests
     }
 
     [Fact]
+    public void UnregisterSkill_WithExistingSkill_RemovesIt()
+    {
+        // Arrange
+        _registry.RegisterSkill(new TestSkill("TransientSkill", "Temporary"));
+
+        // Act
+        var removed = _registry.UnregisterSkill("TransientSkill");
+
+        // Assert
+        Assert.True(removed);
+        Assert.Null(_registry.ResolveSkill("TransientSkill"));
+    }
+
+    [Fact]
     public void ResolveSkill_WithNullName_ThrowsArgumentNullException()
     {
         // Act & Assert

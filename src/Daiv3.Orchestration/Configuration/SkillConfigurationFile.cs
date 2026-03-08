@@ -3,8 +3,8 @@ using Daiv3.Orchestration.Interfaces;
 namespace Daiv3.Orchestration.Configuration;
 
 /// <summary>
-/// Represents a skill definition loaded from a JSON or YAML configuration file.
-/// This contract maps directly to the declarative skill configuration format, supporting both JSON and YAML parsing.
+/// Represents a skill definition loaded from a JSON, YAML, or Markdown configuration file.
+/// This contract maps directly to the declarative skill configuration format and supports progressive hierarchy composition.
 /// </summary>
 public class SkillConfigurationFile
 {
@@ -55,6 +55,155 @@ public class SkillConfigurationFile
     /// Can include implementation details, version, source URL, or other skill-specific settings.
     /// </summary>
     public Dictionary<string, string> Config { get; set; } = new();
+
+    /// <summary>
+    /// Optional high-level skill domain (for catalog slicing/search).
+    /// </summary>
+    public string? Domain { get; set; }
+
+    /// <summary>
+    /// Optional language hint for instructions/inputs (for catalog slicing/search).
+    /// </summary>
+    public string? Language { get; set; }
+
+    /// <summary>
+    /// Hierarchy level where this skill definition applies.
+    /// Valid values: Global, Project, SubProject, Task.
+    /// </summary>
+    public string ScopeLevel { get; set; } = "Global";
+
+    /// <summary>
+    /// Optional project identifier for project/task-scoped skills.
+    /// </summary>
+    public string? ProjectId { get; set; }
+
+    /// <summary>
+    /// Optional sub-project identifier for sub-project/task-scoped skills.
+    /// </summary>
+    public string? SubProjectId { get; set; }
+
+    /// <summary>
+    /// Optional task identifier for task-scoped skills.
+    /// </summary>
+    public string? TaskId { get; set; }
+
+    /// <summary>
+    /// Optional parent skill name to extend.
+    /// </summary>
+    public string? ExtendsSkill { get; set; }
+
+    /// <summary>
+    /// Override mode for hierarchy composition.
+    /// Valid values: Merge (default), Replace.
+    /// </summary>
+    public string OverrideMode { get; set; } = "Merge";
+
+    /// <summary>
+    /// Optional capability declarations for search/indexing and selection.
+    /// </summary>
+    public List<string> Capabilities { get; set; } = new();
+
+    /// <summary>
+    /// Optional restrictions/guardrails declared by the skill.
+    /// </summary>
+    public List<string> Restrictions { get; set; } = new();
+
+    /// <summary>
+    /// Optional keywords/tags for catalog search.
+    /// </summary>
+    public List<string> Keywords { get; set; } = new();
+
+    /// <summary>
+    /// Optional raw instruction body (primarily for markdown-backed skills).
+    /// </summary>
+    public string? Instructions { get; set; }
+
+    /// <summary>
+    /// Physical source path for provenance/debugging.
+    /// </summary>
+    public string? SourcePath { get; set; }
+}
+
+/// <summary>
+/// Skill hierarchy levels used for progressive loading.
+/// </summary>
+public enum SkillHierarchyLevel
+{
+    Global = 0,
+    Project = 1,
+    SubProject = 2,
+    Task = 3
+}
+
+/// <summary>
+/// Searchable catalog entry for a loaded skill configuration.
+/// </summary>
+public sealed class SkillCatalogEntry
+{
+    public required string Name { get; init; }
+    public required string Description { get; init; }
+    public required string ScopeLevel { get; init; }
+    public string? Domain { get; init; }
+    public string? Language { get; init; }
+    public string? ProjectId { get; init; }
+    public string? SubProjectId { get; init; }
+    public string? TaskId { get; init; }
+    public string? ExtendsSkill { get; init; }
+    public string? SourcePath { get; init; }
+    public IReadOnlyList<string> Capabilities { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> Restrictions { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> Keywords { get; init; } = Array.Empty<string>();
+}
+
+/// <summary>
+/// Multi-view catalog for loaded skills.
+/// </summary>
+public sealed class SkillCatalog
+{
+    public List<SkillCatalogEntry> Entries { get; } = new();
+
+    public IReadOnlyList<SkillCatalogEntry> Search(
+        string? query = null,
+        string? scopeLevel = null,
+        string? domain = null,
+        string? language = null,
+        string? capability = null)
+    {
+        IEnumerable<SkillCatalogEntry> matches = Entries;
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            matches = matches.Where(e =>
+                e.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.Description.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.Keywords.Any(k => k.Contains(query, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(scopeLevel))
+        {
+            matches = matches.Where(e => string.Equals(e.ScopeLevel, scopeLevel, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(domain))
+        {
+            matches = matches.Where(e => string.Equals(e.Domain, domain, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(language))
+        {
+            matches = matches.Where(e => string.Equals(e.Language, language, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(capability))
+        {
+            matches = matches.Where(e => e.Capabilities.Any(c => c.Contains(capability, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return matches
+            .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.ScopeLevel, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 }
 
 /// <summary>

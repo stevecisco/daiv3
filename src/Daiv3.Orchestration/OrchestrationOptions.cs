@@ -104,9 +104,14 @@ public class OrchestrationOptions
 
     /// <summary>
     /// Path to skill configuration file or directory.
-    /// Supports either a single JSON file or a directory of JSON files.
+    /// Supports JSON/YAML/Markdown skill files.
     /// </summary>
-    public string SkillConfigAutoLoadPath { get; set; } = "config/skills";
+    public string SkillConfigAutoLoadPath { get; set; } = "skills";
+
+    /// <summary>
+    /// Whether the runtime should watch skill files and reload effective skills on updates.
+    /// </summary>
+    public bool EnableSkillFileWatcher { get; set; } = true;
 
     /// <summary>
     /// Path to agent configuration file or directory.

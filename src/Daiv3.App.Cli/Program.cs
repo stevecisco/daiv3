@@ -852,6 +852,148 @@ public class Program
         agentCommand.AddCommand(agentLoadCommand);
         rootCommand.AddCommand(agentCommand);
 
+        // Skill management commands (ES-ACC-003)
+        var skillCommand = new Command("skill", "Skill loading, catalog search, and hierarchy management");
+
+        var skillLoadCommand = new Command("load", "Load skill(s) from configuration file(s) including markdown skill manifests");
+        var skillPathOption = new Option<string>(
+            aliases: new[] { "--path", "-p" },
+            description: "Path to skill file or directory")
+        { IsRequired = true };
+        var skillRecursiveOption = new Option<bool>(
+            aliases: new[] { "--recursive", "-r" },
+            description: "When loading from directory, search subdirectories recursively",
+            getDefaultValue: () => false);
+        var skillValidateOnlyOption = new Option<bool>(
+            aliases: new[] { "--validate-only" },
+            description: "Validate without registering skills",
+            getDefaultValue: () => false);
+        skillLoadCommand.AddOption(skillPathOption);
+        skillLoadCommand.AddOption(skillRecursiveOption);
+        skillLoadCommand.AddOption(skillValidateOnlyOption);
+        skillLoadCommand.SetHandler(async (string path, bool recursive, bool validateOnly) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SkillLoadCommand(host, path, recursive, validateOnly);
+            Environment.Exit(exitCode);
+        }, skillPathOption, skillRecursiveOption, skillValidateOnlyOption);
+
+        var skillListCommand = new Command("list", "List registered skills from runtime registry");
+        skillListCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SkillListCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        var skillSearchCommand = new Command("search", "Search skills via indexed catalog slices");
+        var skillSearchPathOption = new Option<string>(
+            aliases: new[] { "--path", "-p" },
+            description: "Path to skill file or directory",
+            getDefaultValue: () => "skills");
+        var skillSearchQueryOption = new Option<string?>(
+            aliases: new[] { "--query", "-q" },
+            description: "Name/description/keyword query");
+        var skillSearchScopeOption = new Option<string?>(
+            aliases: new[] { "--scope" },
+            description: "Scope level filter: Global, Project, SubProject, Task");
+        var skillSearchDomainOption = new Option<string?>(
+            aliases: new[] { "--domain" },
+            description: "Domain filter");
+        var skillSearchLanguageOption = new Option<string?>(
+            aliases: new[] { "--language" },
+            description: "Language filter");
+        var skillSearchCapabilityOption = new Option<string?>(
+            aliases: new[] { "--capability" },
+            description: "Capability filter");
+        var skillSearchRecursiveOption = new Option<bool>(
+            aliases: new[] { "--recursive", "-r" },
+            description: "Recursively load skill files",
+            getDefaultValue: () => true);
+        skillSearchCommand.AddOption(skillSearchPathOption);
+        skillSearchCommand.AddOption(skillSearchQueryOption);
+        skillSearchCommand.AddOption(skillSearchScopeOption);
+        skillSearchCommand.AddOption(skillSearchDomainOption);
+        skillSearchCommand.AddOption(skillSearchLanguageOption);
+        skillSearchCommand.AddOption(skillSearchCapabilityOption);
+        skillSearchCommand.AddOption(skillSearchRecursiveOption);
+        skillSearchCommand.SetHandler(async (string path, string? query, string? scope, string? domain, string? language, string? capability, bool recursive) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SkillSearchCommand(host, path, query, scope, domain, language, capability, recursive);
+            Environment.Exit(exitCode);
+        }, skillSearchPathOption, skillSearchQueryOption, skillSearchScopeOption, skillSearchDomainOption, skillSearchLanguageOption, skillSearchCapabilityOption, skillSearchRecursiveOption);
+
+        var skillTreeCommand = new Command("tree", "Show hierarchy composition for a skill across scope levels");
+        var skillTreePathOption = new Option<string>(
+            aliases: new[] { "--path", "-p" },
+            description: "Path to skill file or directory",
+            getDefaultValue: () => "skills");
+        var skillTreeNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Skill name")
+        { IsRequired = true };
+        var skillTreeRecursiveOption = new Option<bool>(
+            aliases: new[] { "--recursive", "-r" },
+            description: "Recursively search for skill files",
+            getDefaultValue: () => true);
+        skillTreeCommand.AddOption(skillTreePathOption);
+        skillTreeCommand.AddOption(skillTreeNameOption);
+        skillTreeCommand.AddOption(skillTreeRecursiveOption);
+        skillTreeCommand.SetHandler(async (string path, string name, bool recursive) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SkillTreeCommand(host, path, name, recursive);
+            Environment.Exit(exitCode);
+        }, skillTreePathOption, skillTreeNameOption, skillTreeRecursiveOption);
+
+        var skillScaffoldCommand = new Command("scaffold", "Create a markdown skill file scaffold (supports SkillCreator bootstrap)");
+        var skillScaffoldPathOption = new Option<string>(
+            aliases: new[] { "--path", "-p" },
+            description: "Root skills directory",
+            getDefaultValue: () => "skills");
+        var skillScaffoldNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Skill name")
+        { IsRequired = true };
+        var skillScaffoldDescriptionOption = new Option<string>(
+            aliases: new[] { "--description", "-d" },
+            description: "Skill short description")
+        { IsRequired = true };
+        var skillScaffoldScopeOption = new Option<string>(
+            aliases: new[] { "--scope", "-s" },
+            description: "Scope level: Global, Project, SubProject, Task",
+            getDefaultValue: () => "Global");
+        var skillScaffoldProjectOption = new Option<string?>(
+            aliases: new[] { "--project" },
+            description: "Project identifier (for Project/SubProject/Task scopes)");
+        var skillScaffoldSubProjectOption = new Option<string?>(
+            aliases: new[] { "--sub-project" },
+            description: "Sub-project identifier (for SubProject/Task scopes)");
+        var skillScaffoldTaskOption = new Option<string?>(
+            aliases: new[] { "--task" },
+            description: "Task identifier (for Task scope)");
+        skillScaffoldCommand.AddOption(skillScaffoldPathOption);
+        skillScaffoldCommand.AddOption(skillScaffoldNameOption);
+        skillScaffoldCommand.AddOption(skillScaffoldDescriptionOption);
+        skillScaffoldCommand.AddOption(skillScaffoldScopeOption);
+        skillScaffoldCommand.AddOption(skillScaffoldProjectOption);
+        skillScaffoldCommand.AddOption(skillScaffoldSubProjectOption);
+        skillScaffoldCommand.AddOption(skillScaffoldTaskOption);
+        skillScaffoldCommand.SetHandler(async (string path, string name, string description, string scope, string? project, string? subProject, string? task) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SkillScaffoldCommand(host, path, name, description, scope, project, subProject, task);
+            Environment.Exit(exitCode);
+        }, skillScaffoldPathOption, skillScaffoldNameOption, skillScaffoldDescriptionOption, skillScaffoldScopeOption, skillScaffoldProjectOption, skillScaffoldSubProjectOption, skillScaffoldTaskOption);
+
+        skillCommand.AddCommand(skillLoadCommand);
+        skillCommand.AddCommand(skillListCommand);
+        skillCommand.AddCommand(skillSearchCommand);
+        skillCommand.AddCommand(skillTreeCommand);
+        skillCommand.AddCommand(skillScaffoldCommand);
+        rootCommand.AddCommand(skillCommand);
+
         // Learning command
         var learningCommand = new Command("learning", "Learning management commands");
 
@@ -5051,6 +5193,369 @@ public class Program
             Console.WriteLine($"✗ Failed to load agent configuration: {ex.Message}");
             return 1;
         }
+    }
+
+    private static async Task<int> SkillLoadCommand(
+        IHost host,
+        string configPath,
+        bool recursive,
+        bool validateOnly)
+    {
+        try
+        {
+            var loader = host.Services.GetRequiredService<SkillConfigFileLoader>();
+            var registry = host.Services.GetRequiredService<ISkillRegistry>();
+
+            Console.WriteLine("LOADING SKILL CONFIGURATION(S)");
+            Console.WriteLine("============================");
+            Console.WriteLine();
+
+            var batch = await loader.LoadSkillBatchAsync(configPath, recursive).ConfigureAwait(false);
+            if (batch.Skills.Count == 0)
+            {
+                Console.WriteLine("No skill configurations found.");
+                return 1;
+            }
+
+            var valid = new List<SkillConfigurationFile>();
+            var hasErrors = false;
+
+            foreach (var config in batch.Skills)
+            {
+                var validation = loader.ValidateConfiguration(config);
+                if (!validation.IsValid)
+                {
+                    hasErrors = true;
+                    Console.WriteLine($"✗ {config.Name}");
+                    foreach (var error in validation.Errors)
+                    {
+                        Console.WriteLine($"    Error: {error}");
+                    }
+
+                    continue;
+                }
+
+                if (validation.Warnings.Count > 0)
+                {
+                    Console.WriteLine($"⚠ {config.Name}");
+                    foreach (var warning in validation.Warnings)
+                    {
+                        Console.WriteLine($"    Warning: {warning}");
+                    }
+                }
+
+                valid.Add(config);
+            }
+
+            if (hasErrors)
+            {
+                Console.WriteLine();
+                Console.WriteLine("Validation failed for one or more skills.");
+                return 1;
+            }
+
+            if (validateOnly)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"✓ {valid.Count} skill(s) validated successfully.");
+                return 0;
+            }
+
+            foreach (var config in valid)
+            {
+                var metadata = loader.ToSkillMetadata(config);
+                registry.RegisterSkill(new ConfiguredSkill(metadata, config.Config), metadata.Source);
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"✓ Registered {valid.Count} skill(s).");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to load skill configuration: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static Task<int> SkillListCommand(IHost host)
+    {
+        try
+        {
+            var registry = host.Services.GetRequiredService<ISkillRegistry>();
+            var skills = registry.ListSkills();
+
+            if (skills.Count == 0)
+            {
+                Console.WriteLine("No skills registered.");
+                return Task.FromResult(0);
+            }
+
+            Console.WriteLine($"REGISTERED SKILLS ({skills.Count})");
+            Console.WriteLine("========================");
+            Console.WriteLine();
+
+            foreach (var skill in skills)
+            {
+                Console.WriteLine($"- {skill.Name}");
+                Console.WriteLine($"  Category: {skill.Category}");
+                Console.WriteLine($"  Source:   {skill.Source}");
+                Console.WriteLine($"  Summary:  {skill.Description}");
+                Console.WriteLine($"  Inputs:   {skill.Inputs.Count}");
+                Console.WriteLine($"  Output:   {skill.Outputs.Type}");
+                if (skill.Permissions.Count > 0)
+                {
+                    Console.WriteLine($"  Permissions: {string.Join(", ", skill.Permissions)}");
+                }
+
+                Console.WriteLine();
+            }
+
+            return Task.FromResult(0);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to list skills: {ex.Message}");
+            return Task.FromResult(1);
+        }
+    }
+
+    private static async Task<int> SkillSearchCommand(
+        IHost host,
+        string path,
+        string? query,
+        string? scope,
+        string? domain,
+        string? language,
+        string? capability,
+        bool recursive)
+    {
+        try
+        {
+            var loader = host.Services.GetRequiredService<SkillConfigFileLoader>();
+            var catalog = await loader.LoadSkillCatalogAsync(path, recursive).ConfigureAwait(false);
+            var matches = catalog.Search(query, scope, domain, language, capability);
+
+            Console.WriteLine($"SKILL CATALOG MATCHES ({matches.Count})");
+            Console.WriteLine("==========================");
+            Console.WriteLine();
+
+            foreach (var entry in matches)
+            {
+                Console.WriteLine($"- {entry.Name} [{entry.ScopeLevel}]");
+                Console.WriteLine($"  Description: {entry.Description}");
+                Console.WriteLine($"  Domain:      {entry.Domain ?? "(none)"}");
+                Console.WriteLine($"  Language:    {entry.Language ?? "(none)"}");
+                Console.WriteLine($"  Project:     {entry.ProjectId ?? "(none)"}");
+                Console.WriteLine($"  SubProject:  {entry.SubProjectId ?? "(none)"}");
+                Console.WriteLine($"  Task:        {entry.TaskId ?? "(none)"}");
+                if (entry.ExtendsSkill is not null)
+                {
+                    Console.WriteLine($"  Extends:     {entry.ExtendsSkill}");
+                }
+
+                if (entry.Capabilities.Count > 0)
+                {
+                    Console.WriteLine($"  Capabilities: {string.Join(", ", entry.Capabilities)}");
+                }
+
+                if (entry.Restrictions.Count > 0)
+                {
+                    Console.WriteLine($"  Restrictions: {string.Join(", ", entry.Restrictions)}");
+                }
+
+                if (entry.Keywords.Count > 0)
+                {
+                    Console.WriteLine($"  Keywords: {string.Join(", ", entry.Keywords)}");
+                }
+
+                Console.WriteLine($"  Source: {entry.SourcePath ?? "(unknown)"}");
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to search skill catalog: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SkillTreeCommand(IHost host, string path, string skillName, bool recursive)
+    {
+        try
+        {
+            var loader = host.Services.GetRequiredService<SkillConfigFileLoader>();
+            var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+
+            var files = new List<string>();
+            if (File.Exists(path))
+            {
+                files.Add(path);
+            }
+            else if (Directory.Exists(path))
+            {
+                foreach (var pattern in new[] { "*.md", "*.json", "*.yaml", "*.yml" })
+                {
+                    files.AddRange(Directory.GetFiles(path, pattern, searchOption));
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Path not found: {path}");
+                return 1;
+            }
+
+            var entries = new List<SkillConfigurationFile>();
+            foreach (var file in files.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var config = await loader.LoadSkillConfigAsync(file).ConfigureAwait(false);
+                    if (config.Name.Equals(skillName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        entries.Add(config);
+                    }
+                }
+                catch
+                {
+                    // Ignore malformed files for hierarchy view.
+                }
+            }
+
+            if (entries.Count == 0)
+            {
+                Console.WriteLine($"No skill definitions found for '{skillName}'.");
+                return 1;
+            }
+
+            var ordered = entries
+                .OrderBy(e => e.ScopeLevel, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(e => e.SourcePath, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            Console.WriteLine($"SKILL HIERARCHY: {skillName}");
+            Console.WriteLine(new string('=', 18 + skillName.Length));
+            Console.WriteLine();
+
+            foreach (var entry in ordered)
+            {
+                Console.WriteLine($"- [{entry.ScopeLevel}] {entry.Name}");
+                Console.WriteLine($"  Description: {entry.Description}");
+                Console.WriteLine($"  OverrideMode: {entry.OverrideMode}");
+                if (!string.IsNullOrWhiteSpace(entry.ExtendsSkill))
+                {
+                    Console.WriteLine($"  Extends: {entry.ExtendsSkill}");
+                }
+
+                Console.WriteLine($"  Source: {entry.SourcePath ?? "(unknown)"}");
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to render skill hierarchy: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static Task<int> SkillScaffoldCommand(
+        IHost host,
+        string rootPath,
+        string name,
+        string description,
+        string scope,
+        string? project,
+        string? subProject,
+        string? task)
+    {
+        try
+        {
+            _ = host;
+
+            var normalizedScope = scope.Trim();
+            var scopeFolder = normalizedScope.ToLowerInvariant() switch
+            {
+                "global" => Path.Combine(rootPath, "global"),
+                "project" => Path.Combine(rootPath, "project", SanitizeForPath(project ?? "default")),
+                "subproject" => Path.Combine(rootPath, "project", SanitizeForPath(project ?? "default"), "subproject", SanitizeForPath(subProject ?? "default")),
+                "task" => Path.Combine(rootPath, "project", SanitizeForPath(project ?? "default"), "subproject", SanitizeForPath(subProject ?? "default"), "task", SanitizeForPath(task ?? "default")),
+                _ => Path.Combine(rootPath, "global")
+            };
+
+            Directory.CreateDirectory(scopeFolder);
+
+            var fileName = $"{SanitizeForPath(name)}.md";
+            var fullPath = Path.Combine(scopeFolder, fileName);
+            if (File.Exists(fullPath))
+            {
+                Console.WriteLine($"Skill file already exists: {fullPath}");
+                return Task.FromResult(1);
+            }
+
+            var content = BuildSkillScaffold(name, description, normalizedScope, project, subProject, task);
+            File.WriteAllText(fullPath, content);
+
+            Console.WriteLine($"✓ Created skill scaffold: {fullPath}");
+            return Task.FromResult(0);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to scaffold skill: {ex.Message}");
+            return Task.FromResult(1);
+        }
+    }
+
+    private static string BuildSkillScaffold(
+        string name,
+        string description,
+        string scope,
+        string? project,
+        string? subProject,
+        string? task)
+    {
+        return $"""
+{name}
+{description}
+
+## Metadata
+scope: {scope}
+domain: General
+language: en
+project: {project ?? string.Empty}
+subproject: {subProject ?? string.Empty}
+task: {task ?? string.Empty}
+category: Other
+source: UserDefined
+override: Merge
+
+## Capabilities
+- Describe what this skill can do
+
+## Restrictions
+- Describe what this skill cannot do
+
+## Inputs
+- prompt|string|true|Primary instruction prompt
+
+## Output
+type: object
+description: Skill output payload
+
+## Instructions
+- Be precise and deterministic.
+- Include explicit boundaries for what the skill should not do.
+""";
+    }
+
+    private static string SanitizeForPath(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(value.Select(ch => invalid.Contains(ch) ? '-' : ch).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "skill" : cleaned;
     }
 
     private static async Task<int> LearningListCommand(IHost host, string? status, string? scope, string? agent, double? minConfidence)

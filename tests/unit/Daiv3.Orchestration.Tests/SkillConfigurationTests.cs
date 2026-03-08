@@ -181,4 +181,157 @@ public class SkillConfigurationTests
         Assert.True(param.Required);
         Assert.Equal("Number of iterations", param.Description);
     }
+
+    [Fact]
+    public async Task LoadSkillConfigAsync_Markdown_FirstTwoLinesBecomeNameAndDescription()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillConfigFileLoader>>();
+        var loader = new SkillConfigFileLoader(logger);
+
+        var filePath = Path.Combine(Path.GetTempPath(), $"skill-md-{Guid.NewGuid():N}.md");
+        try
+        {
+            var content = """
+SkillCreator
+Creates child skills from natural language prompts.
+
+## Metadata
+scope: Project
+project: Daiv3
+capabilities: scaffold,metadata-normalization
+restrictions: no-runtime-code
+
+## Inputs
+- prompt|string|true|The requested capability
+
+## Output
+type: object
+description: Generated skill draft
+""";
+
+            await File.WriteAllTextAsync(filePath, content);
+            var config = await loader.LoadSkillConfigAsync(filePath);
+
+            Assert.Equal("SkillCreator", config.Name);
+            Assert.Equal("Creates child skills from natural language prompts.", config.Description);
+            Assert.Equal("Project", config.ScopeLevel);
+            Assert.Equal("Daiv3", config.ProjectId);
+            Assert.Contains("scaffold", config.Capabilities);
+            Assert.Contains("no-runtime-code", config.Restrictions);
+            Assert.Single(config.Inputs);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task LoadSkillBatchAsync_Directory_ComposesHierarchyByScope()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillConfigFileLoader>>();
+        var loader = new SkillConfigFileLoader(logger);
+
+        var directory = Path.Combine(Path.GetTempPath(), $"skill-batch-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            var globalFile = Path.Combine(directory, "Writer.global.md");
+            var taskFile = Path.Combine(directory, "Writer.task.md");
+
+            await File.WriteAllTextAsync(globalFile, """
+Writer
+Base writing skill.
+
+## Metadata
+scope: Global
+capabilities: summarize
+
+## Output
+type: object
+description: Base output
+""");
+
+            await File.WriteAllTextAsync(taskFile, """
+Writer
+Task scoped writing variant.
+
+## Metadata
+scope: Task
+task: ES-ACC-003
+capabilities: summarize,skill-authoring
+""");
+
+            var batch = await loader.LoadSkillBatchAsync(directory, recursive: false);
+            var effective = Assert.Single(batch.Skills);
+
+            Assert.Equal("Writer", effective.Name);
+            Assert.Equal("Task scoped writing variant.", effective.Description);
+            Assert.Equal("Task", effective.ScopeLevel);
+            Assert.Equal("ES-ACC-003", effective.TaskId);
+            Assert.Contains("summarize", effective.Capabilities);
+            Assert.Contains("skill-authoring", effective.Capabilities);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task LoadSkillCatalogAsync_SearchByCapability_ReturnsMatches()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var logger = serviceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SkillConfigFileLoader>>();
+        var loader = new SkillConfigFileLoader(logger);
+
+        var directory = Path.Combine(Path.GetTempPath(), $"skill-catalog-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            var file = Path.Combine(directory, "Analyzer.md");
+            await File.WriteAllTextAsync(file, """
+Analyzer
+Analyzes requirements and produces testable implementation notes.
+
+## Metadata
+scope: Global
+domain: Architecture
+capabilities: analysis,test-planning
+""");
+
+            var catalog = await loader.LoadSkillCatalogAsync(directory, recursive: false);
+            var matches = catalog.Search(capability: "analysis");
+
+            var entry = Assert.Single(matches);
+            Assert.Equal("Analyzer", entry.Name);
+            Assert.Equal("Architecture", entry.Domain);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
 }

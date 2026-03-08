@@ -45,9 +45,12 @@ public class SkillConfigFileLoader
         {
             ".json" => ParseJsonConfiguration(content),
             ".yaml" or ".yml" => ParseYamlConfiguration(content),
+            ".md" => ParseMarkdownConfiguration(content, filePath),
             _ => throw new InvalidOperationException(
-                $"Unsupported configuration file format: {fileExtension}. Supported formats: .json, .yaml, .yml")
+                $"Unsupported configuration file format: {fileExtension}. Supported formats: .json, .yaml, .yml, .md")
         };
+
+        config.SourcePath = filePath;
 
         _logger.LogInformation("Loaded skill configuration: {SkillName}", config.Name);
         return config;
@@ -67,11 +70,30 @@ public class SkillConfigFileLoader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePathOrFile);
 
-        // If it's a file, load it as a batch file
+        // If it's a file, load it as a batch file (.json with "skills") or a single skill file.
         if (File.Exists(sourcePathOrFile))
         {
             _logger.LogInformation("Loading skill batch from file: {FilePath}", sourcePathOrFile);
-            return await LoadBatchFileAsync(sourcePathOrFile, ct).ConfigureAwait(false);
+
+            var extension = Path.GetExtension(sourcePathOrFile).ToLowerInvariant();
+            if (extension == ".json")
+            {
+                var content = await File.ReadAllTextAsync(sourcePathOrFile, ct).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(content);
+
+                if (doc.RootElement.TryGetProperty("skills", out _))
+                {
+                    return await LoadBatchFileAsync(sourcePathOrFile, ct).ConfigureAwait(false);
+                }
+            }
+
+            var single = await LoadSkillConfigAsync(sourcePathOrFile, ct).ConfigureAwait(false);
+            return new SkillConfigurationBatch
+            {
+                BatchName = Path.GetFileName(sourcePathOrFile),
+                Description = $"Single skill loaded from {sourcePathOrFile}",
+                Skills = ComposeProgressiveSkillHierarchy(new List<SkillConfigurationFile> { single })
+            };
         }
 
         // If it's a directory, scan for config files
@@ -154,6 +176,21 @@ public class SkillConfigFileLoader
                 $"Unknown skill source '{config.Source}'. Using 'UserDefined'. Valid sources are: BuiltIn, UserDefined, Imported");
         }
 
+        // Validate hierarchy metadata
+        if (!TryParseHierarchyLevel(config.ScopeLevel, out _))
+        {
+            result.AddWarning(
+                $"Unknown scope level '{config.ScopeLevel}'. Using 'Global'. Valid values are: Global, Project, SubProject, Task");
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.OverrideMode) &&
+            !config.OverrideMode.Equals("Merge", StringComparison.OrdinalIgnoreCase) &&
+            !config.OverrideMode.Equals("Replace", StringComparison.OrdinalIgnoreCase))
+        {
+            result.AddWarning(
+                $"Unknown override mode '{config.OverrideMode}'. Using 'Merge'. Valid values are: Merge, Replace");
+        }
+
         // Validate input parameters
         foreach (var param in config.Inputs)
         {
@@ -208,6 +245,75 @@ public class SkillConfigFileLoader
                 Required = param.Required,
                 Description = param.Description
             });
+        }
+
+        // Preserve rich markdown metadata in config for runtime/catalog consumers.
+        metadata.Permissions = MergeDistinct(metadata.Permissions, config.Capabilities.Select(c => $"Capability:{c}"));
+        metadata.Permissions = MergeDistinct(metadata.Permissions, config.Restrictions.Select(r => $"Restriction:{r}"));
+
+        if (!string.IsNullOrWhiteSpace(config.ScopeLevel))
+        {
+            config.Config["scope_level"] = config.ScopeLevel;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.Domain))
+        {
+            config.Config["domain"] = config.Domain;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.Language))
+        {
+            config.Config["language"] = config.Language;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.ProjectId))
+        {
+            config.Config["project_id"] = config.ProjectId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.SubProjectId))
+        {
+            config.Config["sub_project_id"] = config.SubProjectId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.TaskId))
+        {
+            config.Config["task_id"] = config.TaskId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.ExtendsSkill))
+        {
+            config.Config["extends_skill"] = config.ExtendsSkill;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.OverrideMode))
+        {
+            config.Config["override_mode"] = config.OverrideMode;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.Instructions))
+        {
+            config.Config["instructions"] = config.Instructions;
+        }
+
+        if (config.Capabilities.Count > 0)
+        {
+            config.Config["capabilities"] = string.Join(",", config.Capabilities);
+        }
+
+        if (config.Restrictions.Count > 0)
+        {
+            config.Config["restrictions"] = string.Join(",", config.Restrictions);
+        }
+
+        if (config.Keywords.Count > 0)
+        {
+            config.Config["keywords"] = string.Join(",", config.Keywords);
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.SourcePath))
+        {
+            config.Config["source_path"] = config.SourcePath;
         }
 
         return metadata;
@@ -372,7 +478,7 @@ public class SkillConfigFileLoader
             Description = $"Skills loaded from {directoryPath}"
         };
 
-        var searchPattern = new[] { "*.json", "*.yaml", "*.yml" };
+        var searchPattern = new[] { "*.json", "*.yaml", "*.yml", "*.md" };
         var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
         foreach (var pattern in searchPattern)
@@ -396,7 +502,9 @@ public class SkillConfigFileLoader
             }
         }
 
-        _logger.LogInformation("Loaded {Count} skill(s) from {DirectoryPath}", batch.Skills.Count, directoryPath);
+        batch.Skills = ComposeProgressiveSkillHierarchy(batch.Skills);
+
+        _logger.LogInformation("Loaded {Count} effective skill(s) from {DirectoryPath}", batch.Skills.Count, directoryPath);
         return batch;
     }
 
@@ -463,12 +571,505 @@ public class SkillConfigFileLoader
                 }
             }
 
+            batch.Skills = ComposeProgressiveSkillHierarchy(batch.Skills);
             return batch;
         }
         catch (JsonException ex)
         {
             throw new InvalidOperationException($"Failed to parse batch JSON configuration: {ex.Message}", ex);
         }
+    }
+
+    /// <summary>
+    /// Builds a searchable multi-view catalog from loaded skills.
+    /// </summary>
+    public SkillCatalog BuildSkillCatalog(IEnumerable<SkillConfigurationFile> skills)
+    {
+        ArgumentNullException.ThrowIfNull(skills);
+
+        var catalog = new SkillCatalog();
+        foreach (var skill in skills)
+        {
+            catalog.Entries.Add(new SkillCatalogEntry
+            {
+                Name = skill.Name,
+                Description = skill.Description,
+                ScopeLevel = NormalizeScopeLevel(skill.ScopeLevel),
+                Domain = skill.Domain,
+                Language = skill.Language,
+                ProjectId = skill.ProjectId,
+                SubProjectId = skill.SubProjectId,
+                TaskId = skill.TaskId,
+                ExtendsSkill = skill.ExtendsSkill,
+                SourcePath = skill.SourcePath,
+                Capabilities = new List<string>(skill.Capabilities),
+                Restrictions = new List<string>(skill.Restrictions),
+                Keywords = new List<string>(skill.Keywords)
+            });
+        }
+
+        return catalog;
+    }
+
+    /// <summary>
+    /// Loads a skill catalog directly from file or directory source.
+    /// </summary>
+    public async Task<SkillCatalog> LoadSkillCatalogAsync(
+        string sourcePathOrFile,
+        bool recursive = false,
+        CancellationToken ct = default)
+    {
+        var batch = await LoadSkillBatchAsync(sourcePathOrFile, recursive, ct).ConfigureAwait(false);
+        return BuildSkillCatalog(batch.Skills);
+    }
+
+    private static SkillConfigurationFile ParseMarkdownConfiguration(string content, string filePath)
+    {
+        var lines = content.Replace("\r\n", "\n").Split('\n');
+        var nonEmpty = lines.Where(static l => !string.IsNullOrWhiteSpace(l)).ToList();
+
+        if (nonEmpty.Count < 2)
+        {
+            throw new InvalidOperationException("Markdown skill format requires first line = name and second line = description.");
+        }
+
+        var config = new SkillConfigurationFile
+        {
+            Name = StripLeadingMarkdownPrefix(nonEmpty[0]),
+            Description = StripLeadingMarkdownPrefix(nonEmpty[1]),
+            SourcePath = filePath,
+            Output = new SkillOutputSchemaConfiguration { Type = "object", Description = "Structured skill output" }
+        };
+
+        var currentSection = string.Empty;
+        var instructionLines = new List<string>();
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                if (currentSection.Equals("instructions", StringComparison.OrdinalIgnoreCase))
+                {
+                    instructionLines.Add(string.Empty);
+                }
+
+                continue;
+            }
+
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                currentSection = line[3..].Trim();
+                continue;
+            }
+
+            if (line.StartsWith("# ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (currentSection.Equals("instructions", StringComparison.OrdinalIgnoreCase))
+            {
+                instructionLines.Add(rawLine.TrimEnd());
+                continue;
+            }
+
+            if (currentSection.Equals("capabilities", StringComparison.OrdinalIgnoreCase))
+            {
+                AddIfBulletOrDelimited(config.Capabilities, line);
+                continue;
+            }
+
+            if (currentSection.Equals("restrictions", StringComparison.OrdinalIgnoreCase))
+            {
+                AddIfBulletOrDelimited(config.Restrictions, line);
+                continue;
+            }
+
+            if (currentSection.Equals("keywords", StringComparison.OrdinalIgnoreCase) ||
+                currentSection.Equals("tags", StringComparison.OrdinalIgnoreCase))
+            {
+                AddIfBulletOrDelimited(config.Keywords, line);
+                continue;
+            }
+
+            if (currentSection.Equals("inputs", StringComparison.OrdinalIgnoreCase))
+            {
+                TryParseInputLine(config, line);
+                continue;
+            }
+
+            if (currentSection.Equals("output", StringComparison.OrdinalIgnoreCase))
+            {
+                ParseOutputLine(config, line);
+                continue;
+            }
+
+            if (line.Contains(':'))
+            {
+                ParseMetadataLine(config, line);
+            }
+        }
+
+        var normalizedInstructions = string.Join("\n", instructionLines).Trim();
+        if (!string.IsNullOrWhiteSpace(normalizedInstructions))
+        {
+            config.Instructions = normalizedInstructions;
+        }
+
+        if (config.Output == null)
+        {
+            config.Output = new SkillOutputSchemaConfiguration { Type = "object", Description = "Structured skill output" };
+        }
+
+        return config;
+    }
+
+    private static List<SkillConfigurationFile> ComposeProgressiveSkillHierarchy(List<SkillConfigurationFile> configs)
+    {
+        if (configs.Count <= 1)
+        {
+            return configs;
+        }
+
+        var byName = configs
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var effective = new List<SkillConfigurationFile>();
+
+        foreach (var (_, group) in byName)
+        {
+            var ordered = group
+                .OrderBy(c => GetScopeRank(c.ScopeLevel))
+                .ThenBy(c => c.SourcePath, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var current = CloneSkill(ordered[0]);
+
+            for (var i = 1; i < ordered.Count; i++)
+            {
+                var next = ordered[i];
+                if (next.OverrideMode.Equals("Replace", StringComparison.OrdinalIgnoreCase))
+                {
+                    current = CloneSkill(next);
+                    continue;
+                }
+
+                current = MergeSkill(current, next);
+            }
+
+            effective.Add(current);
+        }
+
+        return effective
+            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static SkillConfigurationFile MergeSkill(SkillConfigurationFile parent, SkillConfigurationFile child)
+    {
+        var merged = CloneSkill(parent);
+
+        merged.Description = string.IsNullOrWhiteSpace(child.Description) ? merged.Description : child.Description;
+        merged.Category = string.IsNullOrWhiteSpace(child.Category) ? merged.Category : child.Category;
+        merged.Source = string.IsNullOrWhiteSpace(child.Source) ? merged.Source : child.Source;
+        merged.Domain = string.IsNullOrWhiteSpace(child.Domain) ? merged.Domain : child.Domain;
+        merged.Language = string.IsNullOrWhiteSpace(child.Language) ? merged.Language : child.Language;
+        merged.ScopeLevel = NormalizeScopeLevel(string.IsNullOrWhiteSpace(child.ScopeLevel) ? merged.ScopeLevel : child.ScopeLevel);
+        merged.ProjectId = string.IsNullOrWhiteSpace(child.ProjectId) ? merged.ProjectId : child.ProjectId;
+        merged.SubProjectId = string.IsNullOrWhiteSpace(child.SubProjectId) ? merged.SubProjectId : child.SubProjectId;
+        merged.TaskId = string.IsNullOrWhiteSpace(child.TaskId) ? merged.TaskId : child.TaskId;
+        merged.ExtendsSkill = string.IsNullOrWhiteSpace(child.ExtendsSkill) ? merged.ExtendsSkill : child.ExtendsSkill;
+        merged.OverrideMode = string.IsNullOrWhiteSpace(child.OverrideMode) ? merged.OverrideMode : child.OverrideMode;
+        merged.Instructions = string.IsNullOrWhiteSpace(child.Instructions) ? merged.Instructions : child.Instructions;
+        merged.SourcePath = string.IsNullOrWhiteSpace(child.SourcePath) ? merged.SourcePath : child.SourcePath;
+
+        merged.Permissions = MergeDistinct(merged.Permissions, child.Permissions);
+        merged.Capabilities = MergeDistinct(merged.Capabilities, child.Capabilities);
+        merged.Restrictions = MergeDistinct(merged.Restrictions, child.Restrictions);
+        merged.Keywords = MergeDistinct(merged.Keywords, child.Keywords);
+
+        var inputByName = merged.Inputs.ToDictionary(i => i.Name, StringComparer.OrdinalIgnoreCase);
+        foreach (var input in child.Inputs)
+        {
+            inputByName[input.Name] = new SkillParameterConfiguration
+            {
+                Name = input.Name,
+                Type = input.Type,
+                Required = input.Required,
+                Description = input.Description
+            };
+        }
+
+        merged.Inputs = inputByName.Values.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        merged.Output = child.Output ?? merged.Output;
+
+        foreach (var kvp in child.Config)
+        {
+            merged.Config[kvp.Key] = kvp.Value;
+        }
+
+        return merged;
+    }
+
+    private static SkillConfigurationFile CloneSkill(SkillConfigurationFile source)
+    {
+        return new SkillConfigurationFile
+        {
+            Name = source.Name,
+            Description = source.Description,
+            Category = source.Category,
+            Source = source.Source,
+            Inputs = source.Inputs
+                .Select(i => new SkillParameterConfiguration
+                {
+                    Name = i.Name,
+                    Type = i.Type,
+                    Required = i.Required,
+                    Description = i.Description
+                })
+                .ToList(),
+            Output = source.Output == null
+                ? null
+                : new SkillOutputSchemaConfiguration
+                {
+                    Type = source.Output.Type,
+                    Description = source.Output.Description,
+                    Schema = source.Output.Schema
+                },
+            Permissions = new List<string>(source.Permissions),
+            Config = new Dictionary<string, string>(source.Config, StringComparer.OrdinalIgnoreCase),
+            Domain = source.Domain,
+            Language = source.Language,
+            ScopeLevel = NormalizeScopeLevel(source.ScopeLevel),
+            ProjectId = source.ProjectId,
+            SubProjectId = source.SubProjectId,
+            TaskId = source.TaskId,
+            ExtendsSkill = source.ExtendsSkill,
+            OverrideMode = source.OverrideMode,
+            Capabilities = new List<string>(source.Capabilities),
+            Restrictions = new List<string>(source.Restrictions),
+            Keywords = new List<string>(source.Keywords),
+            Instructions = source.Instructions,
+            SourcePath = source.SourcePath
+        };
+    }
+
+    private static void ParseMetadataLine(SkillConfigurationFile config, string line)
+    {
+        var separatorIndex = line.IndexOf(':');
+        if (separatorIndex <= 0)
+        {
+            return;
+        }
+
+        var key = line[..separatorIndex].Trim();
+        var value = line[(separatorIndex + 1)..].Trim();
+
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        switch (key.ToLowerInvariant())
+        {
+            case "category":
+                config.Category = value;
+                break;
+            case "source":
+                config.Source = value;
+                break;
+            case "domain":
+                config.Domain = value;
+                break;
+            case "language":
+                config.Language = value;
+                break;
+            case "scope":
+            case "scopelevel":
+                config.ScopeLevel = NormalizeScopeLevel(value);
+                break;
+            case "project":
+            case "projectid":
+                config.ProjectId = value;
+                break;
+            case "subproject":
+            case "subprojectid":
+                config.SubProjectId = value;
+                break;
+            case "task":
+            case "taskid":
+                config.TaskId = value;
+                break;
+            case "extends":
+            case "extendsskill":
+                config.ExtendsSkill = value;
+                break;
+            case "override":
+            case "overridemode":
+                config.OverrideMode = value;
+                break;
+            case "permissions":
+                config.Permissions = MergeDistinct(config.Permissions, SplitList(value));
+                break;
+            case "capabilities":
+                config.Capabilities = MergeDistinct(config.Capabilities, SplitList(value));
+                break;
+            case "restrictions":
+                config.Restrictions = MergeDistinct(config.Restrictions, SplitList(value));
+                break;
+            case "keywords":
+            case "tags":
+                config.Keywords = MergeDistinct(config.Keywords, SplitList(value));
+                break;
+            case "output_type":
+                config.Output ??= new SkillOutputSchemaConfiguration { Type = value };
+                config.Output.Type = value;
+                break;
+            case "output_description":
+                config.Output ??= new SkillOutputSchemaConfiguration { Type = "object" };
+                config.Output.Description = value;
+                break;
+            default:
+                config.Config[key] = value;
+                break;
+        }
+    }
+
+    private static void TryParseInputLine(SkillConfigurationFile config, string line)
+    {
+        var normalized = line.StartsWith("-", StringComparison.Ordinal) ? line[1..].Trim() : line;
+        var parts = normalized.Split('|', StringSplitOptions.TrimEntries);
+
+        if (parts.Length < 2)
+        {
+            return;
+        }
+
+        var required = true;
+        if (parts.Length >= 3 && bool.TryParse(parts[2], out var parsedRequired))
+        {
+            required = parsedRequired;
+        }
+
+        config.Inputs.Add(new SkillParameterConfiguration
+        {
+            Name = parts[0],
+            Type = parts[1],
+            Required = required,
+            Description = parts.Length >= 4 ? parts[3] : null
+        });
+    }
+
+    private static void ParseOutputLine(SkillConfigurationFile config, string line)
+    {
+        config.Output ??= new SkillOutputSchemaConfiguration { Type = "object" };
+
+        var normalized = line.StartsWith("-", StringComparison.Ordinal) ? line[1..].Trim() : line;
+        if (!normalized.Contains(':'))
+        {
+            return;
+        }
+
+        var separatorIndex = normalized.IndexOf(':');
+        var key = normalized[..separatorIndex].Trim();
+        var value = normalized[(separatorIndex + 1)..].Trim();
+
+        if (key.Equals("type", StringComparison.OrdinalIgnoreCase))
+        {
+            config.Output.Type = value;
+        }
+        else if (key.Equals("description", StringComparison.OrdinalIgnoreCase))
+        {
+            config.Output.Description = value;
+        }
+        else if (key.Equals("schema", StringComparison.OrdinalIgnoreCase))
+        {
+            config.Output.Schema = value;
+        }
+    }
+
+    private static void AddIfBulletOrDelimited(List<string> target, string line)
+    {
+        if (line.StartsWith("-", StringComparison.Ordinal))
+        {
+            var value = line[1..].Trim();
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                target.Add(value);
+            }
+
+            return;
+        }
+
+        target.AddRange(SplitList(line));
+    }
+
+    private static List<string> SplitList(string value)
+    {
+        return value
+            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static List<string> MergeDistinct(IEnumerable<string> left, IEnumerable<string> right)
+    {
+        return left
+            .Concat(right)
+            .Where(static v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string StripLeadingMarkdownPrefix(string value)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.StartsWith("#", StringComparison.Ordinal))
+        {
+            trimmed = trimmed.TrimStart('#').Trim();
+        }
+
+        if (trimmed.StartsWith("-", StringComparison.Ordinal))
+        {
+            trimmed = trimmed[1..].Trim();
+        }
+
+        return trimmed;
+    }
+
+    private static string NormalizeScopeLevel(string? scopeLevel)
+    {
+        if (TryParseHierarchyLevel(scopeLevel, out var level))
+        {
+            return level.ToString();
+        }
+
+        return SkillHierarchyLevel.Global.ToString();
+    }
+
+    private static int GetScopeRank(string? scopeLevel)
+    {
+        return TryParseHierarchyLevel(scopeLevel, out var level) ? (int)level : 0;
+    }
+
+    private static bool TryParseHierarchyLevel(string? scopeLevel, out SkillHierarchyLevel level)
+    {
+        if (string.IsNullOrWhiteSpace(scopeLevel))
+        {
+            level = SkillHierarchyLevel.Global;
+            return true;
+        }
+
+        if (Enum.TryParse<SkillHierarchyLevel>(scopeLevel, ignoreCase: true, out level))
+        {
+            return true;
+        }
+
+        level = SkillHierarchyLevel.Global;
+        return false;
     }
 
     /// <summary>

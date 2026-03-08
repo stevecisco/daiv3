@@ -102,6 +102,13 @@ public interface ISkillRegistry
     ISkill? ResolveSkill(string skillName);
 
     /// <summary>
+    /// Removes a skill from the registry.
+    /// </summary>
+    /// <param name="skillName">The skill name.</param>
+    /// <returns>True when the skill existed and was removed; otherwise false.</returns>
+    bool UnregisterSkill(string skillName);
+
+    /// <summary>
     /// Lists all registered skills.
     /// </summary>
     /// <returns>List of skill metadata.</returns>

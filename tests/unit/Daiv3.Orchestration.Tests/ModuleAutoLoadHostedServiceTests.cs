@@ -134,6 +134,45 @@ public sealed class ModuleAutoLoadHostedServiceTests : IDisposable
             Times.Once);
     }
 
+    [Fact]
+    public async Task StartAsync_WithMarkdownSkill_LoadsEffectiveSkill()
+    {
+        // Arrange
+        var skillMarkdown = """
+SkillCreator
+Creates child skills from plain English prompts.
+
+## Metadata
+scope: Global
+capabilities: skill-authoring,hierarchy-composition
+
+## Inputs
+- prompt|string|true|Input request
+
+## Output
+type: object
+description: Skill artifact draft
+""";
+
+        await File.WriteAllTextAsync(Path.Combine(_skillsDirectory, "SkillCreator.md"), skillMarkdown);
+
+        var mockAgentManager = new Mock<IAgentManager>(MockBehavior.Strict);
+        var service = CreateService(mockAgentManager, options =>
+        {
+            options.EnableModuleAutoDiscovery = true;
+            options.SkillConfigAutoLoadPath = _skillsDirectory;
+            options.AgentConfigAutoLoadPath = _agentsDirectory;
+            options.ModuleAutoLoadRecursive = false;
+        }, out var registry);
+
+        // Act
+        await service.StartAsync(CancellationToken.None);
+
+        // Assert
+        var loaded = Assert.Single(registry.ListSkills(), s => s.Name == "SkillCreator");
+        Assert.Contains("Capability:skill-authoring", loaded.Permissions);
+    }
+
     private ModuleAutoLoadHostedService CreateService(
         Mock<IAgentManager> mockAgentManager,
         Action<OrchestrationOptions> configureOptions,

@@ -90,6 +90,22 @@ public class SkillRegistry : ISkillRegistry
     }
 
     /// <inheritdoc />
+    public bool UnregisterSkill(string skillName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(skillName);
+
+        var removed = _skills.TryRemove(skillName, out _);
+        _skillSources.TryRemove(skillName, out _);
+
+        if (removed)
+        {
+            _logger.LogInformation("Unregistered skill '{SkillName}'", skillName);
+        }
+
+        return removed;
+    }
+
+    /// <inheritdoc />
     public List<SkillMetadata> ListSkills()
     {
         var metadata = _skills.Values

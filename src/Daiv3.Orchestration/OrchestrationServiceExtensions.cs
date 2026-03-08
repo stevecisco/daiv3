@@ -73,6 +73,9 @@ public static class OrchestrationServiceExtensions
         // Register startup module auto-load service once
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, ModuleAutoLoadHostedService>());
 
+        // Register skill file watcher for progressive skill reload without rebuild.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, SkillFileWatcherHostedService>());
+
         // Register tool registry as singleton (shared across all scopes)
         services.TryAddSingleton<IToolRegistry, ToolRegistry>();
 
