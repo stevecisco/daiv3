@@ -19,6 +19,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Daiv3.Core\Daiv3.Core.csproj" />
+  </ItemGroup>
+
 </Project>
 
 
