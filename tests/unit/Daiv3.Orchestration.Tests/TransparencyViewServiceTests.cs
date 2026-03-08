@@ -20,10 +20,10 @@ namespace Daiv3.Orchestration.Tests;
 public class TransparencyViewServiceTests
 {
     private readonly Mock<ILogger<TransparencyViewService>> _mockLogger;
-    private readonly Mock<IModelQueue>? _mockModelQueue;
-    private readonly Mock<IIndexingStatusService>? _mockIndexingStatusService;
-    private readonly Mock<IServiceScopeFactory>? _mockScopeFactory;
-    private readonly Mock<IDatabaseContext>? _mockDatabaseContext;
+    private readonly Mock<IModelQueue> _mockModelQueue;
+    private readonly Mock<IIndexingStatusService> _mockIndexingStatusService;
+    private readonly Mock<IServiceScopeFactory> _mockScopeFactory;
+    private readonly Mock<IDatabaseContext> _mockDatabaseContext;
 
     public TransparencyViewServiceTests()
     {
@@ -357,7 +357,7 @@ public class TransparencyViewServiceTests
     public async Task GetAgentActivityAsync_WithAgentManager_CollectsActiveAgents()
     {
         // Arrange
-        var agentExecutionControl = new AgentExecutionControl(
+        using var agentExecutionControl = new AgentExecutionControl(
             executionId: new Guid("87654321-4321-4321-4321-210987654321"),
             agentId: new Guid("12345678-1234-1234-1234-123456789012"));
 
@@ -404,7 +404,6 @@ public class TransparencyViewServiceTests
     public async Task GetAgentActivityAsync_CancellationToken_PropagatedToAgentManager()
     {
         // Arrange
-        var cancellationTokenReceived = false;
         var mockAgentManager = new Mock<IAgentManager>();
         mockAgentManager
             .Setup(x => x.GetActiveExecutions())
@@ -420,7 +419,7 @@ public class TransparencyViewServiceTests
             .Returns(mockScope.Object);
 
         var service = CreateService(scopeFactory: _mockScopeFactory.Object);
-        var cts = new System.Threading.CancellationTokenSource();
+        using var cts = new System.Threading.CancellationTokenSource();
 
         // Act
         var result = await service.GetAgentActivityAsync(cts.Token);

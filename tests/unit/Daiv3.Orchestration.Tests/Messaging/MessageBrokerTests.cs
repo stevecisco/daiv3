@@ -5,6 +5,8 @@ using Microsoft.Extensions.Options;
 using Xunit;
 using Moq;
 
+#pragma warning disable IDISP006 // Test fixture lifetime is managed by xUnit.
+
 namespace Daiv3.Orchestration.Tests.Messaging;
 
 /// <summary>

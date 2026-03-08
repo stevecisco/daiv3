@@ -147,6 +147,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         Assert.Contains("sessions", tables);
         Assert.Contains("model_queue", tables);
         Assert.Contains("executable_skills", tables);
+        Assert.Contains("skill_audit_log", tables);
     }
 
     [Fact]
@@ -161,7 +162,7 @@ public class DatabaseContextIntegrationTests : IAsyncLifetime
         var version = await _context.GetSchemaVersionAsync();
 
         // Assert
-        Assert.Equal(11, version);
+        Assert.Equal(12, version);
     }
 
     [Fact]
