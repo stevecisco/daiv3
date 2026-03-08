@@ -69,26 +69,28 @@
                            FontSize="18"
                            FontAttributes="Bold" />
 
-                    <Grid ColumnDefinitions="170,*" RowSpacing="4">
-                        <Label Text="Discovered Files:" FontAttributes="Bold" />
-                        <Label Grid.Column="1" Text="{Binding TotalDiscovered}" />
+                    <Grid ColumnDefinitions="170,*" 
+                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" 
+                          RowSpacing="4">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Discovered Files:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding TotalDiscovered}" />
 
-                        <Label Grid.Row="1" Text="Indexed:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="0" Text="Indexed:" FontAttributes="Bold" />
                         <Label Grid.Row="1" Grid.Column="1" Text="{Binding TotalIndexed}" />
 
-                        <Label Grid.Row="2" Text="Not Indexed:" FontAttributes="Bold" />
+                        <Label Grid.Row="2" Grid.Column="0" Text="Not Indexed:" FontAttributes="Bold" />
                         <Label Grid.Row="2" Grid.Column="1" Text="{Binding TotalNotIndexed}" />
 
-                        <Label Grid.Row="3" Text="In Progress:" FontAttributes="Bold" />
+                        <Label Grid.Row="3" Grid.Column="0" Text="In Progress:" FontAttributes="Bold" />
                         <Label Grid.Row="3" Grid.Column="1" Text="{Binding TotalInProgress}" />
 
-                        <Label Grid.Row="4" Text="Errors:" FontAttributes="Bold" />
+                        <Label Grid.Row="4" Grid.Column="0" Text="Errors:" FontAttributes="Bold" />
                         <Label Grid.Row="4" Grid.Column="1" Text="{Binding TotalErrors}" TextColor="{StaticResource Danger}" />
 
-                        <Label Grid.Row="5" Text="Warnings:" FontAttributes="Bold" />
+                        <Label Grid.Row="5" Grid.Column="0" Text="Warnings:" FontAttributes="Bold" />
                         <Label Grid.Row="5" Grid.Column="1" Text="{Binding TotalWarnings}" TextColor="{StaticResource Warning}" />
 
-                        <Label Grid.Row="6" Text="Storage Used:" FontAttributes="Bold" />
+                        <Label Grid.Row="6" Grid.Column="0" Text="Storage Used:" FontAttributes="Bold" />
                         <Label Grid.Row="6" Grid.Column="1" Text="{Binding TotalStorageFormatted}" />
                     </Grid>
                 </VerticalStackLayout>
