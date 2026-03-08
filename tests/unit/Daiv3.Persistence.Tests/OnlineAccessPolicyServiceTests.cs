@@ -286,6 +286,98 @@ public sealed class OnlineAccessPolicyServiceTests : IDisposable
         Assert.Contains("unknown", decision.Reason, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// ES-ACC-001: force_offline_mode tests
+    /// </summary>
+    [Fact]
+    public async Task IsOnlineAccessAllowedAsync_ForceOfflineEnabled_DeniesAccessRegardlessOfMode()
+    {
+        // Arrange
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<bool>("force_offline_mode", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<string>("online_access_mode", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("auto_within_budget"); // Even with permissive mode
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<string>("online_providers_enabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("[\"openai\"]");
+
+        var request = new ExecutionRequest
+        {
+            Id = Guid.NewGuid(),
+            TaskType = "chat",
+            Content = "Test"
+        };
+
+        // Act
+        var decision = await _policyService.IsOnlineAccessAllowedAsync(request);
+
+        // Assert
+        Assert.False(decision.IsAllowed);
+        Assert.Contains("force offline", decision.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("force_offline", decision.AccessMode);
+    }
+
+    [Fact]
+    public async Task IsOnlineAccessAllowedAsync_ForceOfflineDisabled_ChecksNormalPolicy()
+    {
+        // Arrange
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<bool>("force_offline_mode", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<string>("online_access_mode", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("ask");
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<string>("online_providers_enabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("[\"openai\"]");
+
+        var request = new ExecutionRequest
+        {
+            Id = Guid.NewGuid(),
+            TaskType = "chat",
+            Content = "Test"
+        };
+
+        // Act
+        var decision = await _policyService.IsOnlineAccessAllowedAsync(request);
+
+        // Assert
+        Assert.True(decision.IsAllowed);
+        Assert.True(decision.RequiresConfirmation);
+        Assert.Equal("ask", decision.AccessMode);
+    }
+
+    [Fact]
+    public async Task IsOnlineAccessAllowedAsync_ForceOfflineNotSet_DefaultsToFalse()
+    {
+        // Arrange
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<bool>("force_offline_mode", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(default(bool)); // Default is false
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<string>("online_access_mode", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("auto_within_budget");
+        _mockSettingsService
+            .Setup(x => x.GetSettingValueAsync<string>("online_providers_enabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("[\"openai\"]");
+
+        var request = new ExecutionRequest
+        {
+            Id = Guid.NewGuid(),
+            TaskType = "chat",
+            Content = "Test"
+        };
+
+        // Act
+        var decision = await _policyService.IsOnlineAccessAllowedAsync(request);
+
+        // Assert
+        Assert.True(decision.IsAllowed);
+        Assert.Equal("auto_within_budget", decision.AccessMode);
+    }
+
     public void Dispose()
     {
         // Cleanup if needed

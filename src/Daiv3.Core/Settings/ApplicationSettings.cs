@@ -48,6 +48,7 @@ public static class ApplicationSettings
         // Online access control
         public const string OnlineAccessMode = "online_access_mode"; // never, ask, auto_within_budget, per_task
         public const string OnlineProvidersEnabled = "online_providers_enabled"; // JSON array
+        public const string ForceOfflineMode = "force_offline_mode"; // bool - override to disable all online access (testing, simulation, low connectivity)
 
         // Token budgets
         public const string DailyTokenBudget = "daily_token_budget";

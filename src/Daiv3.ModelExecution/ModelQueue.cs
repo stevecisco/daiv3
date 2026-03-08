@@ -23,6 +23,7 @@ public class ModelQueue : IModelQueue
     private readonly IModelLifecycleManager _modelLifecycleManager;
     private readonly IOnlineProviderRouter _onlineRouter;
     private readonly IOnlineAccessPolicy? _onlineAccessPolicy; // ES-REQ-002: Enforces online access rules
+    private readonly INetworkConnectivityService? _connectivityService; // ES-ACC-001: Connectivity level detection
     private readonly ILogger<ModelQueue> _logger;
     private readonly ModelQueueOptions _options;
     private readonly LocalFirstRouteOptions _localFirstOptions;
@@ -64,12 +65,14 @@ public class ModelQueue : IModelQueue
         IOptions<ModelQueueOptions> options,
         IOptions<LocalFirstRouteOptions> localFirstOptions,
         ILogger<ModelQueue> logger,
-        IOnlineAccessPolicy? onlineAccessPolicy = null) // ES-REQ-002: Optional for backward compatibility
+        IOnlineAccessPolicy? onlineAccessPolicy = null, // ES-REQ-002: Optional for backward compatibility
+        INetworkConnectivityService? connectivityService = null) // ES-ACC-001: Optional connectivity detection
     {
         _foundryBridge = foundryBridge;
         _modelLifecycleManager = modelLifecycleManager;
         _onlineRouter = onlineRouter;
         _onlineAccessPolicy = onlineAccessPolicy;
+        _connectivityService = connectivityService;
         _options = options.Value;
         _localFirstOptions = localFirstOptions.Value;
         _logger = logger;
@@ -550,13 +553,14 @@ public class ModelQueue : IModelQueue
     /// </summary>
     /// <remarks>
     /// ES-REQ-001: Implements local-first routing decision.
-    /// ES-REQ-002: Enforces configured online access policy before allowing online routing.
+    /// ES-REQ-002: Enforces configured online access policy before allowing online routing (includes force_offline_mode check).
+    /// ES-ACC-001: Checks connectivity level - only routes online with Internet connectivity.
     /// </remarks>
     private async Task<bool> ShouldRouteOnlineAsync(ExecutionRequest request, CancellationToken ct = default)
     {
         var taskType = request.TaskType ?? string.Empty;
 
-        // ES-REQ-002: Check online access policy first
+        // ES-REQ-002: Check online access policy first (includes force_offline_mode check)
         if (_onlineAccessPolicy != null)
         {
             var decision = await _onlineAccessPolicy.IsOnlineAccessAllowedAsync(request, ct);
@@ -572,6 +576,24 @@ public class ModelQueue : IModelQueue
             _logger.LogDebug(
                 "Request {RequestId}: Online access policy check passed (mode={AccessMode}, requires_confirmation={RequiresConfirmation})",
                 request.Id, decision.AccessMode, decision.RequiresConfirmation);
+        }
+
+        // ES-ACC-001: Check connectivity level - only route online with Internet connectivity
+        if (_connectivityService != null)
+        {
+            var connectivityLevel = await _connectivityService.GetConnectivityLevelAsync(ct);
+            
+            if (connectivityLevel != ConnectivityLevel.Internet)
+            {
+                _logger.LogInformation(
+                    "Request {RequestId}: Cannot route online - connectivity level is {ConnectivityLevel} (Internet required)",
+                    request.Id, connectivityLevel);
+                return false; // Force local execution when no internet
+            }
+
+            _logger.LogDebug(
+                "Request {RequestId}: Connectivity check passed - level is {ConnectivityLevel}",
+                request.Id, connectivityLevel);
         }
 
         // ES-REQ-001: Implement local-first routing decision

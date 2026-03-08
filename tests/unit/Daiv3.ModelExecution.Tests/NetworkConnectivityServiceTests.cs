@@ -9,7 +9,7 @@ using Xunit;
 namespace Daiv3.ModelExecution.Tests;
 
 /// <summary>
-/// Unit tests for NetworkConnectivityService (M Q-REQ-013).
+/// Unit tests for NetworkConnectivityService (MQ-REQ-013, ES-ACC-001).
 /// </summary>
 public class NetworkConnectivityServiceTests
 {
@@ -94,5 +94,40 @@ public class NetworkConnectivityServiceTests
 
         // Assert
         Assert.IsType<bool>(isReachable);
+    }
+
+    /// <summary>
+    /// ES-ACC-001: GetConnectivityLevelAsync tests
+    /// </summary>
+    [Fact]
+    public async Task GetConnectivityLevelAsync_ReturnsValidConnectivityLevel()
+    {
+        // Arrange
+        var service = new NetworkConnectivityService(_mockLogger.Object);
+
+        // Act
+        var level = await service.GetConnectivityLevelAsync();
+
+        // Assert
+        Assert.True(Enum.IsDefined(typeof(ConnectivityLevel), level),
+            $"GetConnectivityLevelAsync returned invalid ConnectivityLevel: {level}");
+    }
+
+    [Fact]
+    public async Task GetConnectivityLevelAsync_ReturnsNoneOrLocalOnlyOrInternet()
+    {
+        // Arrange
+        var service = new NetworkConnectivityService(_mockLogger.Object);
+
+        // Act
+        var level = await service.GetConnectivityLevelAsync();
+
+        // Assert
+        // Verify it's one of the three expected values
+        Assert.True(
+            level == ConnectivityLevel.None ||
+            level == ConnectivityLevel.LocalOnly ||
+            level == ConnectivityLevel.Internet,
+            $"Unexpected connectivity level: {level}");
     }
 }

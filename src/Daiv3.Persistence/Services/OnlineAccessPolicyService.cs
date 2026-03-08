@@ -13,7 +13,10 @@ namespace Daiv3.Persistence.Services;
 /// Implements ES-REQ-002: "The system SHALL provide a configurable online fallback path
 /// that requires explicit user configuration or per-call confirmation."
 /// 
-/// Reads the `online_access_mode` and `online_providers_enabled` settings from persistence
+/// Implements ES-ACC-001: "User should be able to indicate that they want to be offline only
+/// (like an override) for any reason (testing, simulating capabilities, low or spotty network connectivity, etc)."
+/// 
+/// Reads the `online_access_mode`, `force_offline_mode`, and `online_providers_enabled` settings from persistence
 /// and enforces the configured policy for online provider access.
 /// </remarks>
 public class OnlineAccessPolicyService : IOnlineAccessPolicy
@@ -34,6 +37,22 @@ public class OnlineAccessPolicyService : IOnlineAccessPolicy
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        // ES-ACC-001: Check force_offline_mode first (highest priority override)
+        var forceOffline = await _settingsService.GetSettingValueAsync<bool>(
+            ApplicationSettings.Providers.ForceOfflineMode,
+            ct);
+
+        if (forceOffline)
+        {
+            _logger.LogInformation(
+                "Online access denied for request {RequestId}: Force offline mode is enabled",
+                request.Id);
+
+            return OnlineAccessDecision.Denied(
+                "System is in force offline mode. Online providers are disabled by user override.",
+                "force_offline");
+        }
 
         // Check if any online providers are enabled
         var providersEnabled = await AreOnlineProvidersEnabledAsync(ct);

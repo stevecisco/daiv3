@@ -9,6 +9,7 @@ namespace Daiv3.ModelExecution;
 /// </summary>
 /// <remarks>
 /// Implements MQ-REQ-013: Detects offline status for queueing online tasks.
+/// Implements ES-ACC-001: Detects multiple levels of internet connectivity for automatic behavior adjustment.
 /// Uses NetworkInterface to check connectivity and DNS resolution for endpoint checks.
 /// </remarks>
 public class NetworkConnectivityService : INetworkConnectivityService, IDisposable
@@ -51,6 +52,73 @@ public class NetworkConnectivityService : INetworkConnectivityService, IDisposab
         {
             _logger.LogWarning(ex, "Error checking network availability, assuming offline");
             return Task.FromResult(false);
+        }
+    }
+
+    public async Task<ConnectivityLevel> GetConnectivityLevelAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            // Step 1: Check if any network interface is active
+            var hasNetworkInterface = NetworkInterface.GetIsNetworkAvailable() &&
+                                     NetworkInterface.GetAllNetworkInterfaces()
+                                         .Any(ni => ni.OperationalStatus == OperationalStatus.Up &&
+                                                   ni.NetworkInterfaceType != NetworkInterfaceType.Loopback);
+
+            if (!hasNetworkInterface)
+            {
+                _logger.LogDebug("No network interfaces available - ConnectivityLevel: None");
+                return ConnectivityLevel.None;
+            }
+
+            // Step 2: Test internet connectivity using well-known endpoints
+            // Use multiple endpoints for robustness (different providers, different protocols)
+            var testEndpoints = new[]
+            {
+                "http://connectivitycheck.gstatic.com/generate_204",  // Google connectivity check
+                "http://www.msftconnecttest.com/connecttest.txt",     // Microsoft connectivity check
+                "http://captive.apple.com/hotspot-detect.html"        // Apple captive portal check
+            };
+
+            foreach (var endpoint in testEndpoints)
+            {
+                try
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromSeconds(3)); // Shorter timeout for connectivity checks
+
+                    using var request = new HttpRequestMessage(HttpMethod.Head, endpoint);
+                    using var response = await _httpClient.SendAsync(request, cts.Token);
+
+                    // Any successful response indicates internet connectivity
+                    if (response.IsSuccessStatusCode || 
+                        response.StatusCode == System.Net.HttpStatusCode.NoContent ||
+                        response.StatusCode == System.Net.HttpStatusCode.Found)
+                    {
+                        _logger.LogDebug("Internet connectivity confirmed via {Endpoint} - ConnectivityLevel: Internet", endpoint);
+                        return ConnectivityLevel.Internet;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogTrace("Timeout checking internet connectivity via {Endpoint}", endpoint);
+                    // Continue to next endpoint
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogTrace(ex, "Error checking internet connectivity via {Endpoint}", endpoint);
+                    // Continue to next endpoint
+                }
+            }
+
+            // Network is up but no internet endpoints reachable
+            _logger.LogDebug("Network interfaces active but no internet connectivity - ConnectivityLevel: LocalOnly");
+            return ConnectivityLevel.LocalOnly;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error determining connectivity level, assuming None");
+            return ConnectivityLevel.None;
         }
     }
 
