@@ -1,5 +1,6 @@
 using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
+using Daiv3.Persistence.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Daiv3.Persistence;
@@ -73,16 +74,19 @@ public interface ISettingsService
 
 /// <summary>
 /// Default implementation of ISettingsService.
+/// Implements CT-NFR-002: Settings changes SHOULD be validated and applied safely.
 /// </summary>
 public class SettingsService : ISettingsService
 {
     private readonly SettingsRepository _repository;
+    private readonly ISettingsValidator _validator;
     private readonly ILogger<SettingsService> _logger;
     private int? _cachedSchemaVersion;
 
-    public SettingsService(SettingsRepository repository, ILogger<SettingsService> logger)
+    public SettingsService(SettingsRepository repository, ISettingsValidator validator, ILogger<SettingsService> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -129,6 +133,14 @@ public class SettingsService : ISettingsService
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentNullException.ThrowIfNull(value);
         ArgumentException.ThrowIfNullOrWhiteSpace(category);
+
+        // Validate setting before saving (CT-NFR-002)
+        var validationResult = await _validator.ValidateAsync(key, value, ct).ConfigureAwait(false);
+        if (!validationResult.IsValid)
+        {
+            _logger.LogError("Failed to save setting {Key}: {Error}", key, validationResult.ErrorMessage);
+            throw new SettingsValidationException(key, validationResult.ErrorMessage ?? "Validation failed");
+        }
 
         var (serializedValue, valueType) = SerializeValue(value);
         var currentVersion = await GetCurrentSchemaVersionAsync(ct).ConfigureAwait(false);

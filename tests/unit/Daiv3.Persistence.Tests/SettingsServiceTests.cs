@@ -1,6 +1,7 @@
 using Daiv3.Persistence;
 using Daiv3.Persistence.Entities;
 using Daiv3.Persistence.Repositories;
+using Daiv3.Persistence.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -14,6 +15,7 @@ namespace Daiv3.Persistence.Tests;
 public class SettingsServiceTests
 {
     private readonly Mock<SettingsRepository> _mockRepository;
+    private readonly Mock<ISettingsValidator> _mockValidator;
     private readonly Mock<ILogger<SettingsService>> _mockLogger;
 
     public SettingsServiceTests()
@@ -21,14 +23,20 @@ public class SettingsServiceTests
         _mockRepository = new Mock<SettingsRepository>(
             Mock.Of<IDatabaseContext>(),
             Mock.Of<ILogger<SettingsRepository>>());
+        _mockValidator = new Mock<ISettingsValidator>();
         _mockLogger = new Mock<ILogger<SettingsService>>();
+        
+        // Default validator to always return valid
+        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string key, object value, CancellationToken ct) => 
+                new SettingsValidationResult(key, true));
     }
 
     [Fact]
     public void Constructor_WithValidDependencies_InitializesSuccessfully()
     {
         // Act
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Assert
         Assert.NotNull(service);
@@ -39,7 +47,15 @@ public class SettingsServiceTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => 
-            new SettingsService(null!, _mockLogger.Object));
+            new SettingsService(null!, _mockValidator.Object, _mockLogger.Object));
+    }
+
+    [Fact]
+    public void Constructor_WithNullValidator_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => 
+            new SettingsService(_mockRepository.Object, null!, _mockLogger.Object));
     }
 
     [Fact]
@@ -47,14 +63,14 @@ public class SettingsServiceTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => 
-            new SettingsService(_mockRepository.Object, null!));
+            new SettingsService(_mockRepository.Object, _mockValidator.Object, null!));
     }
 
     [Fact]
     public async Task GetSettingAsync_WithNullKey_ThrowsArgumentNullException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => 
@@ -65,7 +81,7 @@ public class SettingsServiceTests
     public async Task GetSettingAsync_WithEmptyKey_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -76,7 +92,7 @@ public class SettingsServiceTests
     public async Task GetSettingValueAsync_WithNullKey_ThrowsArgumentNullException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => 
@@ -87,7 +103,7 @@ public class SettingsServiceTests
     public async Task GetSettingValueAsync_WithEmptyKey_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -98,7 +114,7 @@ public class SettingsServiceTests
     public async Task GetSettingsByCategoryAsync_WithNullCategory_ThrowsArgumentNullException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => 
@@ -109,7 +125,7 @@ public class SettingsServiceTests
     public async Task GetSettingsByCategoryAsync_WithEmptyCategory_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -120,7 +136,7 @@ public class SettingsServiceTests
     public async Task SaveSettingAsync_WithNullKey_ThrowsArgumentNullException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => 
@@ -131,7 +147,7 @@ public class SettingsServiceTests
     public async Task SaveSettingAsync_WithEmptyKey_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -142,7 +158,7 @@ public class SettingsServiceTests
     public async Task SaveSettingAsync_WithNullValue_ThrowsArgumentNullException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => 
@@ -153,7 +169,7 @@ public class SettingsServiceTests
     public async Task SaveSettingAsync_WithEmptyCategory_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -164,7 +180,7 @@ public class SettingsServiceTests
     public async Task DeleteSettingAsync_WithNullKey_ThrowsArgumentNullException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => 
@@ -175,7 +191,7 @@ public class SettingsServiceTests
     public async Task DeleteSettingAsync_WithEmptyKey_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -186,7 +202,7 @@ public class SettingsServiceTests
     public async Task GetSettingHistoryAsync_WithNullKey_ThrowsArgumentNullException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => 
@@ -197,7 +213,7 @@ public class SettingsServiceTests
     public async Task GetSettingHistoryAsync_WithEmptyKey_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -208,7 +224,7 @@ public class SettingsServiceTests
     public async Task GetCurrentSchemaVersionAsync_ReturnsDefaultVersion()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act
         var version = await service.GetCurrentSchemaVersionAsync();
@@ -221,7 +237,7 @@ public class SettingsServiceTests
     public async Task GetCurrentSchemaVersionAsync_ReturnsCachedVersionOnSecondCall()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act
         var version1 = await service.GetCurrentSchemaVersionAsync();
@@ -236,7 +252,7 @@ public class SettingsServiceTests
     public async Task SetSchemaVersionAsync_WithZeroVersion_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -247,7 +263,7 @@ public class SettingsServiceTests
     public async Task SetSchemaVersionAsync_WithNegativeVersion_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -258,7 +274,7 @@ public class SettingsServiceTests
     public async Task MigrateSchemaAsync_WithOldVersionGreaterThanNewVersion_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -269,7 +285,7 @@ public class SettingsServiceTests
     public async Task MigrateSchemaAsync_WithEqualVersions_ThrowsArgumentException()
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -284,7 +300,7 @@ public class SettingsServiceTests
     public void SettingsService_AcceptVariousValueTypes(object value, string expectedType)
     {
         // Arrange
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Act & Assert
         // Simply verify that we can instantiate with different value types
@@ -298,9 +314,12 @@ public class SettingsServiceTests
     public void SettingsService_ImplementsISettingsService()
     {
         // Arrange & Act
-        var service = new SettingsService(_mockRepository.Object, _mockLogger.Object);
+        var service = new SettingsService(_mockRepository.Object, _mockValidator.Object, _mockLogger.Object);
 
         // Assert
         Assert.IsAssignableFrom<ISettingsService>(service);
     }
 }
+
+
+

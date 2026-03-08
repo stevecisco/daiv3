@@ -120,12 +120,21 @@ public static class PersistenceServiceExtensions
                 revertPromotionRepository, promotionMetricRepository);
         });
 
+        // CT-NFR-002: Settings validator for safe validation of setting changes
+        services.AddScoped<Services.ISettingsValidator>(serviceProvider =>
+        {
+            var logger = serviceProvider.GetRequiredService<ILogger<Services.SettingsValidator>>();
+            return new Services.SettingsValidator(logger);
+        });
+
         // CT-DATA-001: Settings service for versioned application settings management
+        // CT-NFR-002: With validation support
         services.AddScoped<ISettingsService>(serviceProvider =>
         {
             var repository = serviceProvider.GetRequiredService<SettingsRepository>();
+            var validator = serviceProvider.GetRequiredService<Services.ISettingsValidator>();
             var logger = serviceProvider.GetRequiredService<ILogger<SettingsService>>();
-            return new SettingsService(repository, logger);
+            return new SettingsService(repository, validator, logger);
         });
 
         // CT-REQ-001: Settings initializer for populating default settings
