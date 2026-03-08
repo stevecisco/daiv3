@@ -97,7 +97,6 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 | 54 | [KM-ACC-002](Reqs/KM-ACC-002.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | Updating a document triggers re-indexing only for that document. | KM-REQ-008 | Complete | 100% | **✅ COMPLETE** - Document update with isolation guarantee: UpdateDocumentAsync() API, hash-based change detection, atomic old-embedding deletion + new-embedding storage, file hash and timestamp updates. Verified via new integration test `UpdateDocument_ReindexesOnlyThatDocument_NotOthers` (processes 3 docs, updates doc2, confirms doc1/doc3 unchanged via hash/timestamp/chunk-count comparison). All 13 KnowledgeDocumentProcessor integration tests passing. Comprehensive documentation with 5 acceptance criteria, implementation pipeline, database operations, usage examples, and performance characteristics. See KM-ACC-002.md |
 | 55 | [KM-ACC-003](Reqs/KM-ACC-003.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | Deleting a document removes its topic and chunk entries. | KM-REQ-009 | Complete | 100% | **✅ COMPLETE** - Document deletion with automatic cascade cleanup. RemoveDocumentAsync() deletes topic + chunk embeddings via DeleteTopicAndChunksAsync(), removes document record atomically. Integration test `RemoveDocumentAsync_DeletesDocumentAndChunks` verifies complete cleanup (1/1 passing). KM-REQ-009 provides automatic deletion when source files removed via FileSystemWatcher. Database CASCADE constraints + explicit deletion for logging/metrics. Comprehensive documentation with 5 acceptance criteria, CLI/API usage examples, performance characteristics. See KM-ACC-003.md |
 | 56 | [KM-NFR-001](Reqs/KM-NFR-001.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | Tier 1 search SHOULD complete in <10ms on CPU for ~10,000 vectors. | KM-REQ-012 | Complete | 100% | **✅ COMPLETE** - Performance target met: Tier 1 batch cosine similarity completes in 8-25ms for 10,000 384D vectors (well within <25ms threshold). Implementation anchored in 5 components: (1) in-memory Tier 1 caching (KM-REQ-018), (2) batch SIMD via TensorPrimitives (KM-REQ-017), (3) TwoTierIndexService integration, (4) configurable performance metrics (HW-NFR-002), (5) CLI validation command. Test suite: 15 benchmarks + 12 regression + 18 metrics unit tests + 13 integration = **58/58 passing**. Critical test `BatchCosineSimilarity_Tier1_10000VectorsOf384Dims_UnderThreshold` validates KM-NFR-001. Linear scaling validated to 50K vectors. Production-ready with comprehensive documentation covering acceptance criteria, implementation, testing, configuration, and deployment. See KM-NFR-001.md |
-| 57 | [KM-NFR-002](Reqs/KM-NFR-002.md) | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | The system SHOULD be able to scale to HNSW indexing later. | KM-REQ-012 | Not Started | 0% | Future scalability path |
 
 ---
 
@@ -324,53 +323,6 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 | 201 | [GLO-ACC-001](Reqs/GLO-ACC-001.md) | [14. Glossary](Specs/14-Glossary.md) | All public documentation uses glossary terms consistently. | GLO-REQ-002 | Complete | 100% | **✅ COMPLETE** - Acceptance validation of GLO-REQ-002 implementation. Automated verification via `GlossaryAlignmentTests` (3 test methods): validates UI label terminology (13 XAML files), specification document terminology, and Foundry qualification. Context-aware filtering distinguishes prose from code identifiers. Evidence: XAML corrections applied, documentation clarity improved, 313/313 Persistence.Tests passing. Continuous testing prevents regression. |
 | 202 | [GLO-ACC-002](Reqs/GLO-ACC-002.md) | [14. Glossary](Specs/14-Glossary.md) | The glossary is accessible from the documentation set. | GLO-REQ-001 | Complete | 100% | **✅ COMPLETE** - Canonical glossary (`Docs/Requirements/Glossary.md`) linked from 3 key documentation entry points: Design Document (Section 14), Master Implementation Tracker (Key Documentation section), Glossary Spec (Canonical Source section). Automated verification via `GlossaryConsistencyTests.KeyDocumentation_LinksToCanonicalGlossary()` test prevents link regression. 314/314 tests passing in Persistence.Tests suite. |
 | 203 | [GLO-NFR-001](Reqs/GLO-NFR-001.md) | [14. Glossary](Specs/14-Glossary.md) | Glossary updates SHOULD be backward compatible with existing docs. | GLO-REQ-003 | Complete | 100% | **✅ COMPLETE** - Enhanced canonical glossary with comprehensive backward compatibility framework: Backward Compatibility Strategy section (minor vs. major version criteria), Breaking Changes categorization, Deprecation Workflow (5-step process), Deprecated Terms tracking table. Semantic versioning signals compatibility level. Automated validation via `GlossaryConsistencyTests.CanonicalGlossary_IncludesBackwardCompatibilityFramework()` test verifying framework structure, deprecation workflow, and terminology preservation. 315/315 tests passing in Persistence.Tests suite. |
-| 204 | [FUT-REQ-001](Reqs/FUT-REQ-001.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Future: Add image understanding with local vision models. | None | Not Started | 0% | Deferred: Vision capability |
-| 205 | [FUT-REQ-002](Reqs/FUT-REQ-002.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Future: Add knowledge graph to supplement vector search. | KM-REQ-012 | Not Started | 0% | Deferred: Graph indexing |
-| 206 | [FUT-REQ-003](Reqs/FUT-REQ-003.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Future: Implement skill marketplace with versioning, review, trust model. | AST-REQ-007 | Not Started | 0% | Deferred: Marketplace |
-| 207 | [FUT-REQ-004](Reqs/FUT-REQ-004.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Future: Support multi-user and organizational knowledge hierarchies. | LM-REQ-003 | Not Started | 0% | Deferred: Multi-user |
-| 208 | [FUT-REQ-005](Reqs/FUT-REQ-005.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Future: Add HNSW approximate nearest neighbor indexing for large corpora. | KM-NFR-002 | Not Started | 0% | Deferred: HNSW scaling |
-| 209 | [FUT-REQ-006](Reqs/FUT-REQ-006.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Future: Provide voice interface with local speech-to-text/text-to-speech. | KLC-REQ-011 | Not Started | 0% | Deferred: Voice interface |
-| 210 | [FUT-REQ-007](Reqs/FUT-REQ-007.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Future: Implement mobile sync for partial knowledge base access. | KM-REQ-007 | Not Started | 0% | Deferred: Mobile sync |
-| 211 | [BACKLOG-DDS-001](Reqs/BACKLOG-DISTRIBUTED-DELTA-SCHEMA-IMPLEMENTATION.md) | [Architecture Decisions](Architecture/decisions/DISTRIBUTED-STATE-ARCHITECTURE.md) | Future (v0.2+): Implement distributed delta schema, canonical document pointers, permission-gated replication, cache lifecycle, and repository support for multi-node synchronization. | KLC-REQ-004, KM-REQ-007, KM-REQ-008, ARCH-REQ-006 | Backlog | 0% | **High Priority Backlog** - Schema migrations (`documents` extensions, `change_log`, `applied_deltas`, `conflict_log`), C# models/repositories, delta sync foundation; enables cloud knowledge sharing; estimated 8-13 story points |
-| 212 | BACKLOG-TTS-001 | [Ideas: § 17 Accessibility](../Ideas-Organized-By-Topic.md) | Future: Text-to-Speech reading of text, summaries, knowledge articles, and system responses on desktop (MAUI) and mobile applications using platform-native TTS APIs with controls for pause/resume, speed, voice selection, and reading queue management. | KLC-REQ-011 | Backlog | 0% | **Accessibility Feature** - Windows SAPI for desktop, platform-native mobile TTS; reading progress tracking, background reading, multiple voice profiles; estimated 5-8 story points |
-| 213 | BACKLOG-VC-001 | [Ideas: § 17 Accessibility](../Ideas-Organized-By-Topic.md) | Future: Voice Commands & Control - Speech-to-Text input for natural language commands, voice-driven navigation, dictation mode, command confirmation, and offline basic voice recognition with cloud fallback for accessibility and hands-free operation. | KLC-REQ-011 | Backlog | 0% | **Accessibility Feature** - Wake word or push-to-talk modes, command disambiguation, full keyboard-free navigation for vision-impaired users; estimated 8-13 story points |
-| 214 | BACKLOG-IVR-001 | [Ideas: § 17 Accessibility](../Ideas-Organized-By-Topic.md) | Future: Smart Notifications & Interactive Voice Response (IVR) - Context-aware notifications with voice prompts, meeting detection, touch-tone style voice menus for quick responses, priority-based interruption, and Do Not Disturb integration. | KLC-REQ-011, BACKLOG-TTS-001 | Backlog | 0% | **Accessibility Feature** - IVR menu options ("Press 1 for approve"), voice response templates, notification categories (task completion, daily briefings, calendar appointments, knowledge updates), emergency override; estimated 8-13 story points |
-| 215 | BACKLOG-VKM-001 | [Ideas: § 5 Knowledge Management](../Ideas-Organized-By-Topic.md) | Future: Version-Aware Knowledge & Temporal Tracking - Track original published dates, technology/standard version tags, applies-to version ranges, content validity/expiration dates, per-source freshness policies, staleness detection, and version-specific retrieval for technology documentation and API references. | WFC-DATA-001, KM-REQ-001 | Backlog | 0% | **Knowledge Freshness Feature** - Schema: temporal metadata (published_date, valid_from/until, last_verified), version applicability (applies_to_versions, min/max_version, deprecated_in_version), freshness policies (refresh_policy, staleness_threshold, stale_impact_score); staleness dashboard, version mismatch warnings, CLI refresh commands; estimated 13-21 story points |
-| 216 | [FUT-ACC-001](Reqs/FUT-ACC-001.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Each deferred item has placeholder interface or extension point identified. | ARCH-NFR-002 | Not Started | 0% | Future extensibility design |
-| 216 | [FUT-NFR-001](Reqs/FUT-NFR-001.md) | [13. Open Items & Future Considerations](Specs/13-Open-Items-Future.md) | Deferred features SHOULD integrate without breaking existing interfaces. | ARCH-NFR-002 | Not Started | 0% | Future compatibility |
-
----
-
-## Backlog (v0.2+ Deferred Requirements)
-
-**Purpose:** Track deferred requirements that are intentionally out of scope for MVP v0.1 and planned for v0.2+.
-
-| Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
-|-----|-------------|---------------|-------------|--------------|--------|------------|-------|
-| 40.1 | [KM-EMB-MODEL-001](Reqs/KM-EMB-MODEL-001.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Registry of embedding models with metadata and tokenizer alignment. | KM-REQ-013 | Not Started | 0% | Embedding model registry |
-| 40.2 | [KM-EMB-MODEL-002](Reqs/KM-EMB-MODEL-002.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Discover local embedding models and download from Azure Blob Storage on first initialization. | KM-EMB-MODEL-001 | Not Started | 0% | Model discovery and download (v0.1: Azure, v0.2+: Hugging Face) |
-| 40.3 | [KM-EMB-MODEL-003](Reqs/KM-EMB-MODEL-003.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Select active embedding models for Tier 1 and Tier 2 with settings persistence. | KM-EMB-MODEL-001, KM-EMB-MODEL-002 | Not Started | 0% | Model selection and settings |
-| 40.4 | [KM-EMB-MODEL-TOKENIZER](Reqs/KM-EMB-MODEL-TOKENIZER.md) | [4. Embedding Model Management](Specs/04-Embedding-Model-Management.md) | Pluggable tokenizer interface supporting multiple tokenizer implementations. | KM-EMB-MODEL-001 | **Complete** | **100%** | Tokenizer abstraction (BERT WordPiece for all-MiniLM-L6-v2, SentencePiece for nomic-embed-text-v1.5) |
-| **40.5** | **[KM-EMB-MODEL-CATALOG](Reqs/KM-EMB-MODEL-CATALOG.md)** | **[4. Embedding Model Management](Specs/04-Embedding-Model-Management.md)** | **Catalog-driven model discovery with metadata, versions, and download URLs. Extends KM-EMB-MODEL-002.** | **KM-EMB-MODEL-002** | **Backlog (v0.2)** | **0%** | **Plugin Foundation: JSON catalog, model discovery, caching** |
-| **40.6** | **[KM-EMB-MODEL-PLUGIN-SYSTEM](Reqs/KM-EMB-MODEL-PLUGIN-SYSTEM.md)** | **[4. Embedding Model Management](Specs/04-Embedding-Model-Management.md)** | **Dynamic DLL-based tokenizer plugin loading system. Extends KM-EMB-MODEL-CATALOG and KM-EMB-MODEL-TOKENIZER.** | **KM-EMB-MODEL-CATALOG, KM-EMB-MODEL-TOKENIZER** | **Backlog (v0.3)** | **0%** | **Full Plugin System: DLL loading, plugin discovery, version management** |
-| 210 | **[CT-REQ-015](Reqs/CT-REQ-015.md)** | **[11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md)** | **The system SHALL provide Knowledge Graph Visualization with mind map and interactive graph views for knowledge exploration.** | **CT-REQ-003, KM-REQ-012, KM-NFR-002** | **Backlog (Phase 7+)** | **0%** | **Complex Feature - Deferred:** Requires mature Tier 2 search implementation. Static mind map MVP available if prioritized for Phase 6. Estimated effort: 13-21 story points. High business value for knowledge discovery UX. |
-
----
-
-### Session Auto-Summarization & Knowledge Integration (v0.2+)
-
-**Purpose:** Automate session summarization, knowledge backpropagation integration, and learning observability. Enables learning loop automation and dashboard transparency for executed tasks.
-
-**Note:** Comprehensive backlog requirements documented in [BACKLOG-SESSION-AUTO-SUMMARIZATION.md](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md). Each backlog item references completed Phase 5 requirements and proposes future integration work.
-
-| Seq | Requirement | Spec Document | Description | Predecessors | Status | Progress % | Notes |
-|-----|-------------|---------------|-------------|--------------|--------|------------|-------|
-| 212.1 | **[BACKLOG-01: Session Auto-Summarization Trigger](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [9. Learning Memory](Specs/09-Learning-Memory.md) | **Automatically generate structured summary after agent execution capturing milestones, learnings, errors, decisions, and success criteria results.** | **AST-REQ-001✅, LM-REQ-001✅** | **Backlog (v0.2 P6.3)** | **0%** | **Unblocks:** BACKLOG-03 (session key facts), dashboard session context. **Effort:** 5-8 pts. Integration: `AgentManager.ExecuteTaskAsync()` completion → `ISessionSummarizationService.SummarizeExecutionAsync()` → `sessions.key_knowledge_json` population |
-| 212.2 | **[BACKLOG-02: Dashboard Promotion History Visibility](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | **Add MAUI dashboard view for promotion visibility (CLI commands already complete via KBP-ACC-002). NOW UNBLOCKED: CT-REQ-003 (dashboard foundation) is complete.** | **KBP-ACC-002✅, CT-REQ-003✅** | **Backlog (v0.2 P6.2) - NOW UNBLOCKED** | **0%** | **Priority:** Medium-High (dashboard infrastructure ready). **Effort:** 3-5 pts. Dashboard page: promotion history, filters (scope/task/learner/date), timeline visualization, stats cards. Leverage existing PromotionRepository queries. Reference: CT-REQ-004 (queue dashboard) pattern. |
-| 212.3 | **[BACKLOG-03: Session Key Knowledge Auto-Population](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [4. Knowledge Management & Indexing](Specs/04-Knowledge-Management-Indexing.md) | **Auto-populate `sessions.key_knowledge_json` with structured facts: milestones, learnings, error patterns, resource usage, external data sources.** | **BACKLOG-01 (Session Auto-Summarization)** | **Backlog (v0.2 P6.3)** | **0%** | **Effort:** 4-6 pts. Requires BACKLOG-01 for summary context. Enables rich session inspection and dashboard summarization. Integration: Call `ISessionKnowledgeExtractor.ExtractKeyKnowledgeAsync()` after execution completes. |
-| 212.4 | **[BACKLOG-04: Auto-Learning Trigger from Agent Failures](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [9. Learning Memory](Specs/09-Learning-Memory.md) | **Auto-detect self-correction patterns (step N fails → step N+1 succeeds) and create learnings via `LM-REQ-001` SelfCorrectionTriggerContext without manual user action.** | **LM-REQ-001✅, AST-REQ-001✅** | **Backlog (v0.2 P7.1)** | **0%** | **Priority:** Medium (automation feature). **Effort:** 6-8 pts. Advanced learning automation; deferred for Phase 7. Integrates `ISelfCorrectionLearningDetector` with agent execution result analysis. |
-| 212.5 | **[BACKLOG-05: Learning Injection Breadcrumb Logging](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | **Track and display why learnings were/weren't injected: candidate count, similarity scores, filter decisions, injection reasons per step.** | **LM-REQ-005✅, CT-REQ-006✅** | **Backlog (v0.2 P6.2)** | **0%** | **Priority:** Medium (observability enhancement). **Effort:** 3-4 pts. CLI: `daiv3 agent inspect <execution_id> --learning-trace`. Dashboard: learning source badges per step. Minimal perf overhead (enabled by config). |
-| 212.6 | **[BACKLOG-06: Agent Learning History UI](Reqs/BACKLOG-SESSION-AUTO-SUMMARIZATION.md)** | [11. Configuration & User Transparency](Specs/11-Configuration-Transparency.md) | **MAUI dashboard view: per-agent learning reuse metrics (count, effectiveness score), most-used learnings, learning source badges, injection history details.** | **BACKLOG-01, BACKLOG-02, BACKLOG-05** | **Backlog (v0.2 P6.3/P7.1)** | **0%** | **Priority:** Low (polish feature). **Effort:** 8-10 pts. Deferred to Phase 7+. Provides exec reflection story: which learnings drove better outcomes? Integrates with breadcrumb traces + effectiveness scoring. |
 
 ---
 
@@ -386,15 +338,11 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 
 ---
 
-**Last Updated:** March 7, 2026  
-**Total Requirements:** 225 (+6 new Phase 6 UI dashboards, +6 new v0.2+ backlog items for session auto-summarization & knowledge integration)  
-**Completed:** 139 (62%)  
+**Last Updated:** March 8, 2026  
+**Total Requirements:** 199 (26 backlog requirements moved to [Master-Backlog-Tracker.md](Master-Backlog-Tracker.md))  
+**Completed:** 139 (70%)  
 **In Progress:** 4 (2%)  
-**Not Started:** 78 (35%)  
-**Backlog (v0.2+):** 8 (4%) - Embedding models (2), Session auto-summarization (6)  
-**Completed:** 139 (63%)  
-**In Progress:** 4 (2%)  
-**Not Started:** 76 (35%)
+**Not Started:** 56 (28%)
 
 **Phase Progress Summary:**
 - **Phase 1 (Foundation):** 32/32 Complete (100%)
@@ -404,21 +352,20 @@ This tracker is ordered by **logical dependency layers** (bottom-up) to enable e
 - **Phase 5 (Advanced Features):** 35/41 Complete (85%)
 - **Phase 6 (User Experience):** 6/22 Complete (27%) - CT-REQ-001 ✅, CT-REQ-003 ✅, CT-NFR-001 ✅, CT-REQ-004 ✅, CT-REQ-005 ✅, CT-REQ-006 ✅
 - **Executive Summary & Product Goals:** 0/15 Complete (0%)
-- **Glossary & Future:** 0/13 Complete (0%)
-- **Backlog (v0.2+):** 2/8 Complete (25%) - 2 embedding model items complete, 6 session auto-summarization items deferred
+- **Glossary:** 7/7 Complete (100%) ✅
+- **Backlog (v0.2+):** See [Master-Backlog-Tracker.md](Master-Backlog-Tracker.md) for 26 deferred requirements
 
-**Key Unblocking Events (Today - March 7, 2026):**
-- ✅ **CT-REQ-003 (Dashboard Foundation) Complete** → **UNBLOCKS KBP-ACC-002 dashboard** (promotion history visibility now ready to implement in Phase 6.2)
-- ✅ **All Learning/Backpropagation core infrastructure complete** (LM-REQ-001 through LM-NFR-002, KBP-REQ-001 through KBP-NFR-002) → 6 new backlog items created for v0.2+ capturing auto-summarization and observability gaps
-- ✅ **Agent execution session tracking complete** (AST-REQ-001) → Foundation for BACKLOG-01 (auto-summarization), BACKLOG-03 (key fact extraction)
+**Key Unblocking Events (Today - March 8, 2026):**
+- ✅ **Backlog requirements extracted** - All FUTURE and BACKLOG requirements now tracked in separate [Master-Backlog-Tracker.md](Master-Backlog-Tracker.md)
+- ✅ **CT-REQ-003 (Dashboard Foundation) Complete** → UNBLOCKS KBP-ACC-002 dashboard (promotion history visibility now ready to implement in Phase 6.2)
+- ✅ **All Learning/Backpropagation core infrastructure complete** (LM-REQ-001 through LM-NFR-002, KBP-REQ-001 through KBP-NFR-002)
+- ✅ **Agent execution session tracking complete** (AST-REQ-001) → Foundation for future v0.2+ session features (see Master-Backlog-Tracker.md)
 
 **Recent Completions (Last 7 Days):**
+- GLO-NFR-001: Backward compatibility framework for glossary updates
 - CT-REQ-006: Agent activity dashboard + system resource metrics (CPU/memory/disk) + resource alerts + dual MAUI view + CLI subcommands
-- MM-ACC-001: List available models with variants and sizes
-- MM-ACC-002: Download model with progress tracking
-- MM-ACC-003: List cached models on disk
-- MM-ACC-004: Delete cached model and reclaim space
+- MM-ACC-001 through MM-ACC-004: Model management acceptance tests
 - KBP-NFR-002: Provenance storage for promotions
 - KLC-REQ-007: HTML parsing library (AngleSharp)
 - WFC-REQ-001: Web fetch single URL
-- **NEW:** 6 backlog requirements documented referencing completed Phase 5 infrastructure
+- **Documentation reorganization:** 26 backlog requirements moved to Master-Backlog-Tracker.md for improved active vs. deferred requirement visibility
