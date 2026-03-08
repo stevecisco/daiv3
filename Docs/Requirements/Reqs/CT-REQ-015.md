@@ -2,8 +2,12 @@
 
 Source Spec: 11. Configuration & User Transparency - Requirements
 
-## Requirement (Phase 7+ Deferred)
-The system SHALL provide a Knowledge Graph Visualization displaying related documents, topic connections, and concept mapping through mind map and interactive graph views to enable knowledge exploration and discovery. This requirement is deferred to Phase 7+ pending completion of Tier 2 vector search and knowledge consolidation features.
+## Status: BACKLOG (Phase 7+)
+
+**Moved to backlog** as a deferred Phase 7+ requirement. While this feature provides high value for knowledge exploration UX, it requires mature Tier 2 vector search implementation and knowledge consolidation features that are foundational prerequisites.
+
+## Requirement Summary
+The system SHALL provide a Knowledge Graph Visualization displaying related documents, topic connections, and concept mapping through mind map and interactive graph views to enable knowledge exploration and discovery.
 
 ## Detailed Scope
 
