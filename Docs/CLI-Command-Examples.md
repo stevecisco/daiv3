@@ -55,6 +55,87 @@ Database Status:
 
 ---
 
+## System Commands
+
+### Verify Offline Capability (ES-REQ-003)
+```bash
+.\run-cli.bat system verify
+```
+Validates that the system operates without external servers or Docker dependencies. Performs comprehensive verification of offline capability for core functions (search, embeddings, storage).
+
+**Validation Checks:**
+1. **Self-Contained Operation (ES-CON-001)**: Local directory access
+2. **Offline Capability (ES-REQ-003)**: No Docker, no external servers, local components only
+3. **Framework Version (ES-CON-002)**: .NET 10 runtime validation
+
+**Output Example:**
+```
+═══════════════════════════════════════════════════════════
+     SYSTEM VERIFICATION (ES-REQ-003: Offline Capability)
+═══════════════════════════════════════════════════════════
+
+1. Self-Contained Operation (ES-CON-001)
+   Validating local directories and file system access...
+
+   Category: SelfContained
+   Status: ✓ PASSED
+   Checks: 4
+
+   ✓ Application Data Directory Writable (15.23ms)
+   ✓ Database Directory Writable (2.45ms)
+   ✓ Models Directory Writable (1.87ms)
+   ✓ Logs Directory Writable (1.92ms)
+
+   Info: Validated 4 self-contained operation requirements
+
+2. Offline Capability (ES-REQ-003)
+   Validating no external servers or Docker dependencies...
+
+   Category: Offline
+   Status: ✓ PASSED
+   Checks: 6
+
+   ✓ No Docker Required (0.04ms)
+   ✓ No External Database Required (0.03ms)
+   ✓ SQLite Available (53.70ms)
+   ✓ ONNX Runtime Available (8.90ms)
+   ✓ Foundry Local Available (10.10ms)
+   ✓ No Mandatory Network Access (0.02ms)
+
+   Info: ES-REQ-003: Validated 6 offline operation requirements. System operates without external servers or Docker.
+
+3. Framework Version (ES-CON-002)
+   Validating .NET 10 runtime...
+
+   Category: FrameworkVersion
+   Status: ✓ PASSED
+   Checks: 1
+
+   ✓ .NET 10 Runtime (0.15ms)
+
+   Info: Runtime: .NET 10.0.3, Version: 10.0.3
+
+═══════════════════════════════════════════════════════════
+✓ System Verification: PASSED
+
+  The system is correctly configured for offline operation.
+  Core functions (search, embeddings, storage) work without
+  external servers, Docker, or mandatory network access.
+═══════════════════════════════════════════════════════════
+```
+
+**Use Cases:**
+- Verify offline capability before deploying to air-gapped environments
+- Validate installation meets ES-REQ-003 requirements
+- Troubleshoot dependency issues
+- CI/CD pipeline validation gate
+
+**Exit Codes:**
+- `0`: All validation checks passed
+- `1`: One or more validation checks failed
+
+---
+
 ## Dashboard Commands
 
 ### Show System Dashboard

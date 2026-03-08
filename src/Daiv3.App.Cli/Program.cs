@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Text.Json;
 using Daiv3.Core.Settings;
+using Daiv3.Core.Validation;
 using Daiv3.Infrastructure.Shared.Hardware;
 using Daiv3.Infrastructure.Shared.Logging;
 using Daiv3.Knowledge;
@@ -55,6 +56,20 @@ public class Program
         dbCommand.AddCommand(dbInitCommand);
         dbCommand.AddCommand(dbStatusCommand);
         rootCommand.AddCommand(dbCommand);
+
+        // System commands (ES-REQ-003)
+        var systemCommand = new Command("system", "System validation and diagnostics");
+
+        var systemVerifyCommand = new Command("verify", "Verify offline capability and self-contained operation");
+        systemVerifyCommand.SetHandler(async () =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SystemVerifyCommand(host);
+            Environment.Exit(exitCode);
+        });
+
+        systemCommand.AddCommand(systemVerifyCommand);
+        rootCommand.AddCommand(systemCommand);
 
         // Dashboard command (CT-REQ-003, CT-REQ-006)
         var dashboardCommand = new Command("dashboard", "Show system dashboard and status");
@@ -1372,6 +1387,134 @@ public class Program
         {
             Console.WriteLine($"✗ Failed to get database status: {ex.Message}");
             return 1;
+        }
+    }
+
+    /// <summary>
+    /// ES-REQ-003: Verify that the system operates without external servers or Docker dependencies.
+    /// ES-ACC-001: Validate offline capability for core functions (search, embeddings, storage).
+    /// </summary>
+    private static async Task<int> SystemVerifyCommand(IHost host)
+    {
+        try
+        {
+            var validator = host.Services.GetRequiredService<IStartupValidator>();
+
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine("     SYSTEM VERIFICATION (ES-REQ-003: Offline Capability)  ");
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            // Validate self-contained operation
+            Console.WriteLine("1. Self-Contained Operation (ES-CON-001)");
+            Console.WriteLine("   Validating local directories and file system access...");
+            var selfContainedResult = await validator.ValidateSelfContainedOperationAsync();
+            Console.WriteLine();
+            PrintValidationResult(selfContainedResult);
+            Console.WriteLine();
+
+            // Validate offline capability
+            Console.WriteLine("2. Offline Capability (ES-REQ-003)");
+            Console.WriteLine("   Validating no external servers or Docker dependencies...");
+            var offlineResult = await validator.ValidateOfflineCapabilityAsync();
+            Console.WriteLine();
+            PrintValidationResult(offlineResult);
+            Console.WriteLine();
+
+            // Validate framework version
+            Console.WriteLine("3. Framework Version (ES-CON-002)");
+            Console.WriteLine("   Validating .NET 10 runtime...");
+            var frameworkResult = await validator.ValidateFrameworkVersionAsync();
+            Console.WriteLine();
+            PrintValidationResult(frameworkResult);
+            Console.WriteLine();
+
+            // Summary
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+            bool allValid = selfContainedResult.IsValid && offlineResult.IsValid && frameworkResult.IsValid;
+            if (allValid)
+            {
+                Console.WriteLine("✓ System Verification: PASSED");
+                Console.WriteLine();
+                Console.WriteLine("  The system is correctly configured for offline operation.");
+                Console.WriteLine("  Core functions (search, embeddings, storage) work without");
+                Console.WriteLine("  external servers, Docker, or mandatory network access.");
+            }
+            else
+            {
+                Console.WriteLine("✗ System Verification: FAILED");
+                Console.WriteLine();
+                Console.WriteLine("  One or more validation checks failed.");
+                Console.WriteLine("  Review the errors above and fix the configuration.");
+            }
+            Console.WriteLine("═══════════════════════════════════════════════════════════");
+
+            return allValid ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to verify system: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static void PrintValidationResult(StartupValidationResult result)
+    {
+        Console.WriteLine($"   Category: {result.Category}");
+        Console.WriteLine($"   Status: {(result.IsValid ? "✓ PASSED" : "✗ FAILED")}");
+        Console.WriteLine($"   Checks: {result.Checks.Count}");
+        Console.WriteLine();
+
+        foreach (var check in result.Checks)
+        {
+            var status = check.Passed ? "✓" : "✗";
+            var color = check.Passed ? ConsoleColor.Green : ConsoleColor.Red;
+            
+            Console.ForegroundColor = color;
+            Console.Write($"   {status} ");
+            Console.ResetColor();
+            Console.Write($"{check.Name}");
+            
+            if (!check.Passed && !string.IsNullOrEmpty(check.ErrorMessage))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($" - {check.ErrorMessage}");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.WriteLine($" ({check.DurationMs:F2}ms)");
+            }
+        }
+
+        if (result.Errors.Any())
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"   Errors ({result.Errors.Count}):");
+            Console.ResetColor();
+            foreach (var error in result.Errors)
+            {
+                Console.WriteLine($"     • {error}");
+            }
+        }
+
+        if (result.Warnings.Any())
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"   Warnings ({result.Warnings.Count}):");
+            Console.ResetColor();
+            foreach (var warning in result.Warnings)
+            {
+                Console.WriteLine($"     • {warning}");
+            }
+        }
+
+        if (!string.IsNullOrEmpty(result.AdditionalInfo))
+        {
+            Console.WriteLine();
+            Console.WriteLine($"   Info: {result.AdditionalInfo}");
         }
     }
 
