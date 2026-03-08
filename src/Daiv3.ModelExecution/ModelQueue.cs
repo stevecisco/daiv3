@@ -24,6 +24,7 @@ public class ModelQueue : IModelQueue
     private readonly IOnlineProviderRouter _onlineRouter;
     private readonly ILogger<ModelQueue> _logger;
     private readonly ModelQueueOptions _options;
+    private readonly LocalFirstRouteOptions _localFirstOptions;
 
     private readonly Channel<QueuedRequest> _immediateChannel;
     private readonly Channel<QueuedRequest> _normalChannel;
@@ -60,12 +61,14 @@ public class ModelQueue : IModelQueue
         IModelLifecycleManager modelLifecycleManager,
         IOnlineProviderRouter onlineRouter,
         IOptions<ModelQueueOptions> options,
+        IOptions<LocalFirstRouteOptions> localFirstOptions,
         ILogger<ModelQueue> logger)
     {
         _foundryBridge = foundryBridge;
         _modelLifecycleManager = modelLifecycleManager;
         _onlineRouter = onlineRouter;
         _options = options.Value;
+        _localFirstOptions = localFirstOptions.Value;
         _logger = logger;
 
         // Unbounded channels for each priority level
@@ -540,9 +543,92 @@ public class ModelQueue : IModelQueue
 
     private bool ShouldRouteOnline(ExecutionRequest request)
     {
-        // Simple heuristic: check if task type suggests online model
-        // In real implementation, would use configuration
-        return request.TaskType.Contains("online", StringComparison.OrdinalIgnoreCase);
+        // ES-REQ-001: Implement local-first routing decision
+
+        var taskType = request.TaskType ?? string.Empty;
+
+        // 1. Check LocalOnlyTaskTypes - these MUST use local models
+        if (_localFirstOptions.LocalOnlyTaskTypes.Any(t =>
+            t.Equals(taskType, StringComparison.OrdinalIgnoreCase)))
+        {
+            _logger.LogDebug(
+                "Request {RequestId} (task={TaskType}) is in LocalOnlyTaskTypes, routing to local",
+                request.Id, taskType);
+            return false; // Use local
+        }
+
+        // 2. Check OnlineOnlyTaskTypes - these MUST use online providers
+        if (_localFirstOptions.OnlineOnlyTaskTypes.Any(t =>
+            t.Equals(taskType, StringComparison.OrdinalIgnoreCase)))
+        {
+            _logger.LogDebug(
+                "Request {RequestId} (task={TaskType}) is in OnlineOnlyTaskTypes, routing online",
+                request.Id, taskType);
+            return true; // Use online
+        }
+
+        // 3. Apply local-first default preference
+        // By default, prefer local models (PreferLocalModelsDefault = true)
+        bool shouldUseLocal = _localFirstOptions.PreferLocalModelsDefault;
+
+        if (!shouldUseLocal)
+        {
+            _logger.LogDebug(
+                "Request {RequestId}: PreferLocalModelsDefault=false, routing to online",
+                request.Id);
+            return true; // Use online
+        }
+
+        // 4. Check if local models are available
+        if (_localFirstOptions.AvailableLocalModels.Count == 0)
+        {
+            _logger.LogWarning(
+                "Request {RequestId}: No local models configured, routing to online",
+                request.Id);
+            return true; // Use online (no local available)
+        }
+
+        // 5. Check queue backlog (optional override)
+        if (_localFirstOptions.RouteOnlineOnQueueBacklog)
+        {
+            var currentQueueDepth = GetCurrentQueueDepth();
+            if (currentQueueDepth >= _localFirstOptions.QueueBacklogThreshold)
+            {
+                _logger.LogInformation(
+                    "Request {RequestId}: Local queue backlog ({CurrentDepth} >= {Threshold}), " +
+                    "routing to online for latency improvement",
+                    request.Id, currentQueueDepth, _localFirstOptions.QueueBacklogThreshold);
+                return true; // Use online (backlog relief)
+            }
+        }
+
+        // Default: use local model (implements ES-REQ-001 local-first principle)
+        _logger.LogDebug(
+            "Request {RequestId} (task={TaskType}): Routing to local model (local-first default)",
+            request.Id, taskType);
+        return false; // Use local
+    }
+
+    /// <summary>
+    /// Gets the current total queue depth across all priority levels.
+    /// Used for backlog-based routing decisions.
+    /// </summary>
+    private int GetCurrentQueueDepth()
+    {
+        // Count items in all three priority channels
+        // This is an approximation since channels don't provide exact count
+        int depth = 0;
+
+        // Estimate from tracked requests (more accurate than channel count)
+        foreach (var req in _requests.Values)
+        {
+            if (req.CompletionSource.Task.IsCompleted == false)
+            {
+                depth++;
+            }
+        }
+
+        return depth;
     }
 
     private string DetermineModelId(ExecutionRequest request)

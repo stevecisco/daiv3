@@ -1444,13 +1444,304 @@ public class ModelQueueTests
         Assert.Equal(1, metrics.TotalModelSwitches);
     }
 
-    private ModelQueue CreateQueue()
+    private ModelQueue CreateQueue(LocalFirstRouteOptions? localFirstOptions = null)
     {
+        localFirstOptions ??= new LocalFirstRouteOptions();
         return new ModelQueue(
             _mockFoundryBridge.Object,
             _mockModelLifecycleManager.Object,
             _mockOnlineRouter.Object,
             Options.Create(_options),
+            Options.Create(localFirstOptions),
+            _mockLogger.Object);
+    }
+}
+
+/// <summary>
+/// Tests for ES-REQ-001: Local-first routing behavior.
+/// </summary>
+public class ModelQueueLocalFirstRoutingTests
+{
+    private readonly Mock<IFoundryBridge> _mockFoundryBridge;
+    private readonly Mock<IModelLifecycleManager> _mockModelLifecycleManager;
+    private readonly Mock<IOnlineProviderRouter> _mockOnlineRouter;
+    private readonly Mock<ILogger<ModelQueue>> _mockLogger;
+    private readonly ModelQueueOptions _options;
+
+    public ModelQueueLocalFirstRoutingTests()
+    {
+        _mockFoundryBridge = new Mock<IFoundryBridge>();
+        _mockModelLifecycleManager = new Mock<IModelLifecycleManager>();
+        _mockOnlineRouter = new Mock<IOnlineProviderRouter>();
+        _mockLogger = new Mock<ILogger<ModelQueue>>();
+        _options = new ModelQueueOptions
+        {
+            DefaultModelId = "phi-3-mini",
+            ChatModelId = "phi-3-mini",
+            CodeModelId = "phi-3-mini",
+            SummarizeModelId = "phi-3-mini"
+        };
+
+        _mockModelLifecycleManager.Setup(x => x.GetLoadedModelAsync())
+            .ReturnsAsync((string?)null);
+
+        _mockModelLifecycleManager.Setup(x => x.GetLastModelSwitchAsync())
+            .ReturnsAsync((DateTimeOffset?)DateTimeOffset.UtcNow);
+
+        _mockModelLifecycleManager.Setup(x => x.SwitchModelAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+    }
+
+    [Fact]
+    public async Task Enqueue_LocalOnlyTaskType_RoutesToLocal()
+    {
+        // Arrange - Configure "Search" as a local-only task type
+        var localFirstOptions = new LocalFirstRouteOptions
+        {
+            PreferLocalModelsDefault = true,
+            LocalOnlyTaskTypes = new() { "Search" },
+            OnlineOnlyTaskTypes = new(),
+            AvailableLocalModels = new() { "phi-3-mini" }
+        };
+
+        var queue = CreateQueue(localFirstOptions);
+
+        var request = new ExecutionRequest
+        {
+            Id = Guid.NewGuid(),
+            TaskType = "Search",  // LocalOnlyTaskType
+            Content = "Find documents"
+        };
+
+        _mockFoundryBridge.Setup(x =>
+            x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutionResult
+            {
+                RequestId = request.Id,
+                Content = "Results",
+                Status = ExecutionStatus.Completed
+            });
+
+        _mockFoundryBridge.Setup(x => x.GetLoadedModelAsync()).ReturnsAsync("phi-3-mini");
+
+        // Act
+        var requestId = await queue.EnqueueAsync(request);
+        await Task.Delay(500); // Allow processing
+
+        // Assert - Should route to local (FoundryBridge), not online (OnlineRouter)
+        _mockFoundryBridge.Verify(
+            x => x.ExecuteAsync(
+                It.Is<ExecutionRequest>(r => r.Id == request.Id),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task Enqueue_OnlineOnlyTaskType_RoutesToOnline()
+    {
+        // Arrange - Configure "OnlineTranslation" as an online-only task type
+        var localFirstOptions = new LocalFirstRouteOptions
+        {
+            PreferLocalModelsDefault = true,
+            LocalOnlyTaskTypes = new(),
+            OnlineOnlyTaskTypes = new() { "OnlineTranslation" },
+            AvailableLocalModels = new() { "phi-3-mini" }
+        };
+
+        var queue = CreateQueue(localFirstOptions);
+
+        var request = new ExecutionRequest
+        {
+            Id = Guid.NewGuid(),
+            TaskType = "OnlineTranslation",
+            Content = "Translate text"
+        };
+
+        _mockOnlineRouter.Setup(x =>
+            x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutionResult
+            {
+                RequestId = request.Id,
+                Content = "Translated",
+                Status = ExecutionStatus.Completed
+            });
+
+        // Act
+        var requestId = await queue.EnqueueAsync(request);
+        await Task.Delay(500); // Allow processing
+
+        // Assert - Should route to online (OnlineRouter)
+        _mockOnlineRouter.Verify(
+            x => x.ExecuteAsync(
+                It.Is<ExecutionRequest>(r => r.Id == request.Id),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task Enqueue_PreferLocalModelsDefault_RoutesToLocal()
+    {
+        // Arrange - Default should be local-first
+        var localFirstOptions = new LocalFirstRouteOptions
+        {
+            PreferLocalModelsDefault = true,  // Local-first principle
+            LocalOnlyTaskTypes = new(),
+            OnlineOnlyTaskTypes = new(),
+            AvailableLocalModels = new() { "phi-3-mini" }
+        };
+
+        var queue = CreateQueue(localFirstOptions);
+
+        var request = new ExecutionRequest
+        {
+            Id = Guid.NewGuid(),
+            TaskType = "chat",  // Regular task, not explicitly local or online
+            Content = "Hello"
+        };
+
+        _mockFoundryBridge.Setup(x =>
+            x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutionResult
+            {
+                RequestId = request.Id,
+                Content = "Response",
+                Status = ExecutionStatus.Completed
+            });
+
+        _mockFoundryBridge.Setup(x => x.GetLoadedModelAsync()).ReturnsAsync("phi-3-mini");
+
+        // Act
+        var requestId = await queue.EnqueueAsync(request);
+        await Task.Delay(500);
+
+        // Assert - Should route to local
+        _mockFoundryBridge.Verify(
+            x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task Enqueue_PreferLocalModelsDefaultFalse_RoutesToOnline()
+    {
+        // Arrange - If PreferLocalModelsDefault is false,regular tasks route to online
+        var localFirstOptions = new LocalFirstRouteOptions
+        {
+            PreferLocalModelsDefault = false,  // Prefer online by default
+            LocalOnlyTaskTypes = new(),
+            OnlineOnlyTaskTypes = new(),
+            AvailableLocalModels = new() { "phi-3-mini" }
+        };
+
+        var queue = CreateQueue(localFirstOptions);
+
+        var request = new ExecutionRequest
+        {
+            Id = Guid.NewGuid(),
+            TaskType = "chat",
+            Content = "Hello"
+        };
+
+        _mockOnlineRouter.Setup(x =>
+            x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutionResult
+            {
+                RequestId = request.Id,
+                Content = "Response",
+                Status = ExecutionStatus.Completed
+            });
+
+        // Act
+        var requestId = await queue.EnqueueAsync(request);
+        await Task.Delay(500);
+
+        // Assert - Should route to online
+        _mockOnlineRouter.Verify(
+            x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task Enqueue_NoAvailableLocalModels_RoutesToOnline()
+    {
+        // Arrange - If no local models are available, should route to online
+       var localFirstOptions = new LocalFirstRouteOptions
+        {
+            PreferLocalModelsDefault = true,
+            LocalOnlyTaskTypes = new(),
+            OnlineOnlyTaskTypes = new(),
+            AvailableLocalModels = new()  // Empty - no local models
+        };
+
+        var queue = CreateQueue(localFirstOptions);
+
+        var request = new ExecutionRequest
+        {
+            Id = Guid.NewGuid(),
+            TaskType = "chat",
+            Content = "Hello"
+        };
+
+        _mockOnlineRouter.Setup(x =>
+            x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutionResult
+            {
+                RequestId = request.Id,
+                Content = "Response",
+                Status = ExecutionStatus.Completed
+            });
+
+        // Act
+        var requestId = await queue.EnqueueAsync(request);
+        await Task.Delay(500);
+
+        // Assert - Should route to online (no local available)
+        _mockOnlineRouter.Verify(
+            x => x.ExecuteAsync(It.IsAny<ExecutionRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public void Enqueue_LocalFirstOptions_ContainsSearchAsLocalOnly()
+    {
+        // Arrange
+        var options = new LocalFirstRouteOptions();
+
+        // Assert - Default should include "Search" as local-only
+        Assert.Contains("Search", options.LocalOnlyTaskTypes);
+    }
+
+    [Fact]
+    public void Enqueue_LocalFirstOptions_ContainsPhiModels()
+    {
+        // Arrange
+        var options = new LocalFirstRouteOptions();
+
+        // Assert - Default should include available local models
+        Assert.Contains("phi-3-mini", options.AvailableLocalModels);
+        Assert.Contains("phi-4", options.AvailableLocalModels);
+    }
+
+    [Fact]
+    public void Enqueue_LocalFirstOptions_DefaultIsLocalFirst()
+    {
+        // Arrange
+        var options = new LocalFirstRouteOptions();
+
+        // Assert - Default preference should be local-first
+        Assert.True(options.PreferLocalModelsDefault, "ES-REQ-001: Default should prefer local models");
+    }
+
+    private ModelQueue CreateQueue(LocalFirstRouteOptions? localFirstOptions = null)
+    {
+        localFirstOptions ??= new LocalFirstRouteOptions();
+        return new ModelQueue(
+            _mockFoundryBridge.Object,
+            _mockModelLifecycleManager.Object,
+            _mockOnlineRouter.Object,
+            Options.Create(_options),
+            Options.Create(localFirstOptions),
             _mockLogger.Object);
     }
 }

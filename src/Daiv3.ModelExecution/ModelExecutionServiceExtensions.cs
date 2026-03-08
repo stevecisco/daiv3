@@ -47,6 +47,10 @@ public static class ModelExecutionServiceExtensions
         services.AddOptions<TaskToModelMappingConfiguration>()
             .Bind(configuration.GetSection("TaskToModelMapping"));
 
+        // Register ES-REQ-001 local-first routing configuration
+        services.AddOptions<LocalFirstRouteOptions>()
+            .Bind(configuration.GetSection("LocalFirstRouting"));
+
         // Register Foundry Local management service
         services.AddSingleton<FoundryLocalManagementService>(serviceProvider =>
         {
@@ -130,6 +134,9 @@ public static class ModelExecutionServiceExtensions
         // Configure MQ-REQ-011 and MQ-REQ-012 options with defaults
         services.Configure<LocalModelIntentClassificationOptions>(_ => { });
         services.Configure<TaskToModelMappingConfiguration>(_ => { });
+
+        // Configure ES-REQ-001 local-first routing with defaults
+        services.Configure<LocalFirstRouteOptions>(_ => { });
 
         // Register Foundry Local management service
         services.AddSingleton<FoundryLocalManagementService>(serviceProvider =>
