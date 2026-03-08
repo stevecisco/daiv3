@@ -7,6 +7,9 @@ This document specifies requirements derived from Section 14 of the design docum
 - Ensure consistent terminology across UI, docs, and logs.
 - Provide a shared vocabulary for implementation planning.
 
+## Canonical Source
+- Authoritative glossary: `Docs/Requirements/Glossary.md`
+
 ## Functional Requirements
 - GLO-REQ-001: The system SHALL define and use the following terms consistently: Chunk, Embedding, Foundry Local, MCP, NPU, ONNX Runtime, Learning Memory, RAG, SLM, Tier 1 / Tier 2, TensorPrimitives.
 - GLO-REQ-002: UI labels and documentation SHALL align with glossary definitions.
