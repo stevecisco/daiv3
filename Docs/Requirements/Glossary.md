@@ -38,6 +38,45 @@ This glossary defines the canonical terminology used across DAIv3 requirements, 
 
 ## Governance
 
-- Spec owner: Architecture and Documentation maintainers.
-- Update trigger: Introduce or rename domain concepts in requirements, code, UI, or operations docs.
-- Backward compatibility: When renaming terms, preserve prior aliases in notes and migration guidance.
+- **Spec owner:** Architecture and Documentation maintainers.
+- **Update trigger:** Introduce or rename domain concepts in requirements, code, UI, or operations docs.
+
+### Backward Compatibility Strategy
+
+To ensure existing documentation remains valid when the glossary evolves, updates are categorized as either backward compatible (minor version) or breaking (major version).
+
+#### Backward Compatible Changes (Minor Version)
+The following changes preserve compatibility with existing documentation:
+- **Adding new terms** to the Canonical Terms table
+- **Clarifying definitions** without changing canonical spellings or capitalization
+- **Adding related terms** to existing entries
+- **Adding usage notes** or examples in Canonical Usage Rules
+- **Adding notes** to existing term definitions
+
+#### Breaking Changes (Major Version)
+The following changes require a major version increment and migration guidance:
+- **Renaming canonical terms** (changing the term itself)
+- **Removing terms** from the Canonical Terms table
+- **Changing canonical spellings** (e.g., "Foundry Local" → "FoundryLocal")
+- **Changing canonical capitalization** (e.g., "Tier 1" → "tier 1")
+- **Redefining terms** in ways that contradict prior usage
+
+#### Deprecation Workflow
+When a term must be renamed or removed:
+1. Add the old term to the **Deprecated Terms** section below with:
+   - The deprecated term name
+   - The replacement term (or "None" if retired)
+   - The version when deprecated
+   - Migration guidance for existing references
+2. Increment the major version number
+3. Add an entry to the Version History table describing the breaking change
+4. Preserve the deprecated term in the Deprecated Terms section indefinitely to aid future readers
+5. Update automated validation tests to recognize both old and new terms during the migration period
+
+### Deprecated Terms
+
+This section lists terms that have been renamed, removed, or superseded. Existing documentation may reference these terms, and this section provides migration guidance.
+
+| Deprecated Term | Replacement Term | Deprecated In Version | Migration Guidance |
+|---|---|---|---|
+| *(None yet)* | — | — | — |

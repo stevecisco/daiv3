@@ -158,6 +158,37 @@ public class GlossaryConsistencyTests
         Assert.Empty(violations);
     }
 
+    /// <summary>
+    /// Validates that the canonical glossary includes backward compatibility framework.
+    /// Implements GLO-NFR-001.
+    /// </summary>
+    [Fact]
+    public void CanonicalGlossary_IncludesBackwardCompatibilityFramework()
+    {
+        var repoRoot = FindRepoRoot();
+        var glossaryPath = Path.Combine(repoRoot, "Docs", "Requirements", "Glossary.md");
+        var glossaryText = File.ReadAllText(glossaryPath);
+
+        // Validate backward compatibility strategy section exists
+        Assert.Contains("### Backward Compatibility Strategy", glossaryText);
+        Assert.Contains("#### Backward Compatible Changes (Minor Version)", glossaryText);
+        Assert.Contains("#### Breaking Changes (Major Version)", glossaryText);
+        Assert.Contains("#### Deprecation Workflow", glossaryText);
+
+        // Validate Deprecated Terms section exists
+        Assert.Contains("### Deprecated Terms", glossaryText);
+        Assert.Contains("| Deprecated Term | Replacement Term | Deprecated In Version | Migration Guidance |", glossaryText);
+
+        // Validate key backward compatibility concepts are documented
+        Assert.Contains("minor version", glossaryText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("major version", glossaryText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Adding new terms", glossaryText);
+        Assert.Contains("Renaming canonical terms", glossaryText);
+
+        // Validate deprecation workflow steps are present
+        Assert.Contains("migration guidance", glossaryText, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);
