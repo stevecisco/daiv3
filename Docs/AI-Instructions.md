@@ -1439,6 +1439,68 @@ Expected output here
 - Facilitates testing and validation
 - Serves as onboarding material for new developers
 
+### 6.2. Release Notes Documentation (PROTECTED)
+
+**Release notes are versioned documents that MUST NOT be automatically modified by AI assistants.**
+
+**Documentation Location:** `Docs/Release-Notes/[yyyy-MM-dd]-vX-Y-Z.md`
+
+**Protection Rules:**
+- ❌ **DO NOT modify existing release notes files** unless explicitly requested by the user
+- ❌ **DO NOT append to existing release notes** during requirement implementation
+- ❌ **DO NOT create new release notes** unless explicitly directed to do so
+- ✅ **Only modify release notes when user explicitly asks** for clarification, correction, or updates
+- ✅ **Create new release notes only with explicit version number** provided by user
+
+**When New Release Notes Are Created:**
+
+**By User Request Only:**
+- User will provide specific instructions like:
+  - "Create release notes for v1.0.0"
+  - "Update release notes v1.0.0 for clarity"
+  - "Add section to release notes about feature X"
+
+**Version Numbering:**
+- Format: `[yyyy-MM-dd]-vX-Y-Z.md` where:
+  - `yyyy-MM-dd`: Release date
+  - `X`: Major version (breaking changes)
+  - `Y`: Minor version (new features, backward compatible)
+  - `Z`: Patch version (bug fixes, backward compatible)
+- Example: `2026-03-08-v1-0-0.md`
+
+**Release Notes Content (when created):**
+1. **Version and Date Header**
+2. **Overview and Highlights**
+3. **Requirements Grouped by Functional Area:**
+   - Organized by logical feature groups (not just phases)
+   - Each requirement includes:
+     - Requirement ID and summary
+     - Dependencies (predecessors)
+     - Brief description of implementation
+4. **Technical Specifications**
+5. **Breaking Changes**
+6. **Known Issues and Limitations**
+7. **Migration Notes**
+8. **Release Verification Steps**
+
+**Why Release Notes Are Protected:**
+- **Historical Record:** Release notes are point-in-time snapshots
+- **Versioning Integrity:** Each release gets exactly one release notes document
+- **Audit Trail:** Changes to release notes must be deliberate and traceable
+- **No Automatic Updates:** Implementation of new requirements does NOT trigger release notes updates
+- **User Control:** Only the user decides when to create or update release notes
+
+**What to Do Instead:**
+- Update individual requirement documents during implementation
+- Update Master-Implementation-Tracker.md with progress
+- Update CLI-Command-Examples.md with new commands
+- Let the user decide when to generate release notes for a version
+
+**Enforcement:**
+- AI assistants must ask for confirmation before modifying any file in `Docs/Release-Notes/`
+- If unsure whether a file is a release note, check the path: `Docs/Release-Notes/*.md`
+- When user asks to "document changes," default to requirement docs, not release notes
+
 ### 7. Logging & Observability
 
 **All libraries and applications MUST implement comprehensive, configurable logging and performance metrics.**

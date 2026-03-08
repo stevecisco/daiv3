@@ -6,6 +6,7 @@
 - [Glossary](Glossary.md) - Canonical terminology and definitions
 - [Design Document](Daiv3_Design_Document.md) - Complete system architecture and specifications
 - [Implementation Plan](Implementation-Plan.md) - Dependency-ordered implementation phases
+- [Release Notes](../Release-Notes/) - Versioned release documentation (v1.0.0: 2026-03-08)
 
 **Instructions:**
 - Update the Status and Progress % columns as work progresses.

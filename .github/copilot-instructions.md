@@ -224,6 +224,11 @@ See [AI-Instructions.md](../Docs/AI-Instructions.md) for the complete sub-agent 
 - Use Console.WriteLine for logging
 - Implement MAUI before CLI validation
 - Make assumptions - ask clarifying questions
+- **Modify release notes files in `Docs/Release-Notes/` without explicit user request**
+
+### 🔒 Protected Files
+- **Release Notes** (`Docs/Release-Notes/*.md`): Only modify when user explicitly requests updates or clarifications
+- **Version-tagged documents**: Never modify historical versioned documents without explicit permission
 
 ---
 
