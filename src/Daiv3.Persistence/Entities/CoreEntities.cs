@@ -681,3 +681,68 @@ public class SettingsVersionHistory
     /// </summary>
     public string? Reason { get; set; }
 }
+/// <summary>
+/// Represents an executable .NET 10 single-file C# skill with approval workflow and tamper detection.
+/// Implements ES-ACC-002 Phase 1: Foundation - Data Model + Hash Service.
+/// </summary>
+public class ExecutableSkill
+{
+    /// <summary>
+    /// Unique identifier for the skill (UUID as string).
+    /// </summary>
+    public string SkillId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Skill name (matches filename without extension, e.g., "DataProcessor").
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Absolute path to the .cs skill file.
+    /// </summary>
+    public string FilePath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// SHA256 hash of the skill file content (hex string).
+    /// Used for tamper detection and integrity validation before execution.
+    /// </summary>
+    public string FileHash { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Path to the skill metadata markdown file (defines parameter contract, description, usage).
+    /// </summary>
+    public string MetadataPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Current approval status: PendingApproval, Approved, Revoked, Stale.
+    /// </summary>
+    public string ApprovalStatus { get; set; } = "PendingApproval"; // Maps to ApprovalStatus enum
+
+    /// <summary>
+    /// User or principal ID who created this skill (nullable).
+    /// </summary>
+    public string? CreatedBy { get; set; }
+
+    /// <summary>
+    /// When the skill was created (Unix timestamp).
+    /// </summary>
+    public long CreatedAt { get; set; }
+
+    /// <summary>
+    /// Administrator user or principal ID who approved this skill (nullable).
+    /// Null if not yet approved or if revoked.
+    /// </summary>
+    public string? ApprovedBy { get; set; }
+
+    /// <summary>
+    /// When the skill was approved (Unix timestamp, nullable).
+    /// Null if not yet approved.
+    /// </summary>
+    public long? ApprovedAt { get; set; }
+
+    /// <summary>
+    /// When the skill file or metadata was last modified (Unix timestamp).
+    /// Used to detect staleness (modification after approval).
+    /// </summary>
+    public long LastModifiedAt { get; set; }
+}

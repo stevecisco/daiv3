@@ -320,6 +320,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 10,
                 Description = "Add project dashboard fields for CT-REQ-011: priority, progress, deadline, assigned_agent, costs, parent_project_id",
                 Sql = SchemaScripts.Migration010_ProjectDashboardFields
+            },
+            new Migration
+            {
+                Version = 11,
+                Description = "Add executable_skills table with approval workflow and hash-based tamper detection (ES-ACC-002 Phase 1)",
+                Sql = SchemaScripts.Migration011_ExecutableSkills
             }
         };
     }
@@ -385,3 +391,4 @@ public sealed class DatabaseContext : IDatabaseContext
         public required string Sql { get; init; }
     }
 }
+

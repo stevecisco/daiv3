@@ -51,6 +51,9 @@ public static class OrchestrationServiceExtensions
         // Register skill sandboxing services
         services.TryAddScoped<SkillPermissionValidator>();
 
+        // Register executable skill services (ES-ACC-002 Phase 1)
+        services.TryAddScoped<ISkillHashService, SkillHashService>();
+
         // Register core orchestration services
         services.TryAddScoped<ITaskOrchestrator, TaskOrchestrator>();
         services.TryAddScoped<IIntentResolver, IntentResolver>();
@@ -160,3 +163,4 @@ public static class OrchestrationServiceExtensions
         return services;
     }
 }
+

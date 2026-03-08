@@ -82,6 +82,10 @@ public static class PersistenceServiceExtensions
         // CT-DATA-001: Settings repository for versioned application settings
         services.AddScoped<SettingsRepository>();
 
+
+        // ES-ACC-002: Executable skill repository with approval workflow (Phase 1)
+        services.AddScoped<IExecutableSkillRepository, ExecutableSkillRepository>();
+
         // LM-NFR-002: Learning metrics collector for transparency and auditability
         services.AddSingleton<LearningMetricsCollector>(serviceProvider =>
         {
@@ -175,3 +179,4 @@ public static class PersistenceServiceExtensions
         logger.LogInformation("Persistence layer initialized successfully");
     }
 }
+

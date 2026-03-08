@@ -459,4 +459,40 @@ CREATE INDEX IF NOT EXISTS idx_projects_parent_status ON projects(parent_project
 -- Note: SQLite foreign key enforcement requires PRAGMA foreign_keys = ON
 -- This is enforced via DatabaseContext configuration
 ";
+
+    /// <summary>
+    /// Migration 011: Executable Skills with Approval Workflow
+    /// Implements ES-ACC-002 Phase 1: Foundation - Data Model + Hash Service.
+    /// 
+    /// Creates executable_skills table to track .NET 10 single-file C# skills with:
+    /// - SHA256 hash for tamper detection
+    /// - Approval workflow (PendingApproval, Approved, Revoked, Stale)
+    /// - Admin approval tracking (who/when approved)
+    /// - Creation and modification timestamps
+    /// </summary>
+    public const string Migration011_ExecutableSkills = @"
+-- Executable Skills table
+CREATE TABLE IF NOT EXISTS executable_skills (
+    skill_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    file_path TEXT NOT NULL,
+    file_hash TEXT NOT NULL,
+    metadata_path TEXT NOT NULL,
+    approval_status TEXT NOT NULL DEFAULT 'PendingApproval',
+    created_by TEXT,
+    created_at INTEGER NOT NULL,
+    approved_by TEXT,
+    approved_at INTEGER,
+    last_modified_at INTEGER NOT NULL
+);
+
+-- Performance indexes for executable skills queries
+CREATE INDEX IF NOT EXISTS idx_executable_skills_name ON executable_skills(name);
+CREATE INDEX IF NOT EXISTS idx_executable_skills_approval_status ON executable_skills(approval_status);
+CREATE INDEX IF NOT EXISTS idx_executable_skills_created_at ON executable_skills(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_executable_skills_approved_at ON executable_skills(approved_at DESC);
+
+-- Composite index for approval status timeline queries
+CREATE INDEX IF NOT EXISTS idx_executable_skills_status_created ON executable_skills(approval_status, created_at DESC);
+";
 }
