@@ -142,6 +142,7 @@ public static class ApplicationSettings
         // Providers
         public const string OnlineAccessMode = "ask"; // never, ask, auto_within_budget, per_task
         public const string OnlineProvidersEnabled = "[]"; // Empty JSON array
+        public const bool ForceOfflineMode = false;
         public const int DailyTokenBudget = 50000;
         public const int MonthlyTokenBudget = 1000000;
         public const int TokenBudgetAlertThreshold = 80; // 80%
@@ -219,6 +220,7 @@ public static class ApplicationSettings
         // Providers
         public const string OnlineAccessMode = "When to allow online API calls (never/ask/auto_within_budget/per_task)";
         public const string OnlineProvidersEnabled = "List of enabled online AI providers";
+        public const string ForceOfflineMode = "Force the system into offline-only mode regardless of network connectivity";
         public const string DailyTokenBudget = "Maximum tokens per day across all online providers";
         public const string MonthlyTokenBudget = "Maximum tokens per month across all online providers";
         public const string TokenBudgetAlertThreshold = "Percentage threshold for budget alerts (0-100)";
@@ -306,6 +308,7 @@ public static class ApplicationSettings
             // Providers
             var k when k == Providers.OnlineAccessMode => Categories.Providers,
             var k when k == Providers.OnlineProvidersEnabled => Categories.Providers,
+            var k when k == Providers.ForceOfflineMode => Categories.Providers,
             var k when k == Providers.DailyTokenBudget => Categories.Providers,
             var k when k == Providers.MonthlyTokenBudget => Categories.Providers,
             var k when k == Providers.TokenBudgetAlertThreshold => Categories.Providers,
@@ -387,6 +390,7 @@ public static class ApplicationSettings
             // Providers
             var k when k == Providers.OnlineAccessMode => Descriptions.OnlineAccessMode,
             var k when k == Providers.OnlineProvidersEnabled => Descriptions.OnlineProvidersEnabled,
+            var k when k == Providers.ForceOfflineMode => Descriptions.ForceOfflineMode,
             var k when k == Providers.DailyTokenBudget => Descriptions.DailyTokenBudget,
             var k when k == Providers.MonthlyTokenBudget => Descriptions.MonthlyTokenBudget,
             var k when k == Providers.TokenBudgetAlertThreshold => Descriptions.TokenBudgetAlertThreshold,

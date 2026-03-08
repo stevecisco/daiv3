@@ -36,10 +36,27 @@
                     Padding="10"
                     StrokeShape="RoundRectangle 8"
                     StrokeThickness="0">
-                <HorizontalStackLayout>
-                    <Label Text="Last Update:" FontAttributes="Bold" WidthRequest="100" VerticalOptions="Center" />
-                    <Label Text="{Binding LastUpdateTime}" VerticalOptions="Center" />
-                </HorizontalStackLayout>
+                <VerticalStackLayout Spacing="8">
+                    <HorizontalStackLayout>
+                        <Label Text="Last Update:" FontAttributes="Bold" WidthRequest="100" VerticalOptions="Center" />
+                        <Label Text="{Binding LastUpdateTime}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="Network:" FontAttributes="Bold" WidthRequest="100" VerticalOptions="Center" />
+                        <Label Text="{Binding ConnectivityStatusText}" VerticalOptions="Center" />
+                        <Border Padding="8,2"
+                                StrokeShape="RoundRectangle 6"
+                                StrokeThickness="0"
+                                BackgroundColor="#B91C1C"
+                                IsVisible="{Binding IsForceOfflineMode}">
+                            <Label Text="FORCED OFFLINE"
+                                   FontSize="10"
+                                   FontAttributes="Bold"
+                                   TextColor="White" />
+                        </Border>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
             </Border>
 
             <!-- Resource Alerts (CT-REQ-006: Always visible when active) -->

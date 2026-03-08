@@ -176,6 +176,8 @@ public class SettingsInitializer : ISettingsInitializer
                 ApplicationSettings.Categories.Providers, ApplicationSettings.Descriptions.OnlineAccessMode, false),
             (ApplicationSettings.Providers.OnlineProvidersEnabled, ApplicationSettings.Defaults.OnlineProvidersEnabled, 
                 ApplicationSettings.Categories.Providers, ApplicationSettings.Descriptions.OnlineProvidersEnabled, false),
+            (ApplicationSettings.Providers.ForceOfflineMode, ApplicationSettings.Defaults.ForceOfflineMode,
+                ApplicationSettings.Categories.Providers, ApplicationSettings.Descriptions.ForceOfflineMode, false),
             (ApplicationSettings.Providers.DailyTokenBudget, ApplicationSettings.Defaults.DailyTokenBudget, 
                 ApplicationSettings.Categories.Providers, ApplicationSettings.Descriptions.DailyTokenBudget, false),
             (ApplicationSettings.Providers.MonthlyTokenBudget, ApplicationSettings.Defaults.MonthlyTokenBudget, 

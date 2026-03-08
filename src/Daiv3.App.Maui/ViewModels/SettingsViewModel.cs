@@ -40,6 +40,7 @@ public class SettingsViewModel : BaseViewModel
     private string _reasoningModel = ApplicationSettings.Defaults.FoundryLocalReasoningModel;
 
     private bool _allowOnlineProviders;
+    private bool _forceOfflineMode;
     private string _onlineAccessMode = ApplicationSettings.Defaults.OnlineAccessMode;
     private string _onlineProvidersEnabled = string.Empty;
     private int _tokenBudget = ApplicationSettings.Defaults.DailyTokenBudget;
@@ -158,6 +159,12 @@ public class SettingsViewModel : BaseViewModel
         set => SetProperty(ref _onlineAccessMode, value);
     }
 
+    public bool ForceOfflineMode
+    {
+        get => _forceOfflineMode;
+        set => SetProperty(ref _forceOfflineMode, value);
+    }
+
     public string OnlineProvidersEnabled
     {
         get => _onlineProvidersEnabled;
@@ -272,6 +279,7 @@ public class SettingsViewModel : BaseViewModel
 
                 var onlineAccessMode = await _settingsService.GetSettingValueAsync<string>(ApplicationSettings.Providers.OnlineAccessMode).ConfigureAwait(false);
                 var onlineProvidersEnabled = await _settingsService.GetSettingValueAsync<string>(ApplicationSettings.Providers.OnlineProvidersEnabled).ConfigureAwait(false);
+                var forceOfflineMode = await _settingsService.GetSettingValueAsync<bool>(ApplicationSettings.Providers.ForceOfflineMode).ConfigureAwait(false);
                 var dailyBudget = await _settingsService.GetSettingValueAsync<int>(ApplicationSettings.Providers.DailyTokenBudget).ConfigureAwait(false);
                 var monthlyBudget = await _settingsService.GetSettingValueAsync<int>(ApplicationSettings.Providers.MonthlyTokenBudget).ConfigureAwait(false);
                 var alertThreshold = await _settingsService.GetSettingValueAsync<int>(ApplicationSettings.Providers.TokenBudgetAlertThreshold).ConfigureAwait(false);
@@ -325,6 +333,7 @@ public class SettingsViewModel : BaseViewModel
                     OnlineAccessMode = string.IsNullOrWhiteSpace(onlineAccessMode)
                         ? ApplicationSettings.Defaults.OnlineAccessMode
                         : onlineAccessMode;
+                    ForceOfflineMode = forceOfflineMode;
                     OnlineProvidersEnabled = ConvertJsonArrayToCommaSeparated(
                         string.IsNullOrWhiteSpace(onlineProvidersEnabled)
                             ? ApplicationSettings.Defaults.OnlineProvidersEnabled
@@ -375,6 +384,7 @@ public class SettingsViewModel : BaseViewModel
                     ReasoningModel = ApplicationSettings.Defaults.FoundryLocalReasoningModel;
 
                     OnlineAccessMode = ApplicationSettings.Defaults.OnlineAccessMode;
+                    ForceOfflineMode = ApplicationSettings.Defaults.ForceOfflineMode;
                     OnlineProvidersEnabled = string.Empty;
                     AllowOnlineProviders = true;
                     TokenBudget = ApplicationSettings.Defaults.DailyTokenBudget;
@@ -483,6 +493,13 @@ public class SettingsViewModel : BaseViewModel
                 ConvertCommaSeparatedToJsonArray(OnlineProvidersEnabled),
                 ApplicationSettings.Categories.Providers,
                 ApplicationSettings.Descriptions.OnlineProvidersEnabled,
+                reason: "user_ui_change").ConfigureAwait(false);
+
+            await _settingsService.SaveSettingAsync(
+                ApplicationSettings.Providers.ForceOfflineMode,
+                ForceOfflineMode,
+                ApplicationSettings.Categories.Providers,
+                ApplicationSettings.Descriptions.ForceOfflineMode,
                 reason: "user_ui_change").ConfigureAwait(false);
 
             await _settingsService.SaveSettingAsync(

@@ -1,6 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Daiv3.App.Maui.Models;
 using Daiv3.App.Maui.Services;
+using Daiv3.Core.Settings;
+using Daiv3.ModelExecution.Interfaces;
+using Daiv3.Persistence;
 
 namespace Daiv3.App.Maui.ViewModels;
 
@@ -15,6 +18,8 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
 {
     private readonly ILogger<DashboardViewModel> _logger;
     private readonly IDashboardService _dashboardService;
+    private readonly INetworkConnectivityService? _connectivityService;
+    private readonly ISettingsService? _settingsService;
     private CancellationTokenSource? _viewLifetimeCts;
 
     // ── Hardware / Core Status ────────────────────────────────────────
@@ -36,6 +41,8 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
     private string _currentActivity = "Initializing...";
     private string _lastUpdateTime = "Never";
     private bool _isMonitoring;
+    private string _connectivityStatusText = "Connectivity: Unknown";
+    private bool _isForceOfflineMode;
 
     // ── Agent Activity (CT-REQ-006) ───────────────────────────────────
     private int _activeAgentCount;
@@ -71,10 +78,14 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
 
     public DashboardViewModel(
         ILogger<DashboardViewModel> logger,
-        IDashboardService dashboardService)
+        IDashboardService dashboardService,
+        INetworkConnectivityService? connectivityService = null,
+        ISettingsService? settingsService = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _dashboardService = dashboardService ?? throw new ArgumentNullException(nameof(dashboardService));
+        _connectivityService = connectivityService;
+        _settingsService = settingsService;
         Title = "Dashboard";
         _logger.LogInformation("DashboardViewModel initialized");
     }
@@ -192,6 +203,18 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
     }
 
     public string MonitoringStatusText => IsMonitoring ? "Monitoring" : "Idle";
+
+    public string ConnectivityStatusText
+    {
+        get => _connectivityStatusText;
+        set => SetProperty(ref _connectivityStatusText, value);
+    }
+
+    public bool IsForceOfflineMode
+    {
+        get => _isForceOfflineMode;
+        set => SetProperty(ref _isForceOfflineMode, value);
+    }
 
     // ── Agent Activity Properties (CT-REQ-006) ────────────────────────
 
@@ -880,6 +903,7 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
         try
         {
             var data = await _dashboardService.GetDashboardDataAsync(cancellationToken).ConfigureAwait(false);
+            await RefreshConnectivityStatusAsync(cancellationToken).ConfigureAwait(false);
 
             MainThread.BeginInvokeOnMainThread(() =>
             {
@@ -899,6 +923,8 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
 
     private void OnDashboardDataUpdated(object? sender, DashboardDataUpdatedEventArgs e)
     {
+        _ = RefreshConnectivityStatusAsync(_viewLifetimeCts?.Token ?? CancellationToken.None);
+
         // Marshal to main thread for UI safety (CT-NFR-001)
         MainThread.BeginInvokeOnMainThread(() =>
         {
@@ -1031,6 +1057,53 @@ public sealed class DashboardViewModel : BaseViewModel, IAsyncDisposable
         LastUpdateTime = data.CollectedAt.ToLocalTime().ToString("h:mm:ss tt");
 
         _logger.LogDebug("Dashboard UI updated from gathered telemetry");
+    }
+
+    private async Task RefreshConnectivityStatusAsync(CancellationToken cancellationToken)
+    {
+        var isForcedOffline = false;
+        var connectivityText = "Connectivity: Unknown";
+
+        try
+        {
+            if (_settingsService != null)
+            {
+                isForcedOffline = await _settingsService
+                    .GetSettingValueAsync<bool>(ApplicationSettings.Providers.ForceOfflineMode, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            if (isForcedOffline)
+            {
+                connectivityText = "Connectivity: Offline (Forced)";
+            }
+            else if (_connectivityService != null)
+            {
+                var level = await _connectivityService.GetConnectivityLevelAsync(cancellationToken).ConfigureAwait(false);
+                connectivityText = level switch
+                {
+                    ConnectivityLevel.None => "Connectivity: None",
+                    ConnectivityLevel.LocalOnly => "Connectivity: Local Network Only",
+                    ConnectivityLevel.Internet => "Connectivity: Internet",
+                    _ => "Connectivity: Unknown"
+                };
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh dashboard connectivity status");
+            connectivityText = "Connectivity: Unknown";
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            IsForceOfflineMode = isForcedOffline;
+            ConnectivityStatusText = connectivityText;
+        });
     }
 
     /// <summary>Manual refresh command for user-initiated refresh.</summary>
