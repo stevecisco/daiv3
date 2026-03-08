@@ -236,22 +236,22 @@ public class ExecutableSkillApprovalServiceTests
     }
 
     [Fact]
-    public void GrantRole_AddsRoleToPrincipal()
+    public async Task GrantRole_AddsRoleToPrincipal()
     {
         _service.GrantRole("user123", SystemRoles.SkillAdministrator);
 
-        var result = _service.IsAdministratorAsync("user123").Result;
+        var result = await _service.IsAdministratorAsync("user123");
 
         Assert.True(result);
     }
 
     [Fact]
-    public void RevokeRole_RemovesRoleFromPrincipal()
+    public async Task RevokeRole_RemovesRoleFromPrincipal()
     {
         _service.GrantRole("user123", SystemRoles.SkillAdministrator);
         _service.RevokeRole("user123", SystemRoles.SkillAdministrator);
 
-        var result = _service.IsAdministratorAsync("user123").Result;
+        var result = await _service.IsAdministratorAsync("user123");
 
         Assert.False(result);
     }

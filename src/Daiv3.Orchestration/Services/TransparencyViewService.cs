@@ -146,7 +146,6 @@ public sealed class TransparencyViewService : ITransparencyViewService
             // Get knowledge base statistics (document and chunk counts)
             int totalDocuments = 0;
             int totalChunks = 0;
-            long estimatedStorageBytes = 0;
 
             if (_databaseContext != null)
             {
