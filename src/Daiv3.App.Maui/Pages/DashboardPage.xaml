@@ -453,23 +453,201 @@
                 </VerticalStackLayout>
             </Border>
 
-            <!-- Task Queue Section -->
+            <!-- Model Queue Section (CT-ACC-002: Active Queue State Visualization) -->
             <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A212B}"
                     Padding="15"
                     StrokeShape="RoundRectangle 10"
                     StrokeThickness="0">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Task Queue"
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Model Queue Status"
                            FontSize="18"
                            FontAttributes="Bold" />
 
-                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto" RowSpacing="5">
-                        <Label Grid.Row="0" Grid.Column="0" Text="Queued Tasks:" FontAttributes="Bold" />
-                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding QueuedTasks}" />
+                    <!-- Current Model Display -->
+                    <Border Padding="12"
+                            StrokeShape="RoundRectangle 8"
+                            StrokeThickness="1"
+                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                            BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0F172A}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Current Model"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            <Label Text="{Binding CurrentModel, TargetNullValue='No model loaded'}"
+                                   FontSize="15"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource Primary}" />
+                        </VerticalStackLayout>
+                    </Border>
 
-                        <Label Grid.Row="1" Grid.Column="0" Text="Completed Tasks:" FontAttributes="Bold" />
-                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding CompletedTasks}" />
+                    <!-- Queue Summary Stats -->
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <!-- Queued Tasks -->
+                        <Border Grid.Column="0"
+                                Padding="10,8"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#0F172A}">
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="{Binding QueuedTasks}"
+                                       FontSize="22"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource Primary}"
+                                       HorizontalTextAlignment="Center" />
+                                <Label Text="Queued"
+                                       FontSize="11"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                       HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Completed Tasks -->
+                        <Border Grid.Column="1"
+                                Padding="10,8"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=#F0FDF4, Dark=#052E16}">
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="{Binding CompletedTasks}"
+                                       FontSize="22"
+                                       FontAttributes="Bold"
+                                       TextColor="#16A34A"
+                                       HorizontalTextAlignment="Center" />
+                                <Label Text="Completed"
+                                       FontSize="11"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                       HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Model Utilization -->
+                        <Border Grid.Column="2"
+                                Padding="10,8"
+                                StrokeShape="RoundRectangle 8"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=#FAF5FF, Dark=#0F0720}">
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="{Binding ModelUtilizationPercent, StringFormat='{0}%', TargetNullValue='N/A'}"
+                                       FontSize="22"
+                                       FontAttributes="Bold"
+                                       TextColor="#7C3AED"
+                                       HorizontalTextAlignment="Center" />
+                                <Label Text="Utilization"
+                                       FontSize="11"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                       HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Border>
                     </Grid>
+
+                    <!-- Queue Metrics -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <VerticalStackLayout Grid.Column="0" Spacing="3">
+                            <Label Text="Avg Wait Time"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            <Label Text="{Binding AverageWaitTimeSeconds, StringFormat='{0:F1}s', TargetNullValue='N/A'}"
+                                   FontSize="14"
+                                   FontAttributes="Bold" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3">
+                            <Label Text="Throughput"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            <Label Text="{Binding ThroughputPerMinute, StringFormat='{0:F1}/min', TargetNullValue='N/A'}"
+                                   FontSize="14"
+                                   FontAttributes="Bold" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- Top 3 Queue Items -->
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Next in Queue (Top 3)"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               Margin="0,6,0,0" />
+
+                        <!-- No items placeholder -->
+                        <Label Text="No items currently queued"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                               HorizontalTextAlignment="Center"
+                               Margin="0,8,0,8"
+                               IsVisible="{Binding QueuedTasks, Converter={StaticResource IsZeroConverter}}" />
+
+                        <!-- Queue Item Cards -->
+                        <CollectionView ItemsSource="{Binding TopQueueItems}"
+                                        HorizontalScrollBarVisibility="Never"
+                                        IsVisible="{Binding QueuedTasks, Converter={StaticResource IsGreaterThanZeroConverter}}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="local:QueueItemSummary">
+                                    <Border Padding="12"
+                                            Margin="0,0,0,6"
+                                            StrokeShape="RoundRectangle 8"
+                                            StrokeThickness="2"
+                                            Stroke="{Binding Priority, Converter={StaticResource PriorityColorConverter}}"
+                                            BackgroundColor="{AppThemeBinding Light=#FEFEFE, Dark=#111827}">
+                                        <VerticalStackLayout Spacing="6">
+
+                                            <!-- Header: Priority Badge + Queue Position -->
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                                <!-- Priority Badge -->
+                                                <Border Grid.Column="0"
+                                                        Padding="8,4"
+                                                        StrokeShape="RoundRectangle 6"
+                                                        StrokeThickness="0"
+                                                        BackgroundColor="{Binding Priority, Converter={StaticResource PriorityColorConverter}}">
+                                                    <Label Text="{Binding Priority}"
+                                                           FontSize="11"
+                                                           FontAttributes="Bold"
+                                                           TextColor="White" />
+                                                </Border>
+
+                                                <!-- Queue Position -->
+                                                <Label Grid.Column="2"
+                                                       Text="{Binding QueuePosition, StringFormat='#{0}'}"
+                                                       FontSize="12"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                       VerticalOptions="Center" />
+                                            </Grid>
+
+                                            <!-- Task Description -->
+                                            <Label Text="{Binding Description, TargetNullValue='[No description]'}"
+                                                   FontSize="13"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="2"
+                                                   TextColor="{AppThemeBinding Light=#1E293B, Dark=#E2E8F0}" />
+
+                                            <!-- Task Type & Model Preference -->
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <Label Grid.Column="0"
+                                                       Text="{Binding TaskType, StringFormat='Type: {0}', TargetNullValue='Type: Unknown'}"
+                                                       FontSize="11"
+                                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                       VerticalOptions="Center" />
+                                                <Label Grid.Column="1"
+                                                       Text="{Binding PreferredModel, StringFormat='🎯 {0}'}"
+                                                       FontSize="11"
+                                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                       VerticalOptions="Center"
+                                                       IsVisible="{Binding PreferredModel, Converter={StaticResource IsNotNullOrEmptyConverter}}" />
+                                            </Grid>
+
+                                            <!-- Estimated Start Time -->
+                                            <Label Text="{Binding EstimatedStartTime, StringFormat='Est. start: {0:HH:mm:ss}', TargetNullValue='Est. start: Calculating...'}"
+                                                   FontSize="11"
+                                                   FontAttributes="Italic"
+                                                   TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
+
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+
                 </VerticalStackLayout>
             </Border>
 
