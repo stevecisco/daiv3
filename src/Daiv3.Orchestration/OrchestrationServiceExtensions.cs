@@ -51,8 +51,9 @@ public static class OrchestrationServiceExtensions
         // Register skill sandboxing services
         services.TryAddScoped<SkillPermissionValidator>();
 
-        // Register executable skill services (ES-ACC-002 Phase 1)
+        // Register executable skill services (ES-ACC-002 Phase 1 & 2)
         services.TryAddScoped<ISkillHashService, SkillHashService>();
+        services.TryAddScoped<IExecutableSkillApprovalService, ExecutableSkillApprovalService>();
 
         // Register core orchestration services
         services.TryAddScoped<ITaskOrchestrator, TaskOrchestrator>();

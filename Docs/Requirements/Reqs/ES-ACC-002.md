@@ -25,7 +25,7 @@ Users can enable online providers and must see usage and budget indicators.
 **Completion Target (Original Scope AC1-AC9):** March 8, 2026 ✅ Complete  
 **Completion Target (Addendum AC10-AC16):** IN PROGRESS
 - **Phase 1 (Foundation):** ✅ Complete (March 8, 2026)
-- **Phase 2 (Approval):** Not started
+- **Phase 2 (Approval):** ✅ Complete (March 8, 2026)
 - **Phase 3 (Execution):** Not started
 - **Phase 4 (Audit):** Not started
 - **Phase 5 (Docker):** Not started
@@ -205,11 +205,13 @@ Users can enable online providers and must see usage and budget indicators.
 
 ### Phase 2: Approval Workflow + Authorization
 
+**Status:** ✅ COMPLETE (March 8, 2026)
+
 **Deliverables:**
-1. `IExecutableSkillApprovalService` interface with `RequestApprovalAsync(skillId, requestorId)`, `ApproveSkillAsync(skillId, approverAdminId)`, `RevokeApprovalAsync(skillId, adminId)`, `GetApprovalStatusAsync(skillId)`
-2. `ExecutableSkillApprovalService` implementation with admin role validation
-3. Authorization rules: only principals with `SkillAdministrator` role can approve/revoke
-4. State transitions: `PendingApproval` → `Approved`, `Approved` → `Revoked`, file-change triggers `Approved` → `Stale` → `PendingApproval`
+1. ✅ `IExecutableSkillApprovalService` interface with `RequestApprovalAsync(skillId, requestorId)`, `ApproveSkillAsync(skillId, approverAdminId)`, `RevokeApprovalAsync(skillId, adminId)`, `GetApprovalStatusAsync(skillId)`
+2. ✅ `ExecutableSkillApprovalService` implementation with admin role validation
+3. ✅ Authorization rules: only principals with `SkillAdministrator` role can approve/revoke
+4. ✅ State transitions: `PendingApproval` → `Approved`, `Approved` → `Revoked`, file-change triggers `Approved` → `Stale` → `PendingApproval`
 
 **Affected Projects:**
 - `src/Daiv3.Orchestration/Services/` - Add `ExecutableSkillApprovalService`
@@ -217,22 +219,25 @@ Users can enable online providers and must see usage and budget indicators.
 - `src/Daiv3.Persistence/Repositories/` - Extend `IExecutableSkillRepository` with approval methods
 
 **Test Coverage:**
-- Unit tests: `ExecutableSkillApprovalServiceTests` (12+ tests)
+- ✅ Unit tests: `ExecutableSkillApprovalServiceTests` (**16/16 passing**)
   - Non-admin cannot approve skill
   - Admin can approve pending skill
   - Cannot approve already-approved skill (idempotent/no-op)
   - Revoking approved skill transitions to Revoked
   - File hash change invalidates approval (Approved → Stale)
   - Stale skill requires re-approval
-- Integration tests: `ExecutableSkillApprovalWorkflowTests` (5+ tests)
+- ✅ Integration tests: `ExecutableSkillApprovalWorkflowIntegrationTests` (**5/5 passing**)
   - End-to-end: create skill → request approval → admin approve → validate status persisted
   - End-to-end: approve → modify file → detect stale → deny execution
+  - Non-admin approval attempt denied
+  - Revoke workflow
+  - Query by approval status
 
 **Acceptance Gate:**
-- [ ] All unit tests passing
-- [ ] Non-admin approval attempt is denied with clear error
-- [ ] Admin approval workflow completes and persists status
-- [ ] File modification triggers stale detection
+- ✅ All unit tests passing (16/16 ExecutableSkillApprovalServiceTests)
+- ✅ Non-admin approval attempt is denied with clear error
+- ✅ Admin approval workflow completes and persists status
+- ✅ File modification triggers stale detection
 
 **Mapped Acceptance Criteria:** AC13 (admin approval gate), AC14 (re-approval on update)
 
