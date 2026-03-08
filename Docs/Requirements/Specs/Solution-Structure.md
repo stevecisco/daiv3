@@ -105,13 +105,13 @@ See [Copilot Instructions - Dependency Management](../../.vscode/copilot-instruc
   - Service catalog client
   - Model lifecycle management
   - Configuration and options
-  - *Note: Named with FoundryLocal prefix as it's specific to managing Foundry Local runtime and could be reused by other systems that depend on Foundry Local*
+  - *Note: Named with `FoundryLocal` prefix as it's specific to managing Foundry Local runtime and could be reused by other systems that depend on Foundry Local*
 
 - **Daiv3.FoundryLocal.Management.Cli** - Foundry Local CLI
   - Command-line operations for Foundry Local management
   - Model installation, updates, and removal
   - Service control operations
-  - *Note: Named with FoundryLocal prefix for same reason as Management library*
+  - *Note: Named with `FoundryLocal` prefix for same reason as Management library*
 
 - **Daiv3.FoundryLocal.Bridge** - Foundry Local execution adapter
   - Foundry Local SDK integration
