@@ -346,6 +346,101 @@ public class AgentManagerTests
     }
 
     [Fact]
+    public async Task ExecuteTaskAsync_WithSelfCorrection_StoresLearningFromAgentActivity()
+    {
+        // Arrange
+        var agent = await _manager.CreateAgentAsync(new AgentDefinition
+        {
+            Name = "LearningCaptureAgent",
+            Purpose = "Test self-correction learning capture"
+        });
+
+        var request = new AgentExecutionRequest
+        {
+            AgentId = agent.Id,
+            TaskGoal = "Task requiring completion step",
+            SuccessCriteria = "output contains 'completion step'",
+            Options = new AgentExecutionOptions
+            {
+                MaxIterations = 5,
+                TimeoutSeconds = 10,
+                TokenBudget = 10000,
+                EnableSelfCorrection = true
+            }
+        };
+
+        // Act
+        var result = await _manager.ExecuteTaskAsync(request);
+
+        // Assert execution succeeded through self-correction path
+        Assert.True(result.Success);
+        Assert.True(result.IterationsExecuted >= 5);
+
+        // Reopen DB via a fresh scope and verify learning persisted
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddPersistence(opts => opts.DatabasePath = _dbPath);
+
+        using var serviceProvider = services.BuildServiceProvider();
+        await serviceProvider.InitializeDatabaseAsync();
+
+        var learningRepository = serviceProvider.GetRequiredService<LearningRepository>();
+        var learnings = await learningRepository.GetBySourceTaskAsync(result.ExecutionId.ToString());
+
+        var selfCorrectionLearning = learnings.SingleOrDefault(l => l.TriggerType == "SelfCorrection");
+
+        Assert.NotNull(selfCorrectionLearning);
+        Assert.Equal("Agent", selfCorrectionLearning!.Scope);
+        Assert.Equal(agent.Id.ToString(), selfCorrectionLearning.SourceAgent);
+        Assert.Equal(result.ExecutionId.ToString(), selfCorrectionLearning.SourceTaskId);
+        Assert.Contains("self-correction", selfCorrectionLearning.Tags ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExecuteTaskAsync_WithSelfCorrectionDisabled_DoesNotStoreSelfCorrectionLearning()
+    {
+        // Arrange
+        var agent = await _manager.CreateAgentAsync(new AgentDefinition
+        {
+            Name = "NoLearningCaptureAgent",
+            Purpose = "Test disabled self-correction learning capture"
+        });
+
+        var request = new AgentExecutionRequest
+        {
+            AgentId = agent.Id,
+            TaskGoal = "Task that will not meet criteria",
+            SuccessCriteria = "output contains 'this-will-never-match'",
+            Options = new AgentExecutionOptions
+            {
+                MaxIterations = 3,
+                TimeoutSeconds = 10,
+                TokenBudget = 10000,
+                EnableSelfCorrection = false
+            }
+        };
+
+        // Act
+        var result = await _manager.ExecuteTaskAsync(request);
+
+        // Assert execution completed without self-correction
+        Assert.False(result.Success);
+
+        // Reopen DB via a fresh scope and verify no self-correction learning persisted
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddPersistence(opts => opts.DatabasePath = _dbPath);
+
+        using var serviceProvider = services.BuildServiceProvider();
+        await serviceProvider.InitializeDatabaseAsync();
+
+        var learningRepository = serviceProvider.GetRequiredService<LearningRepository>();
+        var learnings = await learningRepository.GetBySourceAgentAsync(agent.Id.ToString());
+
+        Assert.DoesNotContain(learnings, l => l.TriggerType == "SelfCorrection");
+    }
+
+    [Fact]
     public async Task ExecuteTaskAsync_WithNonExistentAgent_ThrowsException()
     {
         // Arrange

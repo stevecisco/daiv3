@@ -1,5 +1,6 @@
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Orchestration.Messaging;
+using Daiv3.Orchestration.Models;
 using Daiv3.Persistence;
 using Daiv3.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ public class AgentManager : IAgentManager
     private readonly OrchestrationOptions _options;
     private readonly AgentExecutionMetricsCollector _metricsCollector;
     private readonly ILearningRetrievalService? _learningRetrieval;
+    private readonly ILearningService? _learningService;
     private readonly ConcurrentDictionary<Guid, Agent> _agents = new();
     private readonly ConcurrentDictionary<string, Guid> _taskTypeAgentIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly AgentExecutionRegistry _executionRegistry = new();
@@ -39,7 +41,8 @@ public class AgentManager : IAgentManager
         IToolInvoker toolInvoker,
         IOptions<OrchestrationOptions> options,
         AgentExecutionMetricsCollector metricsCollector,
-        ILearningRetrievalService? learningRetrieval = null)
+        ILearningRetrievalService? learningRetrieval = null,
+        ILearningService? learningService = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _agentRepository = agentRepository ?? throw new ArgumentNullException(nameof(agentRepository));
@@ -49,7 +52,8 @@ public class AgentManager : IAgentManager
         _toolInvoker = toolInvoker ?? throw new ArgumentNullException(nameof(toolInvoker));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _metricsCollector = metricsCollector ?? throw new ArgumentNullException(nameof(metricsCollector));
-        _learningRetrieval = learningRetrieval; // Optional: may be null if learning memory is not enabled
+        _learningRetrieval = learningRetrieval; // Optional: may be null if learning memory retrieval is not enabled
+        _learningService = learningService; // Optional: may be null if learning memory creation is not enabled
     }
 
     /// <inheritdoc />
@@ -419,6 +423,10 @@ public class AgentManager : IAgentManager
         {
             // Execute iteration loop
             string? lastFailureContext = null;
+            int? selfCorrectionFailedIteration = null;
+            string? selfCorrectionFailureReason = null;
+            string? selfCorrectionSuggestedCorrection = null;
+            string? selfCorrectionFailedOutput = null;
 
             for (int iteration = 1; iteration <= options.MaxIterations; iteration++)
             {
@@ -524,6 +532,23 @@ public class AgentManager : IAgentManager
                     result.TerminationReason = "Success";
                     result.Output = step.Output;
 
+                    if (options.EnableSelfCorrection &&
+                        selfCorrectionFailedIteration.HasValue &&
+                        iteration > selfCorrectionFailedIteration.Value)
+                    {
+                        await TryCreateSelfCorrectionLearningAsync(
+                            agent,
+                            request,
+                            result,
+                            selfCorrectionFailedIteration.Value,
+                            iteration,
+                            selfCorrectionFailureReason,
+                            selfCorrectionSuggestedCorrection,
+                            selfCorrectionFailedOutput,
+                            step.Output,
+                            linkedCts.Token).ConfigureAwait(false);
+                    }
+
                     _logger.LogInformation(
                         "Agent {AgentId} completed task successfully after {Iterations} iterations. SuccessCriteria met with {Confidence:P} confidence",
                         agent.Id, iteration, criteriaEvaluation.ConfidenceScore);
@@ -533,6 +558,11 @@ public class AgentManager : IAgentManager
                 // If criteria not met, check if we should attempt self-correction
                 if (!criteriaEvaluation.MeetsCriteria && options.EnableSelfCorrection && iteration < options.MaxIterations)
                 {
+                    selfCorrectionFailedIteration = iteration;
+                    selfCorrectionFailureReason = criteriaEvaluation.EvaluationMessage;
+                    selfCorrectionSuggestedCorrection = criteriaEvaluation.SuggestedCorrection;
+                    selfCorrectionFailedOutput = step.Output;
+
                     lastFailureContext = $"Iteration {iteration} failed criteria evaluation: {criteriaEvaluation.EvaluationMessage ?? "Unknown failure"}";
 
                     if (!string.IsNullOrEmpty(criteriaEvaluation.SuggestedCorrection))
@@ -673,6 +703,94 @@ public class AgentManager : IAgentManager
         }
 
         return result;
+    }
+
+    private async Task TryCreateSelfCorrectionLearningAsync(
+        Agent agent,
+        AgentExecutionRequest request,
+        AgentExecutionResult result,
+        int failedIteration,
+        int successIteration,
+        string? failureReason,
+        string? suggestedCorrection,
+        string? failedOutput,
+        string? successOutput,
+        CancellationToken ct)
+    {
+        if (_learningService == null)
+        {
+            return;
+        }
+
+        var taskId = request.Context.TryGetValue("task_id", out var taskIdFromContext) &&
+                     !string.IsNullOrWhiteSpace(taskIdFromContext)
+            ? taskIdFromContext
+            : result.ExecutionId.ToString();
+
+        var context = new SelfCorrectionTriggerContext
+        {
+            Title = $"Self-correction pattern for task '{request.TaskGoal}'",
+            Description = BuildSelfCorrectionLearningDescription(
+                request.TaskGoal,
+                failedIteration,
+                successIteration,
+                failureReason,
+                suggestedCorrection,
+                failedOutput,
+                successOutput),
+            Scope = "Agent",
+            SourceAgent = agent.Id.ToString(),
+            SourceTaskId = taskId,
+            Tags = "agent-execution,self-correction,es-req-007",
+            CreatedBy = agent.Id.ToString(),
+            FailedIteration = failedIteration,
+            SuccessIteration = successIteration,
+            FailureReason = failureReason,
+            SuggestedCorrection = suggestedCorrection,
+            FailedOutput = failedOutput,
+            SuccessOutput = successOutput
+        };
+
+        try
+        {
+            await _learningService.CreateSelfCorrectionLearningAsync(context, ct).ConfigureAwait(false);
+            _logger.LogInformation(
+                "Stored self-correction learning from agent activity. AgentId: {AgentId}, ExecutionId: {ExecutionId}, FailedIteration: {FailedIteration}, SuccessIteration: {SuccessIteration}",
+                agent.Id,
+                result.ExecutionId,
+                failedIteration,
+                successIteration);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to store self-correction learning from agent activity. AgentId: {AgentId}, ExecutionId: {ExecutionId}",
+                agent.Id,
+                result.ExecutionId);
+        }
+    }
+
+    private static string BuildSelfCorrectionLearningDescription(
+        string taskGoal,
+        int failedIteration,
+        int successIteration,
+        string? failureReason,
+        string? suggestedCorrection,
+        string? failedOutput,
+        string? successOutput)
+    {
+        var reason = string.IsNullOrWhiteSpace(failureReason) ? "Unknown failure reason" : failureReason;
+        var correction = string.IsNullOrWhiteSpace(suggestedCorrection) ? "No suggested correction provided" : suggestedCorrection;
+        var before = string.IsNullOrWhiteSpace(failedOutput) ? "No failed output captured" : failedOutput;
+        var after = string.IsNullOrWhiteSpace(successOutput) ? "No successful output captured" : successOutput;
+
+        return $"Task goal: {taskGoal}\n" +
+               $"Failure occurred at iteration {failedIteration}: {reason}\n" +
+               $"Suggested correction: {correction}\n" +
+               $"Successful completion at iteration {successIteration}.\n" +
+               $"Failed output: {before}\n" +
+               $"Successful output: {after}";
     }
 
     /// <summary>
