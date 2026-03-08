@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Daiv3.Persistence\Daiv3.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\src\Daiv3.ModelExecution\Daiv3.ModelExecution.csproj" />
   </ItemGroup>
 
   <ItemGroup>

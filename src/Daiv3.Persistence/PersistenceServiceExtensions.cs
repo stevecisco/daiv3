@@ -145,6 +145,14 @@ public static class PersistenceServiceExtensions
             return new Services.SettingsInitializer(settingsService, logger);
         });
 
+        // ES-REQ-002: Online access policy service for enforcing configured online fallback rules
+        services.AddScoped<IOnlineAccessPolicy>(serviceProvider =>
+        {
+            var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
+            var logger = serviceProvider.GetRequiredService<ILogger<Services.OnlineAccessPolicyService>>();
+            return new Services.OnlineAccessPolicyService(settingsService, logger);
+        });
+
         return services;
     }
 

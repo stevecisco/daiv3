@@ -22,6 +22,7 @@ public class ModelQueue : IModelQueue
     private readonly IFoundryBridge _foundryBridge;
     private readonly IModelLifecycleManager _modelLifecycleManager;
     private readonly IOnlineProviderRouter _onlineRouter;
+    private readonly IOnlineAccessPolicy? _onlineAccessPolicy; // ES-REQ-002: Enforces online access rules
     private readonly ILogger<ModelQueue> _logger;
     private readonly ModelQueueOptions _options;
     private readonly LocalFirstRouteOptions _localFirstOptions;
@@ -62,11 +63,13 @@ public class ModelQueue : IModelQueue
         IOnlineProviderRouter onlineRouter,
         IOptions<ModelQueueOptions> options,
         IOptions<LocalFirstRouteOptions> localFirstOptions,
-        ILogger<ModelQueue> logger)
+        ILogger<ModelQueue> logger,
+        IOnlineAccessPolicy? onlineAccessPolicy = null) // ES-REQ-002: Optional for backward compatibility
     {
         _foundryBridge = foundryBridge;
         _modelLifecycleManager = modelLifecycleManager;
         _onlineRouter = onlineRouter;
+        _onlineAccessPolicy = onlineAccessPolicy;
         _options = options.Value;
         _localFirstOptions = localFirstOptions.Value;
         _logger = logger;
@@ -430,7 +433,8 @@ public class ModelQueue : IModelQueue
             ExecutionResult result;
 
             // Determine if this is a local or online request
-            var isOnlineRequest = ShouldRouteOnline(request);
+            // ES-REQ-002: Check online access policy before routing
+            var isOnlineRequest = await ShouldRouteOnlineAsync(request, executionCts.Token);
 
             if (isOnlineRequest)
             {
@@ -541,11 +545,36 @@ public class ModelQueue : IModelQueue
         Interlocked.Exchange(ref _lastDequeuedAtUnixTimeMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
 
-    private bool ShouldRouteOnline(ExecutionRequest request)
+    /// <summary>
+    /// Determines whether a request should be routed to online providers or local models.
+    /// </summary>
+    /// <remarks>
+    /// ES-REQ-001: Implements local-first routing decision.
+    /// ES-REQ-002: Enforces configured online access policy before allowing online routing.
+    /// </remarks>
+    private async Task<bool> ShouldRouteOnlineAsync(ExecutionRequest request, CancellationToken ct = default)
     {
-        // ES-REQ-001: Implement local-first routing decision
-
         var taskType = request.TaskType ?? string.Empty;
+
+        // ES-REQ-002: Check online access policy first
+        if (_onlineAccessPolicy != null)
+        {
+            var decision = await _onlineAccessPolicy.IsOnlineAccessAllowedAsync(request, ct);
+            
+            if (!decision.IsAllowed)
+            {
+                _logger.LogInformation(
+                    "Request {RequestId}: Online access denied by policy - {Reason}",
+                    request.Id, decision.Reason);
+                return false; // Force local execution
+            }
+
+            _logger.LogDebug(
+                "Request {RequestId}: Online access policy check passed (mode={AccessMode}, requires_confirmation={RequiresConfirmation})",
+                request.Id, decision.AccessMode, decision.RequiresConfirmation);
+        }
+
+        // ES-REQ-001: Implement local-first routing decision
 
         // 1. Check LocalOnlyTaskTypes - these MUST use local models
         if (_localFirstOptions.LocalOnlyTaskTypes.Any(t =>
