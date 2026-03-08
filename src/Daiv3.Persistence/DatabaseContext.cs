@@ -332,6 +332,12 @@ public sealed class DatabaseContext : IDatabaseContext
                 Version = 12,
                 Description = "Add skill_audit_log table for executable skill lifecycle events (ES-ACC-002 Phase 4)",
                 Sql = SchemaScripts.Migration012_SkillAuditLog
+            },
+            new Migration
+            {
+                Version = 13,
+                Description = "Add glossary table for terminology and definitions (GLO-DATA-001)",
+                Sql = SchemaScripts.Migration013_Glossary
             }
         };
     }

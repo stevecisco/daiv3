@@ -82,6 +82,8 @@ public static class PersistenceServiceExtensions
         // CT-DATA-001: Settings repository for versioned application settings
         services.AddScoped<SettingsRepository>();
 
+        // GLO-DATA-001: Glossary repository for terminology and definitions
+        services.AddScoped<IGlossaryRepository, GlossaryRepository>();
 
         // ES-ACC-002: Executable skill repository with approval workflow (Phase 1)
         services.AddScoped<IExecutableSkillRepository, ExecutableSkillRepository>();

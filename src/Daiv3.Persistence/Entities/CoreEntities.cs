@@ -783,3 +783,80 @@ public class SkillAuditLog
     /// </summary>
     public long EventAt { get; set; }
 }
+
+/// <summary>
+/// Represents a glossary entry for consistent terminology.
+/// Implements GLO-DATA-001: Glossary entries SHALL include term, definition, and related terms.
+/// 
+/// Supports:
+/// - Unique term definitions with full descriptions
+/// - Related terms for semantic relationships
+/// - Categorization for organizational browsing
+/// - Audit trail for change tracking and user attribution
+/// </summary>
+public class GlossaryEntry
+{
+    /// <summary>
+    /// Unique identifier for the glossary entry (UUID as string).
+    /// </summary>
+    public string GlossaryId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The term being defined (unique across glossary).
+    /// Required field per GLO-DATA-001.
+    /// Examples: "Chunk", "Embedding", "Tier 1 Index", "Vector Similarity"
+    /// </summary>
+    public string Term { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The full definition explaining what the term means and how it's used in DAIv3.
+    /// Required field per GLO-DATA-001.
+    /// Should include context, usage examples, and references to related concepts.
+    /// </summary>
+    public string Definition { get; set; } = string.Empty;
+
+    /// <summary>
+    /// JSON array of related term strings for semantic relationships.
+    /// Optional field per GLO-DATA-001.
+    /// Stored as JSON for flexibility: ["term1", "term2", "term3"]
+    /// Examples for "Chunk": ["Text Chunker", "Token Boundaries", "Overlap"]
+    /// </summary>
+    public string? RelatedTermsJson { get; set; }
+
+    /// <summary>
+    /// Category for organizing glossary entries.
+    /// Examples: "Architecture", "Knowledge", "Models", "UI", "Agents"
+    /// Used for UI grouping and documentation organization.
+    /// </summary>
+    public string? Category { get; set; }
+
+    /// <summary>
+    /// When the glossary entry was created (Unix timestamp).
+    /// Used for tracking when terms were introduced to the system.
+    /// </summary>
+    public long CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the glossary entry was last updated (Unix timestamp).
+    /// Indicates if definition has been refined or clarified.
+    /// </summary>
+    public long UpdatedAt { get; set; }
+
+    /// <summary>
+    /// User or system ID who created the glossary entry (nullable).
+    /// Tracks provenance and attribution for audits.
+    /// </summary>
+    public string? CreatedBy { get; set; }
+
+    /// <summary>
+    /// User or system ID who last updated the glossary entry (nullable).
+    /// Tracks who refined or corrected definitions.
+    /// </summary>
+    public string? UpdatedBy { get; set; }
+
+    /// <summary>
+    /// Optional notes providing additional context or rationale for the definition.
+    /// Can include references to requirements, design documents, or implementation details.
+    /// </summary>
+    public string? Notes { get; set; }
+}

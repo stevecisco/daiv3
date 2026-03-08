@@ -523,4 +523,36 @@ CREATE INDEX IF NOT EXISTS idx_skill_audit_log_event_at ON skill_audit_log(event
 CREATE INDEX IF NOT EXISTS idx_skill_audit_log_skill_event_at ON skill_audit_log(skill_id, event_at DESC);
 CREATE INDEX IF NOT EXISTS idx_skill_audit_log_event_type_at ON skill_audit_log(event_type, event_at DESC);
 ";
+
+    /// <summary>
+    /// Migration 013: Glossary entries with term, definition, and related terms
+    /// Implements GLO-DATA-001: Glossary entries SHALL include term, definition, and related terms.
+    /// 
+    /// Creates glossary table for consistent terminology and definitions across the system.
+    /// Related terms stored as JSON array for flexible many-to-many relationships.
+    /// </summary>
+    public const string Migration013_Glossary = @"
+-- Glossary: Terminology and definitions for consistent system documentation
+CREATE TABLE IF NOT EXISTS glossary (
+    glossary_id TEXT PRIMARY KEY,
+    term TEXT NOT NULL UNIQUE,
+    definition TEXT NOT NULL,
+    related_terms_json TEXT,
+    category TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    created_by TEXT DEFAULT 'system',
+    updated_by TEXT DEFAULT 'system',
+    notes TEXT
+);
+
+-- Performance indexes for glossary queries
+CREATE INDEX IF NOT EXISTS idx_glossary_term ON glossary(term);
+CREATE INDEX IF NOT EXISTS idx_glossary_category ON glossary(category);
+CREATE INDEX IF NOT EXISTS idx_glossary_created_at ON glossary(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_glossary_updated_at ON glossary(updated_at DESC);
+
+-- Composite indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_glossary_category_term ON glossary(category, term);
+";
 }
