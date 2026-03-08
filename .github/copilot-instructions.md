@@ -105,17 +105,22 @@ See [AI-Instructions.md § 3.10](../Docs/AI-Instructions.md) for the complete pr
 **When asked to work on multiple requirements, implement them ONE AT A TIME in sequential order:**
 1. ✅ Implement first requirement **completely** (code + tests + docs)
 2. ✅ Update requirement doc and Master-Implementation-Tracker.md
-3. ✅ **Create git commit** for that requirement (stage only related files)
-4. ✅ **Then** proceed to next requirement
-5. ✅ Repeat until all requirements complete
+3. ✅ **Clean temporary files** before staging (CRITICAL STEP)
+4. ✅ **Create git commit** for that requirement (stage only related files)
+5. ✅ **Then** proceed to next requirement
+6. ✅ Repeat until all requirements complete
 
 **Key Rules:**
 - Create **one commit per completed requirement** (not one commit at end)
 - Commit **immediately** after requirement completion (do not batch)
+- **BEFORE staging**: Remove ALL temporary artifacts created during development/testing
+   - Examples: `temp/*_output.txt`, `temp/*_results.txt`, scratch logs, debug files, test captures
+   - Command: `git status --short` to identify untracked files in `temp/` and workspace
+   - Delete: `Remove-Item temp/file1.txt, temp/file2.txt -ErrorAction SilentlyContinue`
+   - **Purpose:** Keep repository clean and focused; prevent accidental commits of temporary test artifacts
 - Stage **only requirement-related files** (avoid `git add .` in multi-requirement work)
-- Before staging, run `git status --short` and remove untracked temporary artifacts created during testing/development (for example `*_output.txt`, scratch logs, ad-hoc debug files) unless the requirement explicitly says to keep them
 - Use format: `<REQ-ID> - Brief description`
-- See [AI-Instructions.md](../Docs/AI-Instructions.md) § Git Commits for Multi-Requirement Work for complete workflow
+- See [AI-Instructions.md](../Docs/AI-Instructions.md) § 5. Git Commits for Multi-Requirement Work for complete workflow
 
 ### Debugging Best Practices
 - ⚠️ **NEVER use `[System.Reflection.Assembly]::LoadFrom()` in PowerShell** - locks DLLs and prevents compilation

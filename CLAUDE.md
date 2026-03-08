@@ -58,7 +58,8 @@ Each project has its own `CLAUDE.md` under `src/<ProjectName>/CLAUDE.md` with pr
 7. **Never downgrade packages** without explicit user approval.
 8. **One commit per completed requirement.** Implement sequentially, commit after each one.
 9. **CLI before MAUI.** Validate every user-facing feature in CLI before building the MAUI equivalent.
-10. **Update Master-Implementation-Tracker.md** before yielding back to the user.
+10. **Clean temporary files before committing.** Remove all temporary artifacts (test outputs, debug logs, scratch files) from `temp/` or workspace before staging/committing.
+11. **Update Master-Implementation-Tracker.md** before yielding back to the user.
 
 ---
 
