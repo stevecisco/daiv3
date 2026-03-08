@@ -54,6 +54,7 @@ public static class OrchestrationServiceExtensions
         // Register executable skill services (ES-ACC-002 Phase 1, 2 & 3)
         services.TryAddScoped<ISkillHashService, SkillHashService>();
         services.TryAddScoped<IExecutableSkillApprovalService, ExecutableSkillApprovalService>();
+        services.TryAddScoped<ISkillIsolationPolicyService, DockerSkillIsolationPolicyService>();
         services.TryAddScoped<IExecutableSkillRunner, ExecutableSkillRunner>();
         services.TryAddScoped<ISkillAuditService, SkillAuditService>();
 

@@ -16,6 +16,7 @@ public class ExecutableSkillRunner : IExecutableSkillRunner
     private readonly IExecutableSkillRepository _repository;
     private readonly IExecutableSkillApprovalService _approvalService;
     private readonly ISkillHashService _hashService;
+    private readonly ISkillIsolationPolicyService _isolationPolicyService;
     private readonly ISkillAuditService _skillAuditService;
     private readonly ILogger<ExecutableSkillRunner> _logger;
 
@@ -23,12 +24,14 @@ public class ExecutableSkillRunner : IExecutableSkillRunner
         IExecutableSkillRepository repository,
         IExecutableSkillApprovalService approvalService,
         ISkillHashService hashService,
+        ISkillIsolationPolicyService isolationPolicyService,
         ISkillAuditService skillAuditService,
         ILogger<ExecutableSkillRunner> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _approvalService = approvalService ?? throw new ArgumentNullException(nameof(approvalService));
         _hashService = hashService ?? throw new ArgumentNullException(nameof(hashService));
+        _isolationPolicyService = isolationPolicyService ?? throw new ArgumentNullException(nameof(isolationPolicyService));
         _skillAuditService = skillAuditService ?? throw new ArgumentNullException(nameof(skillAuditService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -80,6 +83,20 @@ public class ExecutableSkillRunner : IExecutableSkillRunner
             return SkillValidationResult.Failure(
                 "IntegrityFailure",
                 $"Skill '{skill.Name}' failed integrity check. The file has been modified since approval. Please request re-approval from an administrator.");
+        }
+
+        // Enforce isolation policy gate (Phase 5 Docker policy stub).
+        var policy = await _isolationPolicyService.ValidateExecutionPolicyAsync(skill, cancellationToken).ConfigureAwait(false);
+        if (!policy.IsExecutionAllowed)
+        {
+            _logger.LogWarning(
+                "Skill {SkillId} blocked by isolation policy: {Reason}",
+                skillId,
+                policy.Reason);
+
+            return SkillValidationResult.Failure(
+                "IsolationRequired",
+                policy.Reason ?? "Skill execution denied by isolation policy.");
         }
 
         _logger.LogInformation("Skill {SkillId} passed validation", skillId);

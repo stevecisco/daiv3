@@ -14,6 +14,7 @@ public class ExecutableSkillRunnerTests
     private readonly Mock<IExecutableSkillRepository> _mockRepository;
     private readonly Mock<IExecutableSkillApprovalService> _mockApprovalService;
     private readonly Mock<ISkillHashService> _mockHashService;
+    private readonly Mock<ISkillIsolationPolicyService> _mockIsolationPolicyService;
     private readonly Mock<ISkillAuditService> _mockSkillAuditService;
     private readonly Mock<ILogger<ExecutableSkillRunner>> _mockLogger;
     private readonly ExecutableSkillRunner _runner;
@@ -23,13 +24,19 @@ public class ExecutableSkillRunnerTests
         _mockRepository = new Mock<IExecutableSkillRepository>();
         _mockApprovalService = new Mock<IExecutableSkillApprovalService>();
         _mockHashService = new Mock<ISkillHashService>();
+        _mockIsolationPolicyService = new Mock<ISkillIsolationPolicyService>();
         _mockSkillAuditService = new Mock<ISkillAuditService>();
         _mockLogger = new Mock<ILogger<ExecutableSkillRunner>>();
+
+        _mockIsolationPolicyService
+            .Setup(s => s.ValidateExecutionPolicyAsync(It.IsAny<ExecutableSkill>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SkillIsolationPolicyResult.Allow());
 
         _runner = new ExecutableSkillRunner(
             _mockRepository.Object,
             _mockApprovalService.Object,
             _mockHashService.Object,
+            _mockIsolationPolicyService.Object,
             _mockSkillAuditService.Object,
             _mockLogger.Object);
     }
@@ -250,6 +257,54 @@ public class ExecutableSkillRunnerTests
             Assert.True(result.IsValid);
             Assert.Null(result.ErrorCode);
             Assert.Null(result.ErrorMessage);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task ValidateBeforeExecutionAsync_IsolationPolicyBlocksSkill_ReturnsIsolationFailure()
+    {
+        // Arrange
+        var skillId = Guid.NewGuid().ToString();
+        var tempFile = Path.GetTempFileName();
+        await File.WriteAllTextAsync(tempFile, "// Test skill");
+
+        try
+        {
+            var skill = new ExecutableSkill
+            {
+                SkillId = skillId,
+                Name = "IsolatedSkill",
+                FilePath = tempFile,
+                MetadataPath = tempFile,
+                FileHash = "hash123",
+                ApprovalStatus = ApprovalStatus.Approved.ToString(),
+                CreatedBy = "user1",
+                CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+
+            _mockRepository
+                .Setup(r => r.GetByIdAsync(skillId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(skill);
+
+            _mockHashService
+                .Setup(h => h.ValidateHashAsync(skill, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+
+            _mockIsolationPolicyService
+                .Setup(s => s.ValidateExecutionPolicyAsync(skill, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(SkillIsolationPolicyResult.Deny(true, "Docker runtime is unavailable."));
+
+            // Act
+            var result = await _runner.ValidateBeforeExecutionAsync(skillId);
+
+            // Assert
+            Assert.False(result.IsValid);
+            Assert.Equal("IsolationRequired", result.ErrorCode);
+            Assert.Contains("Docker", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
