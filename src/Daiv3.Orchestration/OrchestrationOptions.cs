@@ -96,5 +96,27 @@ public class OrchestrationOptions
     /// Maximum number of learnings to inject into agent context.
     /// </summary>
     public int LearningRetrievalMaxResults { get; set; } = 3;
+
+    /// <summary>
+    /// Enables startup auto-loading of skills and agents from configuration files.
+    /// </summary>
+    public bool EnableModuleAutoDiscovery { get; set; } = true;
+
+    /// <summary>
+    /// Path to skill configuration file or directory.
+    /// Supports either a single JSON file or a directory of JSON files.
+    /// </summary>
+    public string SkillConfigAutoLoadPath { get; set; } = "config/skills";
+
+    /// <summary>
+    /// Path to agent configuration file or directory.
+    /// Supports either a single JSON file or a directory of JSON files.
+    /// </summary>
+    public string AgentConfigAutoLoadPath { get; set; } = "config/agents";
+
+    /// <summary>
+    /// Whether auto-discovery scans subdirectories recursively.
+    /// </summary>
+    public bool ModuleAutoLoadRecursive { get; set; } = true;
 }
 

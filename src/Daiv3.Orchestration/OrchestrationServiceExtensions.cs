@@ -5,6 +5,7 @@ using Daiv3.Orchestration.Messaging;
 using Daiv3.Orchestration.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace Daiv3.Orchestration;
 
@@ -64,6 +65,13 @@ public static class OrchestrationServiceExtensions
 
         // Register skill executor for direct and agent-integrated skill execution
         services.TryAddScoped<ISkillExecutor, SkillExecutor>();
+
+        // Register configuration loaders for runtime extensibility modules
+        services.TryAddScoped<Configuration.SkillConfigFileLoader>();
+        services.TryAddScoped<Configuration.AgentConfigFileLoader>();
+
+        // Register startup module auto-load service once
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, ModuleAutoLoadHostedService>());
 
         // Register tool registry as singleton (shared across all scopes)
         services.TryAddSingleton<IToolRegistry, ToolRegistry>();
