@@ -1,6 +1,7 @@
 using Daiv3.App.Maui.Models;
 using Daiv3.App.Maui.Services;
 using Daiv3.ModelExecution.Interfaces;
+using Daiv3.ModelExecution.Models;
 using Daiv3.Orchestration.Interfaces;
 using Daiv3.Persistence.Entities;
 using Daiv3.Scheduler;
@@ -731,6 +732,307 @@ public class DashboardServiceTests
         var agent = data.TimeTracking.Agents[0];
         Assert.Equal("Scheduler", agent.AgentName);
         Assert.True(agent.TotalElapsedTime.TotalMinutes >= 10);
+    }
+
+    // ── CT-REQ-007 / CT-ACC-003: Online Provider Usage Tests ───────────────────────
+
+    [Fact]
+    public async Task CollectOnlineProviderUsageAsync_NoRouter_ReturnsEmptyUsage()
+    {
+        // Arrange - No online router injected
+        using var service = new DashboardService(_mockLogger.Object, null, null, null, null, null, null, null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.OnlineUsage);
+        Assert.False(data.OnlineUsage.HasOnlineProviders);
+        Assert.False(data.OnlineUsage.HasActiveUsage);
+        Assert.Empty(data.OnlineUsage.Providers);
+    }
+
+    [Fact]
+    public async Task CollectOnlineProviderUsageAsync_NoProviders_ReturnsHasOnlineProvidersFalse()
+    {
+        // Arrange
+        var mockRouter = new Mock<IOnlineProviderRouter>();
+        mockRouter.Setup(r => r.ListProvidersAsync())
+            .ReturnsAsync(new List<string>());
+
+        using var service = new DashboardService(
+            _mockLogger.Object, 
+            null, 
+            null, 
+            null, 
+            null, 
+            null, 
+            mockRouter.Object, 
+            null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.OnlineUsage);
+        Assert.False(data.OnlineUsage.HasOnlineProviders);
+        Assert.False(data.OnlineUsage.HasActiveUsage);
+        Assert.Empty(data.OnlineUsage.Providers);
+    }
+
+    [Fact]
+    public async Task CollectOnlineProviderUsageAsync_WithProviders_ReturnsUsageSummaries()
+    {
+        // Arrange
+        var mockRouter = new Mock<IOnlineProviderRouter>();
+        mockRouter.Setup(r => r.ListProvidersAsync())
+            .ReturnsAsync(new List<string> { "openai", "azure-openai" });
+
+        var openAiUsage = new Daiv3.ModelExecution.Models.ProviderTokenUsage
+        {
+            ProviderName = "openai",
+            DailyInputTokens = 1000,
+            DailyOutputTokens = 500,
+            MonthlyInputTokens = 10000,
+            MonthlyOutputTokens = 5000,
+            DailyInputLimit = 50000,
+            DailyOutputLimit = 25000,
+            MonthlyInputLimit = 500000,
+            MonthlyOutputLimit = 250000,
+            ResetDate = DateTimeOffset.UtcNow.AddHours(12)
+        };
+
+        var azureUsage = new Daiv3.ModelExecution.Models.ProviderTokenUsage
+        {
+            ProviderName = "azure-openai",
+            DailyInputTokens = 2000,
+            DailyOutputTokens = 1000,
+            MonthlyInputTokens = 20000,
+            MonthlyOutputTokens = 10000,
+            DailyInputLimit = 100000,
+            DailyOutputLimit = 50000,
+            MonthlyInputLimit = 1000000,
+            MonthlyOutputLimit = 500000,
+            ResetDate = DateTimeOffset.UtcNow.AddHours(12)
+        };
+
+        mockRouter.Setup(r => r.GetTokenUsageAsync("openai", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(openAiUsage);
+        mockRouter.Setup(r => r.GetTokenUsageAsync("azure-openai", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(azureUsage);
+
+        using var service = new DashboardService(
+            _mockLogger.Object,
+            null,
+            null,
+            null,
+            null,
+            null,
+            mockRouter.Object,
+            null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.NotNull(data.OnlineUsage);
+        Assert.True(data.OnlineUsage.HasOnlineProviders);
+        Assert.True(data.OnlineUsage.HasActiveUsage);
+        Assert.Equal(2, data.OnlineUsage.Providers.Count);
+
+        var openAiSummary = data.OnlineUsage.Providers.FirstOrDefault(p => p.ProviderName == "openai");
+        Assert.NotNull(openAiSummary);
+        Assert.Equal("OpenAI", openAiSummary.DisplayName);
+        Assert.Equal(1000, openAiSummary.DailyInputTokens);
+        Assert.Equal(500, openAiSummary.DailyOutputTokens);
+
+        var azureSummary = data.OnlineUsage.Providers.FirstOrDefault(p => p.ProviderName == "azure-openai");
+        Assert.NotNull(azureSummary);
+        Assert.Equal("Azure OpenAI", azureSummary.DisplayName);
+        Assert.Equal(2000, azureSummary.DailyInputTokens);
+    }
+
+    [Fact]
+    public async Task CollectOnlineProviderUsageAsync_WithActiveUsage_SetsFlagCorrectly()
+    {
+        // Arrange
+        var mockRouter = new Mock<IOnlineProviderRouter>();
+        mockRouter.Setup(r => r.ListProvidersAsync())
+            .ReturnsAsync(new List<string> { "openai" });
+
+        var usage = new Daiv3.ModelExecution.Models.ProviderTokenUsage
+        {
+            ProviderName = "openai",
+            DailyInputTokens = 1000,
+            DailyOutputTokens = 0,
+            MonthlyInputTokens = 5000,
+            MonthlyOutputTokens = 0,
+            DailyInputLimit = 50000,
+            DailyOutputLimit = 25000,
+            MonthlyInputLimit = 500000,
+            MonthlyOutputLimit = 250000,
+            ResetDate = DateTimeOffset.UtcNow.AddHours(12)
+        };
+
+        mockRouter.Setup(r => r.GetTokenUsageAsync("openai", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usage);
+
+        using var service = new DashboardService(
+            _mockLogger.Object,
+            null,
+            null,
+            null,
+            null,
+            null,
+            mockRouter.Object,
+            null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.True(data.OnlineUsage.HasActiveUsage);
+        Assert.True(data.OnlineUsage.TotalDailyTokens > 0 || data.OnlineUsage.TotalMonthlyTokens > 0);
+    }
+
+    [Fact]
+    public async Task CollectOnlineProviderUsageAsync_ProviderNearBudget_SetsBudgetAlert()
+    {
+        // Arrange
+        var mockRouter = new Mock<IOnlineProviderRouter>();
+        mockRouter.Setup(r => r.ListProvidersAsync())
+            .ReturnsAsync(new List<string> { "openai" });
+
+        // Set usage to 85% of daily limit (near budget)
+        var usage = new Daiv3.ModelExecution.Models.ProviderTokenUsage
+        {
+            ProviderName = "openai",
+            DailyInputTokens = 42500,
+            DailyOutputTokens = 0,
+            MonthlyInputTokens = 100000,
+            MonthlyOutputTokens = 0,
+            DailyInputLimit = 50000,
+            DailyOutputLimit = 0,
+            MonthlyInputLimit = 500000,
+            MonthlyOutputLimit = 0,
+            ResetDate = DateTimeOffset.UtcNow.AddHours(12)
+        };
+
+        mockRouter.Setup(r => r.GetTokenUsageAsync("openai", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usage);
+
+        using var service = new DashboardService(
+            _mockLogger.Object,
+            null,
+            null,
+            null,
+            null,
+            null,
+            mockRouter.Object,
+            null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.True(data.OnlineUsage.HasBudgetAlert);
+        var provider = data.OnlineUsage.Providers.First();
+        Assert.True(provider.HighestUsagePercent >= 80);
+    }
+
+    [Fact]
+    public async Task CollectOnlineProviderUsageAsync_ProviderOverBudget_SetsBudgetAlert()
+    {
+        // Arrange
+        var mockRouter = new Mock<IOnlineProviderRouter>();
+        mockRouter.Setup(r => r.ListProvidersAsync())
+            .ReturnsAsync(new List<string> { "openai" });
+
+        // Set usage to 105% of daily limit (over budget)
+        var usage = new Daiv3.ModelExecution.Models.ProviderTokenUsage
+        {
+            ProviderName = "openai",
+            DailyInputTokens = 52500,
+            DailyOutputTokens = 0,
+            MonthlyInputTokens = 100000,
+            MonthlyOutputTokens = 0,
+            DailyInputLimit = 50000,
+            DailyOutputLimit = 0,
+            MonthlyInputLimit = 500000,
+            MonthlyOutputLimit = 0,
+            ResetDate = DateTimeOffset.UtcNow.AddHours(12)
+        };
+
+        mockRouter.Setup(r => r.GetTokenUsageAsync("openai", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usage);
+
+        using var service = new DashboardService(
+            _mockLogger.Object,
+            null,
+            null,
+            null,
+            null,
+            null,
+            mockRouter.Object,
+            null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert
+        Assert.True(data.OnlineUsage.HasBudgetAlert);
+        var provider = data.OnlineUsage.Providers.First();
+        Assert.True(provider.IsOverBudget);
+        Assert.True(provider.HighestUsagePercent >= 100);
+    }
+
+    [Fact]
+    public async Task CollectOnlineProviderUsageAsync_ProviderError_ContinuesOtherProviders()
+    {
+        // Arrange
+        var mockRouter = new Mock<IOnlineProviderRouter>();
+        mockRouter.Setup(r => r.ListProvidersAsync())
+            .ReturnsAsync(new List<string> { "openai", "azure-openai" });
+
+        // OpenAI throws exception, Azure OpenAI returns normally
+        mockRouter.Setup(r => r.GetTokenUsageAsync("openai", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Provider error"));
+
+        var azureUsage = new Daiv3.ModelExecution.Models.ProviderTokenUsage
+        {
+            ProviderName = "azure-openai",
+            DailyInputTokens = 1000,
+            DailyOutputTokens = 500,
+            MonthlyInputTokens = 10000,
+            MonthlyOutputTokens = 5000,
+            DailyInputLimit = 50000,
+            DailyOutputLimit = 25000,
+            MonthlyInputLimit = 500000,
+            MonthlyOutputLimit = 250000,
+            ResetDate = DateTimeOffset.UtcNow.AddHours(12)
+        };
+
+        mockRouter.Setup(r => r.GetTokenUsageAsync("azure-openai", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(azureUsage);
+
+        using var service = new DashboardService(
+            _mockLogger.Object,
+            null,
+            null,
+            null,
+            null,
+            null,
+            mockRouter.Object,
+            null);
+
+        // Act
+        var data = await service.GetDashboardDataAsync();
+
+        // Assert - Should still return Azure OpenAI data despite OpenAI error
+        Assert.NotNull(data.OnlineUsage);
+        Assert.True(data.OnlineUsage.HasOnlineProviders);
+        Assert.Single(data.OnlineUsage.Providers);
+        Assert.Equal("azure-openai", data.OnlineUsage.Providers[0].ProviderName);
     }
 }
 
