@@ -32,7 +32,7 @@ Users can enable online providers and must see usage and budget indicators.
   - Dotnet-based execution with parameter passing, output capture, JSON parsing
   - 14/14 unit tests passing, 12 integration tests created
   - DI registration complete
-- **Phase 4 (Skill Creator Integration + Audit Trail):** ⏳ In Progress (March 8, 2026)
+- **Phase 4 (Skill Creator Integration + Audit Trail):** ✅ Complete (March 8, 2026)
   - ✅ Added `SkillAuditLog` entity + schema migration (`Migration012_SkillAuditLog`)
   - ✅ Added `ISkillAuditRepository` + `SkillAuditLogRepository` with filter queries
   - ✅ Added `ISkillAuditService` + `SkillAuditService`
@@ -40,7 +40,8 @@ Users can enable online providers and must see usage and budget indicators.
   - ✅ Added `SkillAuditEventType` enum
   - ✅ Extended `skills/global/SkillCreator.md` executable scaffolding guidance
   - ✅ Added CLI `skill audit` query command for lifecycle trail inspection
-  - ⏳ Remaining: end-to-end creator workflow automation (generate .cs + metadata + initial hash + auto approval request)
+  - ✅ Added executable scaffold automation via `skill scaffold --executable` (.cs + metadata + hash + DB registration + Created audit + approval request)
+  - ✅ Added CLI `skill execute --name <name> --param key=value` runtime entry point
 - **Phase 5 (Docker):** Not started
 
 ## Architecture & Design
@@ -272,7 +273,7 @@ Users can enable online providers and must see usage and budget indicators.
 - ✅ `src/Daiv3.Orchestration/OrchestrationServiceExtensions.cs` - Added DI registration
 - ✅ `tests/unit/Daiv3.Orchestration.Tests/` - Added `ExecutableSkillRunnerTests.cs`
 - ✅ `tests/integration/Daiv3.Orchestration.IntegrationTests/` - Added `ExecutableSkillExecutionTests.cs`
-- ⏳ `src/Daiv3.App.Cli/Commands/` - Add `skill execute` command for manual testing (deferred to Phase 4)
+- ✅ `src/Daiv3.App.Cli/Program.cs` - Added `skill execute` command for runtime execution testing
 
 **Test Coverage:**
 - ✅ Unit tests: `ExecutableSkillRunnerTests` (14/14 passing)
@@ -297,7 +298,7 @@ Users can enable online providers and must see usage and budget indicators.
 **Acceptance Gate:**
 - ✅ All unit tests passing (14/14 ExecutableSkillRunnerTests)
 - ⏳ Integration tests created but cannot run due to pre-existing compilation errors in other test files
-- ⏳ CLI `daiv3 skill execute <name> --param key=value` works end-to-end (deferred to Phase 4)
+- ✅ CLI `daiv3 skill execute <name> --param key=value` command implemented and validated (approval guard + execution path)
 - ✅ Denied executions now emit structured audit events (`ExecutionDenied`, `HashMismatch`) with remediation metadata
 
 **Mapped Acceptance Criteria:** AC10 (partial - runtime execution), AC11 (skill execution), AC12 (hash enforcement)
@@ -343,7 +344,7 @@ Users can enable online providers and must see usage and budget indicators.
 
 **Acceptance Gate:**
 - ✅ All implemented unit tests passing (`SkillAuditServiceTests`, `ExecutableSkillRunnerTests`, `ExecutableSkillApprovalServiceTests`)
-- [ ] Skill creator produces valid executable skill + metadata + hash + audit record
+- ✅ Skill creator produces valid executable skill + metadata + hash + audit record (`skill scaffold --executable`)
 - ✅ CLI `daiv3 skill audit <name>` displays lifecycle audit trail with optional event/time filters
 - ✅ Audit log queryable by skill, event type, date range (repository + service API)
 

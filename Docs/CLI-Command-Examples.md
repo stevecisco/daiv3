@@ -2164,6 +2164,25 @@ Displays comprehensive project analytics including:
 
 ## Skill Commands
 
+### Scaffold Executable Skill (C# + Metadata + Approval Request)
+```bash
+.\run-cli.bat skill scaffold --path skills --name "MySkill" --description "My executable skill" --scope Global --executable --requestor cli-user
+```
+Creates:
+- `<scope-path>/MySkill.cs` with args parsing scaffold
+- `<scope-path>/MySkill.md` metadata with YAML frontmatter
+
+Also performs:
+- file hash computation and persistence in `executable_skills`
+- `Created` audit event
+- automatic approval request record (`ApprovalRequested`)
+
+### Execute Executable Skill
+```bash
+.\run-cli.bat skill execute --name "MySkill" --param input=hello --principal cli-user
+```
+Executes an approved executable skill and prints stdout/stderr. If the skill is not approved or integrity checks fail, execution is denied with remediation guidance.
+
 ### Show Executable Skill Audit Trail
 ```bash
 .\run-cli.bat skill audit --name "SkillName"

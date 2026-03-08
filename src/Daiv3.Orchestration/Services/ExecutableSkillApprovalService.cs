@@ -49,6 +49,18 @@ public class ExecutableSkillApprovalService : IExecutableSkillApprovalService
 
         if (skill.ApprovalStatus == ApprovalStatus.PendingApproval.ToString())
         {
+            await LogAuditSafeAsync(
+                skillId,
+                SkillAuditEventType.ApprovalRequested,
+                requestorId,
+                new Dictionary<string, string>
+                {
+                    ["skillName"] = skill.Name,
+                    ["newStatus"] = skill.ApprovalStatus,
+                    ["note"] = "Approval request received while skill already pending"
+                },
+                ct).ConfigureAwait(false);
+
             _logger.LogInformation("Skill {SkillId} '{SkillName}' is already pending approval", skillId, skill.Name);
             return skill;
         }

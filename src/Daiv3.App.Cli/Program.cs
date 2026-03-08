@@ -1,5 +1,7 @@
 using System.CommandLine;
 using System.Text.Json;
+using Daiv3.Core.Authorization;
+using Daiv3.Core.Enums;
 using Daiv3.Core.Settings;
 using Daiv3.Core.Validation;
 using Daiv3.Infrastructure.Shared.Hardware;
@@ -948,6 +950,31 @@ public class Program
             Environment.Exit(exitCode);
         }, skillTreePathOption, skillTreeNameOption, skillTreeRecursiveOption);
 
+        var skillExecuteCommand = new Command("execute", "Execute an approved executable skill by name");
+        var skillExecuteNameOption = new Option<string>(
+            aliases: new[] { "--name", "-n" },
+            description: "Executable skill name")
+        { IsRequired = true };
+        var skillExecuteParamOption = new Option<string[]>(
+            aliases: new[] { "--param", "-p" },
+            description: "Execution parameter in key=value format (repeat for multiple)")
+        {
+            Arity = ArgumentArity.ZeroOrMore
+        };
+        var skillExecutePrincipalOption = new Option<string>(
+            aliases: new[] { "--principal" },
+            description: "Principal ID for execution audit",
+            getDefaultValue: () => "cli-user");
+        skillExecuteCommand.AddOption(skillExecuteNameOption);
+        skillExecuteCommand.AddOption(skillExecuteParamOption);
+        skillExecuteCommand.AddOption(skillExecutePrincipalOption);
+        skillExecuteCommand.SetHandler(async (string name, string[] parameters, string principalId) =>
+        {
+            using var host = CreateHost();
+            var exitCode = await SkillExecuteCommand(host, name, parameters, principalId);
+            Environment.Exit(exitCode);
+        }, skillExecuteNameOption, skillExecuteParamOption, skillExecutePrincipalOption);
+
         var skillAuditCommand = new Command("audit", "Show executable skill lifecycle audit trail");
         var skillAuditNameOption = new Option<string>(
             aliases: new[] { "--name", "-n" },
@@ -973,7 +1000,7 @@ public class Program
             Environment.Exit(exitCode);
         }, skillAuditNameOption, skillAuditEventTypeOption, skillAuditFromOption, skillAuditToOption);
 
-        var skillScaffoldCommand = new Command("scaffold", "Create a markdown skill file scaffold (supports SkillCreator bootstrap)");
+        var skillScaffoldCommand = new Command("scaffold", "Create skill scaffold files (markdown or executable C#)");
         var skillScaffoldPathOption = new Option<string>(
             aliases: new[] { "--path", "-p" },
             description: "Root skills directory",
@@ -999,6 +1026,14 @@ public class Program
         var skillScaffoldTaskOption = new Option<string?>(
             aliases: new[] { "--task" },
             description: "Task identifier (for Task scope)");
+        var skillScaffoldExecutableOption = new Option<bool>(
+            aliases: new[] { "--executable", "-x" },
+            description: "Create executable skill artifacts (.cs + metadata) and register for approval",
+            getDefaultValue: () => false);
+        var skillScaffoldRequestorOption = new Option<string>(
+            aliases: new[] { "--requestor" },
+            description: "Principal ID requesting approval for executable scaffolds",
+            getDefaultValue: () => "cli-user");
         skillScaffoldCommand.AddOption(skillScaffoldPathOption);
         skillScaffoldCommand.AddOption(skillScaffoldNameOption);
         skillScaffoldCommand.AddOption(skillScaffoldDescriptionOption);
@@ -1006,17 +1041,30 @@ public class Program
         skillScaffoldCommand.AddOption(skillScaffoldProjectOption);
         skillScaffoldCommand.AddOption(skillScaffoldSubProjectOption);
         skillScaffoldCommand.AddOption(skillScaffoldTaskOption);
-        skillScaffoldCommand.SetHandler(async (string path, string name, string description, string scope, string? project, string? subProject, string? task) =>
+        skillScaffoldCommand.AddOption(skillScaffoldExecutableOption);
+        skillScaffoldCommand.AddOption(skillScaffoldRequestorOption);
+        skillScaffoldCommand.SetHandler(async context =>
         {
+            var path = context.ParseResult.GetValueForOption(skillScaffoldPathOption)!;
+            var name = context.ParseResult.GetValueForOption(skillScaffoldNameOption)!;
+            var description = context.ParseResult.GetValueForOption(skillScaffoldDescriptionOption)!;
+            var scope = context.ParseResult.GetValueForOption(skillScaffoldScopeOption)!;
+            var project = context.ParseResult.GetValueForOption(skillScaffoldProjectOption);
+            var subProject = context.ParseResult.GetValueForOption(skillScaffoldSubProjectOption);
+            var task = context.ParseResult.GetValueForOption(skillScaffoldTaskOption);
+            var executable = context.ParseResult.GetValueForOption(skillScaffoldExecutableOption);
+            var requestor = context.ParseResult.GetValueForOption(skillScaffoldRequestorOption)!;
+
             using var host = CreateHost();
-            var exitCode = await SkillScaffoldCommand(host, path, name, description, scope, project, subProject, task);
+            var exitCode = await SkillScaffoldCommand(host, path, name, description, scope, project, subProject, task, executable, requestor);
             Environment.Exit(exitCode);
-        }, skillScaffoldPathOption, skillScaffoldNameOption, skillScaffoldDescriptionOption, skillScaffoldScopeOption, skillScaffoldProjectOption, skillScaffoldSubProjectOption, skillScaffoldTaskOption);
+        });
 
         skillCommand.AddCommand(skillLoadCommand);
         skillCommand.AddCommand(skillListCommand);
         skillCommand.AddCommand(skillSearchCommand);
         skillCommand.AddCommand(skillTreeCommand);
+        skillCommand.AddCommand(skillExecuteCommand);
         skillCommand.AddCommand(skillAuditCommand);
         skillCommand.AddCommand(skillScaffoldCommand);
         rootCommand.AddCommand(skillCommand);
@@ -5563,7 +5611,88 @@ public class Program
         }
     }
 
-    private static Task<int> SkillScaffoldCommand(
+    private static async Task<int> SkillExecuteCommand(
+        IHost host,
+        string skillName,
+        string[] parameterPairs,
+        string principalId)
+    {
+        try
+        {
+            var skillRepository = host.Services.GetRequiredService<IExecutableSkillRepository>();
+            var skillRunner = host.Services.GetRequiredService<IExecutableSkillRunner>();
+
+            var skill = await skillRepository.GetByNameAsync(skillName).ConfigureAwait(false);
+            if (skill == null)
+            {
+                Console.WriteLine($"Executable skill not found: {skillName}");
+                return 1;
+            }
+
+            var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in parameterPairs)
+            {
+                var separator = pair.IndexOf('=');
+                if (separator <= 0 || separator == pair.Length - 1)
+                {
+                    Console.WriteLine($"Invalid parameter format '{pair}'. Use key=value.");
+                    return 1;
+                }
+
+                var key = pair[..separator].Trim();
+                var value = pair[(separator + 1)..].Trim();
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    Console.WriteLine($"Invalid parameter key in '{pair}'.");
+                    return 1;
+                }
+
+                parameters[key] = value;
+            }
+
+            var principal = SystemPrincipal.CreateUser(principalId);
+            var result = await skillRunner.ExecuteAsync(skill.SkillId, parameters, principal).ConfigureAwait(false);
+
+            if (result.Success)
+            {
+                Console.WriteLine($"✓ Skill executed successfully: {skill.Name}");
+                Console.WriteLine($"  Exit Code: {result.ExitCode}");
+                Console.WriteLine($"  Execution Time: {result.ExecutionTimeMs}ms");
+                if (!string.IsNullOrWhiteSpace(result.StandardOutput))
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("STDOUT:");
+                    Console.WriteLine(result.StandardOutput);
+                }
+
+                if (!string.IsNullOrWhiteSpace(result.StandardError))
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("STDERR:");
+                    Console.WriteLine(result.StandardError);
+                }
+
+                return 0;
+            }
+
+            Console.WriteLine($"✗ Skill execution failed: {result.ErrorMessage}");
+            if (!string.IsNullOrWhiteSpace(result.StandardError))
+            {
+                Console.WriteLine();
+                Console.WriteLine("STDERR:");
+                Console.WriteLine(result.StandardError);
+            }
+
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Failed to execute skill: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SkillScaffoldCommand(
         IHost host,
         string rootPath,
         string name,
@@ -5571,12 +5700,12 @@ public class Program
         string scope,
         string? project,
         string? subProject,
-        string? task)
+        string? task,
+        bool executable,
+        string requestorId)
     {
         try
         {
-            _ = host;
-
             var normalizedScope = scope.Trim();
             var scopeFolder = normalizedScope.ToLowerInvariant() switch
             {
@@ -5589,25 +5718,177 @@ public class Program
 
             Directory.CreateDirectory(scopeFolder);
 
-            var fileName = $"{SanitizeForPath(name)}.md";
-            var fullPath = Path.Combine(scopeFolder, fileName);
-            if (File.Exists(fullPath))
+            var sanitizedName = SanitizeForPath(name);
+
+            if (!executable)
             {
-                Console.WriteLine($"Skill file already exists: {fullPath}");
-                return Task.FromResult(1);
+                var fileName = $"{sanitizedName}.md";
+                var fullPath = Path.Combine(scopeFolder, fileName);
+                if (File.Exists(fullPath))
+                {
+                    Console.WriteLine($"Skill file already exists: {fullPath}");
+                    return 1;
+                }
+
+                var content = BuildSkillScaffold(name, description, normalizedScope, project, subProject, task);
+                File.WriteAllText(fullPath, content);
+
+                Console.WriteLine($"✓ Created skill scaffold: {fullPath}");
+                return 0;
             }
 
-            var content = BuildSkillScaffold(name, description, normalizedScope, project, subProject, task);
-            File.WriteAllText(fullPath, content);
+            var csPath = Path.Combine(scopeFolder, $"{sanitizedName}.cs");
+            var metadataPath = Path.Combine(scopeFolder, $"{sanitizedName}.md");
 
-            Console.WriteLine($"✓ Created skill scaffold: {fullPath}");
-            return Task.FromResult(0);
+            if (File.Exists(csPath) || File.Exists(metadataPath))
+            {
+                Console.WriteLine("Executable skill artifacts already exist:");
+                Console.WriteLine($"  C#: {csPath}");
+                Console.WriteLine($"  MD: {metadataPath}");
+                return 1;
+            }
+
+            var skillCode = BuildExecutableSkillCodeScaffold(name, description);
+            var skillMetadata = BuildExecutableSkillMetadataScaffold(name, description, normalizedScope, project, subProject, task);
+
+            File.WriteAllText(csPath, skillCode);
+            File.WriteAllText(metadataPath, skillMetadata);
+
+            var hashService = host.Services.GetRequiredService<ISkillHashService>();
+            var skillRepository = host.Services.GetRequiredService<IExecutableSkillRepository>();
+            var approvalService = host.Services.GetRequiredService<IExecutableSkillApprovalService>();
+            var skillAuditService = host.Services.GetRequiredService<ISkillAuditService>();
+
+            var skillId = Guid.NewGuid().ToString();
+            var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var fileHash = await hashService.ComputeHashAsync(csPath).ConfigureAwait(false);
+
+            var skill = new ExecutableSkill
+            {
+                SkillId = skillId,
+                Name = name,
+                FilePath = csPath,
+                FileHash = fileHash,
+                MetadataPath = metadataPath,
+                ApprovalStatus = ApprovalStatus.PendingApproval.ToString(),
+                CreatedBy = requestorId,
+                CreatedAt = nowUnix,
+                LastModifiedAt = nowUnix
+            };
+
+            await skillRepository.AddAsync(skill).ConfigureAwait(false);
+
+            await skillAuditService.LogEventAsync(
+                skill.SkillId,
+                SkillAuditEventType.Created.ToString(),
+                requestorId,
+                new Dictionary<string, string>
+                {
+                    ["skillName"] = skill.Name,
+                    ["filePath"] = skill.FilePath,
+                    ["metadataPath"] = skill.MetadataPath
+                }).ConfigureAwait(false);
+
+            await approvalService.RequestApprovalAsync(skill.SkillId, requestorId).ConfigureAwait(false);
+
+            Console.WriteLine($"✓ Created executable skill C# file: {csPath}");
+            Console.WriteLine($"✓ Created executable skill metadata: {metadataPath}");
+            Console.WriteLine($"✓ Registered executable skill: {skill.Name} ({skill.SkillId})");
+            Console.WriteLine($"✓ Initial hash stored: {skill.FileHash}");
+            Console.WriteLine($"✓ Approval requested by: {requestorId}");
+
+            return 0;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"✗ Failed to scaffold skill: {ex.Message}");
-            return Task.FromResult(1);
+            return 1;
         }
+    }
+
+    private static string BuildExecutableSkillCodeScaffold(string name, string description)
+    {
+        return $$"""
+using System.Text.Json;
+
+// {{name}} - {{description}}
+var parameters = ParseArgs(args);
+
+var result = new
+{
+    status = "ok",
+    skill = "{{name}}",
+    message = "Replace this scaffold logic with your implementation.",
+    receivedParameters = parameters
+};
+
+Console.WriteLine(JsonSerializer.Serialize(result));
+
+static Dictionary<string, string> ParseArgs(string[] args)
+{
+    var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    for (var i = 0; i < args.Length; i++)
+    {
+        var token = args[i];
+        if (!token.StartsWith("--", StringComparison.Ordinal))
+        {
+            continue;
+        }
+
+        var key = token[2..];
+        var value = i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)
+            ? args[++i]
+            : "true";
+
+        values[key] = value;
+    }
+
+    return values;
+}
+""";
+    }
+
+    private static string BuildExecutableSkillMetadataScaffold(
+        string name,
+        string description,
+        string scope,
+        string? project,
+        string? subProject,
+        string? task)
+    {
+        return $"""
+---
+name: {name}
+description: {description}
+scope: {scope}
+project: {project ?? string.Empty}
+subproject: {subProject ?? string.Empty}
+task: {task ?? string.Empty}
+language: csharp
+category: Code
+source: UserDefined
+override: Merge
+requiresApproval: true
+requiresIsolatedEnvironment: false
+parameters:
+  - name: input
+    type: string
+    required: false
+    description: Optional input payload.
+outputs:
+  type: object
+  description: JSON object written to stdout.
+---
+
+{name}
+{description}
+
+## Instructions
+- Implement deterministic behavior.
+- Emit structured JSON to stdout.
+- Avoid network access unless explicitly required and approved.
+""";
     }
 
     private static string BuildSkillScaffold(
