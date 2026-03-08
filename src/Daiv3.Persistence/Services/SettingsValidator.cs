@@ -250,7 +250,9 @@ public class SettingsValidator : ISettingsValidator
 
             // Validate each path in the array
             var invalidPaths = new List<string>();
+#pragma warning disable IDISP004 // Don't ignore created IDisposable (foreach properly disposes enumerators)
             foreach (var item in element.EnumerateArray())
+#pragma warning restore IDISP004
             {
                 if (item.ValueKind != System.Text.Json.JsonValueKind.String)
                 {
