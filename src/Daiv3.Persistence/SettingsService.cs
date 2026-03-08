@@ -159,7 +159,26 @@ public class SettingsService : ISettingsService
         };
 
         var settingId = await _repository.UpsertAsync(setting, reason ?? "update", ct).ConfigureAwait(false);
-        _logger.LogInformation("Saved setting {Key} in category {Category}", key, category);
+        
+        // Enhanced logging for transparency (CT-ACC-001 observability requirement)
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            _logger.LogInformation("Saved setting {Key} in category {Category} with reason: {Reason}", 
+                key, category, reason);
+        }
+        else
+        {
+            _logger.LogInformation("Saved setting {Key} in category {Category}", key, category);
+        }
+
+        // Special logging for online access rules to track when they're applied
+        if (key.Contains("online", StringComparison.OrdinalIgnoreCase) || 
+            key.Contains("token", StringComparison.OrdinalIgnoreCase) ||
+            key.Contains("provider", StringComparison.OrdinalIgnoreCase))
+        {
+            var displayValue = isSensitive ? "***REDACTED***" : serializedValue;
+            _logger.LogInformation("Online access configuration updated: {Key} = {Value}", key, displayValue);
+        }
 
         return settingId;
     }
@@ -319,14 +338,16 @@ public class SettingsService : ISettingsService
             return valueType switch
             {
                 "string" => typeof(T) == typeof(string) ? (T?)(object)value : default,
-                "integer" when typeof(T) == typeof(int) || typeof(T) == typeof(long) => 
-                    (T?)(object)(long.TryParse(value, out var l) ? l : 0),
                 "integer" when typeof(T) == typeof(int) => 
                     (T?)(object)(int.TryParse(value, out var i) ? i : 0),
+                "integer" when typeof(T) == typeof(long) => 
+                    (T?)(object)(long.TryParse(value, out var l) ? l : 0L),
                 "boolean" when typeof(T) == typeof(bool) => 
                     (T?)(object)(bool.TryParse(value, out var b) ? b : false),
-                "real" when typeof(T) == typeof(double) || typeof(T) == typeof(float) => 
-                    (T?)(object)(double.TryParse(value, out var d) ? d : 0),
+                "real" when typeof(T) == typeof(double) => 
+                    (T?)(object)(double.TryParse(value, out var d) ? d : 0.0),
+                "real" when typeof(T) == typeof(float) => 
+                    (T?)(object)(float.TryParse(value, out var f) ? f : 0.0f),
                 "json" => System.Text.Json.JsonSerializer.Deserialize<T>(value),
                 _ => default
             };
